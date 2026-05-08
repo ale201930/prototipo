@@ -2,68 +2,31 @@
 
 import React, { useState, useEffect, Suspense } from "react"; 
 import { useRouter, useSearchParams } from "next/navigation";
-import { db, registrarAccion } from "@/app/lib/firebase"; // Importamos registrarAccion
-import Cookies from "js-cookie"; // Importamos para saber quién registra
+import { db } from "@/app/lib/firebase"; 
 import { 
-  collection, 
-  addDoc, 
-  query, 
-  where, 
-  getDocs, 
-  serverTimestamp, 
-  doc, 
-  getDoc, 
-  updateDoc 
+  collection, addDoc, query, where, getDocs, 
+  serverTimestamp, doc, getDoc, updateDoc 
 } from "firebase/firestore";
 
-const HORARIOS_PLANTA = {
-  DIURNO: "Diurno (07:00 AM - 04:00 PM)",
-  NOCTURNO: "Nocturno (07:00 PM - 07:00 AM)"
-};
-
-const HORARIO_INCES = "Estudiante (08:00 AM - 03:00 PM)";
-const HORARIO_PASANTE = "Pasantías (08:00 AM - 04:00 PM)";
-
 const estadoInicial = {
-  cedula: "",
-  nombres: "",
-  apellidos: "",
-  ficha: "",
-  cargo: "",
-  area: "",
-  tipoPersonal: "INVECEM", 
-  programaInces: "", 
-  cohorteInces: "",
-  universidadPasante: "", 
-  carreraPasante: "",      
-  turno: HORARIOS_PLANTA.DIURNO,
-  estatus: "Activo (En funciones)",
-  fechaIngreso: "",
-  telefono: "",
-  correo: "",
-  recordAsistencia: 0 
+  cedula: "", nombres: "", apellidos: "", ficha: "",
+  cargo: "", area: "", tipoPersonal: "INVECEM", 
+  programaInces: "", cohorteInces: "",
+  universidadPasante: "", carreraPasante: "",       
+  regimenLaboral: "NORMAL", // Cambiado de ADMINISTRATIVO a NORMAL
+  fechaInicioCiclo: "", 
+  horaEntrada: "07:00", horaSalida: "16:00", esNocturno: false,
+  estatus: "Activo (En funciones)", fechaIngreso: "",
+  fechaEgreso: "", telefono: "", correo: "",
 };
 
 function FormularioRegistro() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
-  
   const [fechaHoy, setFechaHoy] = useState("");
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState(estadoInicial);
-
-  useEffect(() => {
-    if (!editId) {
-      if (formData.tipoPersonal === "Estudiante INCESS") {
-        setFormData(prev => ({ ...prev, turno: HORARIO_INCES }));
-      } else if (formData.tipoPersonal === "Pasante") {
-        setFormData(prev => ({ ...prev, turno: HORARIO_PASANTE }));
-      } else if (formData.tipoPersonal === "INVECEM") {
-        setFormData(prev => ({ ...prev, turno: HORARIOS_PLANTA.DIURNO }));
-      }
-    }
-  }, [formData.tipoPersonal, editId]);
 
   useEffect(() => {
     if (editId) {
@@ -72,12 +35,7 @@ function FormularioRegistro() {
         try {
           const docRef = doc(db, "personal", editId);
           const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) {
-            setFormData(docSnap.data());
-          } else {
-            alert("No se encontró el registro.");
-            router.push("/recursos-humanos/usuarios-registrados");
-          }
+          if (docSnap.exists()) setFormData(docSnap.data());
         } catch (error) { console.error("Error:", error); }
         setLoading(false);
       };
@@ -85,72 +43,27 @@ function FormularioRegistro() {
     }
     const opciones = { day: 'numeric', month: 'long', year: 'numeric' };
     setFechaHoy(new Date().toLocaleDateString('es-ES', opciones).toUpperCase());
-  }, [editId, router]);
+  }, [editId]);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-  };
-
-  const handleFichaChange = (e) => {
-    const { value } = e.target;
-    // Permitimos escribir hasta 5, pero validaremos 4 o 5 al enviar
-    if (value.length <= 5) {
-      setFormData({ ...formData, ficha: value.toUpperCase() });
-    }
+    const { name, value, type, checked } = e.target;
+    setFormData({ ...formData, [name]: type === 'checkbox' ? checked : value });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // VALIDACIÓN DE LONGITUD: 4 o 5 dígitos
-    if (formData.ficha.length < 4 || formData.ficha.length > 5) {
-        alert("⚠️ El número de ficha debe tener 4 o 5 dígitos (Personal antiguo o nuevo).");
-        return;
-    }
-
     setLoading(true);
     try {
       const personalRef = collection(db, "personal");
-
       if (editId) {
         await updateDoc(doc(db, "personal", editId), { ...formData, ultimaActualizacion: serverTimestamp() });
         alert("✅ Registro actualizado.");
         router.push("/recursos-humanos/usuarios-registrados");
       } else {
-        // --- VALIDACIÓN DE DUPLICADOS (Cédula y Ficha) ---
-        
-        // 1. Check Cédula
-        const qCedula = query(personalRef, where("cedula", "==", formData.cedula));
-        const queryCedula = await getDocs(qCedula);
-        if (!queryCedula.empty) { 
-            alert("⚠️ Error: Esta Cédula ya está registrada en el sistema."); 
-            setLoading(false); 
-            return; 
-        }
-
-        // 2. Check Ficha
         const qFicha = query(personalRef, where("ficha", "==", formData.ficha));
         const queryFicha = await getDocs(qFicha);
-        if (!queryFicha.empty) { 
-            alert(`⚠️ Error: El número de ficha ${formData.ficha} ya pertenece a otro trabajador.`); 
-            setLoading(false); 
-            return; 
-        }
-
-        // Si pasa ambas validaciones, guardamos
+        if (!queryFicha.empty) { alert(`⚠️ La ficha ${formData.ficha} ya existe.`); setLoading(false); return; }
         await addDoc(personalRef, { ...formData, fechaRegistro: serverTimestamp() });
-        
-        // REGISTRO EN MONITOREO
-        const userSession = Cookies.get("user_session") || "Usuario";
-        const userRole = Cookies.get("user_role") || "RRHH";
-        await registrarAccion(
-            userSession, 
-            userRole, 
-            `Registró al personal: ${formData.nombres} ${formData.apellidos} (Ficha: ${formData.ficha})`, 
-            "Recursos Humanos"
-        );
-
         alert("✅ Personal registrado exitosamente.");
         setFormData(estadoInicial);
       }
@@ -159,187 +72,245 @@ function FormularioRegistro() {
   };
 
   return (
-    <div className="container">
-      <div className="top-nav">
-        <button className="btn-back" onClick={() => router.push("/recursos-humanos")}>← Volver al Panel</button>
-        <button className="btn-link" onClick={() => router.push("/recursos-humanos/usuarios-registrados")}>Ver Base de Datos →</button>
-      </div>
+    <div className="main-wrapper">
+      <div className="container">
+        <header className="nav-header">
+          <button className="btn-back-minimal" onClick={() => router.push("/recursos-humanos")}>
+            <span>←</span> Volver al Panel Principal
+          </button>
+        </header>
 
-      <div className="form-card shadow-relief">
-        <div className="form-header">
-          <div className="header-left">
-            <h1 className="main-title">INVECEM {editId ? "Edición" : "Registro"}</h1>
-            <p className="subtitle">{editId ? "Actualizando perfil" : "Nuevo ingreso al sistema"}</p>
+        <div className="form-card-invecem">
+          <div className="red-accent-bar"></div>
+          
+          <div className="form-top-info">
+            <div className="brand-section">
+              <h1 className="company-name">INVECEM</h1>
+              <span className="badge-status">{editId ? "EDICIÓN DE PERFIL" : "REGISTRO DE PERSONAL"}</span>
+            </div>
+            <div className="date-display">{fechaHoy}</div>
           </div>
-          <div className="date-box">{fechaHoy || "Cargando..."}</div>
-        </div>
 
-        <form onSubmit={handleSubmit}>
-          <section className="form-section">
-            <h3 className="section-title"><span>1</span> Identificación</h3>
-            <div className="input-group mb-20">
-              <label>Tipo de Personal</label>
-              <select name="tipoPersonal" value={formData.tipoPersonal} onChange={handleChange} className="select-highlight" required>
-                <option value="INVECEM">TRABAJADOR INVECEM (FIJO)</option>
-                <option value="Estudiante INCESS">ESTUDIANTE INCES</option>
-                <option value="Pasante">PASANTE (UNIVERSITARIO)</option>
-              </select>
+          <form onSubmit={handleSubmit} className="styled-form">
+            
+            <div className="section-block">
+              <h2 className="block-title">Identificación y Estatus</h2>
+              <div className="form-row row-2">
+                <div className="input-box select-box highlight">
+                  <label>Tipo de Personal</label>
+                  <select name="tipoPersonal" value={formData.tipoPersonal} onChange={handleChange}>
+                    <option value="INVECEM">TRABAJADOR INVECEM (FIJO)</option>
+                    <option value="Estudiante INCES">ESTUDIANTE INCES</option>
+                    <option value="Pasante">PASANTE (UNIVERSITARIO)</option>
+                  </select>
+                </div>
+                <div className="input-box select-box">
+                  <label>Estatus del Colaborador</label>
+                  <select name="estatus" value={formData.estatus} onChange={handleChange}>
+                    <option>Activo (En funciones)</option>
+                    <option>Reposo Médico</option>
+                    <option>Vacaciones</option>
+                    <option>Inactivo</option>
+                  </select>
+                </div>
+              </div>
+              <div className="form-row row-3">
+                <div className="input-box"><label>Cédula</label><input type="text" name="cedula" value={formData.cedula} onChange={handleChange} required disabled={!!editId} placeholder="V-00000000" /></div>
+                <div className="input-box"><label>Nombres</label><input type="text" name="nombres" value={formData.nombres} onChange={handleChange} required /></div>
+                <div className="input-box"><label>Apellidos</label><input type="text" name="apellidos" value={formData.apellidos} onChange={handleChange} required /></div>
+              </div>
             </div>
-            <div className="grid-3">
-              <div className="input-group">
-                <label>Cédula</label>
-                <input type="text" name="cedula" value={formData.cedula} placeholder="V-00.000.000" onChange={handleChange} required disabled={!!editId} />
-              </div>
-              <div className="input-group">
-                <label>Nombres</label>
-                <input type="text" name="nombres" value={formData.nombres} onChange={handleChange} required />
-              </div>
-              <div className="input-group">
-                <label>Apellidos</label>
-                <input type="text" name="apellidos" value={formData.apellidos} onChange={handleChange} required />
+
+            <div className="section-block">
+              <h2 className="block-title">Datos del Cargo / Formación</h2>
+              <div className="form-row row-3">
+                <div className="input-box"><label>Nro. de Ficha</label><input type="text" name="ficha" value={formData.ficha} onChange={handleChange} required placeholder="Ej. 12345" /></div>
+                
+                {formData.tipoPersonal === "INVECEM" && (
+                  <>
+                    <div className="input-box"><label>Cargo</label><input type="text" name="cargo" value={formData.cargo} onChange={handleChange} required /></div>
+                    <div className="input-box">
+                      <label>Área</label>
+                      <select name="area" value={formData.area} onChange={handleChange} required>
+                        <option value="">Seleccione...</option>
+                        <option value="Mantenimiento">Mantenimiento</option>
+                        <option value="Almacén">Almacén</option>
+                        <option value="Producción">Producción</option>
+                        <option value="Protección Física">Protección Física</option>
+                        <option value="Administración">Administración</option>
+                      </select>
+                    </div>
+                  </>
+                )}
+
+                {formData.tipoPersonal === "Estudiante INCES" && (
+                  <>
+                    <div className="input-box"><label>Programa</label><input type="text" name="programaInces" value={formData.programaInces} onChange={handleChange} required /></div>
+                    <div className="input-box"><label>Cohorte</label><input type="text" name="cohorteInces" value={formData.cohorteInces} onChange={handleChange} required /></div>
+                  </>
+                )}
+
+                {formData.tipoPersonal === "Pasante" && (
+                  <>
+                    <div className="input-box"><label>Universidad</label><input type="text" name="universidadPasante" value={formData.universidadPasante} onChange={handleChange} required /></div>
+                    <div className="input-box"><label>Carrera</label><input type="text" name="carreraPasante" value={formData.carreraPasante} onChange={handleChange} required /></div>
+                  </>
+                )}
               </div>
             </div>
-          </section>
 
-          <section className="form-section">
-            <h3 className="section-title"><span>2</span> Ubicación y Horario</h3>
-            <div className="grid-3">
-              <div className="input-group">
-                <label>Número de Ficha (4 o 5 dígitos)</label>
-                <input 
-                    type="text" 
-                    name="ficha" 
-                    value={formData.ficha} 
-                    onChange={handleFichaChange} 
-                    placeholder="Ej: 1234 o 12345"
-                    required 
-                    disabled={!!editId} 
-                />
-              </div>
+            <div className="section-block">
+              <h2 className="block-title">Jornada y Horarios de Planta</h2>
+              <div className="form-row row-2">
+                <div className="input-box">
+                  <label>Régimen Laboral</label>
+                  <select name="regimenLaboral" value={formData.regimenLaboral} onChange={handleChange} className="select-primary">
+                    <option value="NORMAL">HORARIO NORMAL (Lun a Vie)</option>
+                    <option value="TURNO_4X4">TURNO 4x4 (Rotativo)</option>
+                  </select>
+                </div>
 
-              {formData.tipoPersonal === "INVECEM" && (
-                <>
-                  <div className="input-group"><label>Cargo</label><input type="text" name="cargo" value={formData.cargo} onChange={handleChange} required /></div>
-                  <div className="input-group">
-                    <label>Área</label>
-                    <select name="area" value={formData.area} onChange={handleChange} required>
-                      <option value="">Seleccione Área...</option>
-                      <option value="Mantenimiento">Mantenimiento</option>
-                      <option value="Almacen">Almacen</option>
-                      <option value="Recursos Humanos">Recursos Humanos</option>
-                      <option value="Administración">Administración</option>
-                      <option value="Logística">Logística</option>
-                    </select>
+                {/* La sincronización solo aparece si es 4x4 */}
+                {formData.regimenLaboral === "TURNO_4X4" && (
+                  <div className="input-box highlight-input">
+                    <label>Sincronización de Ciclo</label>
+                    <input type="date" name="fechaInicioCiclo" value={formData.fechaInicioCiclo} onChange={handleChange} required />
                   </div>
-                </>
-              )}
+                )}
+              </div>
 
-              {formData.tipoPersonal === "Estudiante INCESS" && (
-                <>
-                  <div className="input-group"><label>Programa de Formación</label><input type="text" name="programaInces" value={formData.programaInces} onChange={handleChange} required /></div>
-                  <div className="input-group"><label>Fase / Cohorte</label><input type="text" name="cohorteInces" value={formData.cohorteInces} onChange={handleChange} required /></div>
-                </>
-              )}
-              {formData.tipoPersonal === "Pasante" && (
-                <>
-                  <div className="input-group"><label>Universidad</label><input type="text" name="universidadPasante" value={formData.universidadPasante} onChange={handleChange} required /></div>
-                  <div className="input-group"><label>Carrera</label><input type="text" name="carreraPasante" value={formData.carreraPasante} onChange={handleChange} required /></div>
-                </>
-              )}
+              <div className="form-row row-3 mt-15">
+                <div className="input-box"><label>Entrada</label><input type="time" name="horaEntrada" value={formData.horaEntrada} onChange={handleChange} /></div>
+                <div className="input-box"><label>Salida</label><input type="time" name="horaSalida" value={formData.horaSalida} onChange={handleChange} /></div>
+                <div className="input-box checkbox-center">
+                  <label className="checkbox-label">
+                    <input type="checkbox" name="esNocturno" checked={formData.esNocturno} onChange={handleChange} />
+                    <span>¿Turno Nocturno?</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="form-row row-3 mt-15">
+                <div className="input-box"><label>Fecha Ingreso</label><input type="date" name="fechaIngreso" value={formData.fechaIngreso} onChange={handleChange} required /></div>
+                <div className="input-box"><label>Teléfono</label><input type="tel" name="telefono" value={formData.telefono} onChange={handleChange} required /></div>
+                <div className="input-box"><label>Correo</label><input type="email" name="correo" value={formData.correo} onChange={handleChange} required /></div>
+              </div>
             </div>
 
-            <div className="grid-2 mt-20">
-              <div className="input-group">
-                <label>Turno Asignado (Editable)</label>
-                <input 
-                  list="horarios-sugeridos" 
-                  name="turno" 
-                  value={formData.turno} 
-                  onChange={handleChange} 
-                  className="border-yellow"
-                  placeholder="Escribe o selecciona un horario..."
-                  required
-                />
-                <datalist id="horarios-sugeridos">
-                  <option value={HORARIOS_PLANTA.DIURNO} />
-                  <option value={HORARIOS_PLANTA.NOCTURNO} />
-                  <option value={HORARIO_INCES} />
-                  <option value={HORARIO_PASANTE} />
-                </datalist>
-                <small style={{ fontSize: '10px', color: '#008b8b' }}>Doble clic para ver sugerencias.</small>
-              </div>
-              <div className="input-group">
-                <label>Estatus</label>
-                <select name="estatus" value={formData.estatus} className="border-green" onChange={handleChange}>
-                  <option>Activo (En funciones)</option>
-                  <option>Reposo Médico</option>
-                  <option>Vacaciones</option>
-                  <option>Inactivo</option>
-                </select>
-              </div>
+            <div className="form-footer">
+              <button type="submit" className="btn-submit-invecem" disabled={loading}>
+                {loading ? "Procesando..." : "GUARDAR REGISTRO"}
+              </button>
             </div>
-          </section>
-
-          <section className="form-section">
-            <h3 className="section-title"><span>3</span> Contacto e Ingreso</h3>
-            <div className="grid-3">
-              <div className="input-group">
-                <label>Fecha de Ingreso</label>
-                <input type="date" name="fechaIngreso" value={formData.fechaIngreso} onChange={handleChange} required />
-              </div>
-              <div className="input-group">
-                <label>Teléfono Celular</label>
-                <input type="tel" name="telefono" value={formData.telefono} placeholder="0412-0000000" onChange={handleChange} required />
-              </div>
-              <div className="input-group">
-                <label>Correo Institucional/Personal</label>
-                <input type="email" name="correo" value={formData.correo} placeholder="ejemplo@invecem.com" onChange={handleChange} required />
-              </div>
-            </div>
-          </section>
-
-          <div className="form-actions">
-            {!editId && <button type="button" className="btn-secondary" onClick={() => setFormData(estadoInicial)}>Limpiar</button>}
-            <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? "Procesando..." : (editId ? "Guardar Cambios" : "Registrar Personal")}
-            </button>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
 
-      <style jsx>{`
-        /* Tus mismos estilos se mantienen intactos */
-        .container { padding: 20px; max-width: 1000px; margin: 0 auto; }
-        .top-nav { display: flex; justify-content: space-between; margin-bottom: 20px; }
-        .btn-back { background: none; border: none; color: #64748b; cursor: pointer; font-weight: 600; }
-        .btn-link { background: none; border: none; color: #008b8b; cursor: pointer; font-weight: 800; }
-        .form-card { background: white; padding: 40px; border-radius: 15px; border: 1px solid #e2e8f0; }
-        .shadow-relief { box-shadow: 8px 8px 0px #008b8b; }
-        .form-header { display: flex; justify-content: space-between; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 30px; }
-        .main-title { color: #0f172a; font-size: 24px; font-weight: 800; margin: 0; }
-        .date-box { background: #0f172a; color: white; padding: 8px 15px; border-radius: 8px; font-size: 11px; font-weight: bold; }
-        .form-section { margin-bottom: 35px; }
-        .section-title { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 700; margin-bottom: 20px; }
-        .section-title span { background: #008b8b; color: white; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 12px; }
-        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-        .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
-        .input-group { display: flex; flex-direction: column; gap: 8px; }
-        .mb-20 { margin-bottom: 20px; }
-        .mt-20 { margin-top: 20px; }
-        label { font-size: 13px; font-weight: 700; color: #475569; }
-        input, select, textarea { padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; outline-color: #008b8b; }
-        .select-highlight { border: 2px solid #008b8b; background: #f0fdfa; font-weight: 700; }
-        .border-yellow { border-left: 5px solid #fbbf24; }
-        .border-green { border-left: 5px solid #008b8b; }
-        .form-actions { display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid #f1f5f9; padding-top: 20px; }
-        .btn-primary { background: #0f172a; color: white; border: none; padding: 12px 25px; border-radius: 10px; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        .btn-secondary { background: #f1f5f9; color: #475569; border: none; padding: 12px 25px; border-radius: 10px; font-weight: bold; cursor: pointer; }
-        .btn-primary:hover { background: #008b8b; transform: translateY(-2px); }
-        .loader { text-align: center; padding: 100px; color: #008b8b; font-weight: bold; }
-
-        @media (max-width: 768px) {
-          .grid-3, .grid-2 { grid-template-columns: 1fr; }
+     <style jsx>{`
+        /* Fondos y Tipografía - ACTUALIZADO PARA MÁS ESTILO */
+        .main-wrapper { 
+          /* Fondo con gradiente sutil y patrón de puntos profesional */
+          background-color: #f0f4f8;
+          background-image: radial-gradient(#d1d5db 0.8px, transparent 0.8px);
+          background-size: 24px 24px;
+          min-height: 100vh; 
+          padding: 60px 20px; 
+          font-family: 'Inter', system-ui, -apple-system, sans-serif; 
+          position: relative;
         }
+
+        /* Añadimos un resplandor de color muy suave al fondo para que no sea solo gris */
+        .main-wrapper::before {
+          content: "";
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: radial-gradient(circle at 10% 20%, rgba(227, 6, 19, 0.03) 0%, transparent 40%),
+                      radial-gradient(circle at 90% 80%, rgba(15, 23, 42, 0.03) 0%, transparent 40%);
+          pointer-events: none;
+        }
+        
+        .container { max-width: 1000px; margin: 0 auto; position: relative; z-index: 1; }
+        
+        /* Tarjeta Principal - EFECTO CRISTAL Y ELEVACIÓN */
+        .form-card-invecem { 
+          background: rgba(255, 255, 255, 0.94); /* Un toque de transparencia */
+          backdrop-filter: blur(10px); /* Desenfoque de fondo tipo iOS/Mac */
+          border-radius: 28px; 
+          position: relative; 
+          overflow: hidden; 
+          border: 1px solid rgba(255, 255, 255, 0.7); 
+          /* Sombra mucho más profunda y llamativa */
+          box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.15), 
+                      0 10px 10px -5px rgba(15, 23, 42, 0.04),
+                      inset 0 0 0 1px rgba(255, 255, 255, 0.5); 
+          padding: 60px; 
+        }
+
+        /* Títulos de sección con un toque de color para romper el blanco */
+        .block-title { 
+          font-size: 14px; 
+          font-weight: 800; 
+          color: #0f172a; 
+          text-transform: uppercase; 
+          margin-bottom: 30px; 
+          display: flex; 
+          align-items: center; 
+          gap: 15px; 
+          letter-spacing: 1px;
+        }
+
+        /* Indicador de color en el título para que se vea "Brutal" */
+        .block-title::before {
+          content: "";
+          width: 10px;
+          height: 10px;
+          background: #e30613;
+          border-radius: 3px;
+          display: inline-block;
+          box-shadow: 0 0 10px rgba(227, 6, 19, 0.4);
+        }
+
+        /* ... El resto de tus estilos se mantienen iguales ... */
+        
+        .nav-header { margin-bottom: 30px; }
+        .btn-back-minimal { 
+          background: white; border: 1px solid #e2e8f0; color: #475569; padding: 10px 16px;
+          border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; 
+          display: flex; align-items: center; gap: 10px; transition: all 0.3s ease;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .btn-back-minimal:hover { color: #e30613; border-color: #e30613; transform: translateX(-5px); }
+
+        .red-accent-bar { position: absolute; top: 0; left: 0; width: 100%; height: 8px; background: linear-gradient(90deg, #e30613 0%, #b8050f 100%); }
+        .form-top-info { display: flex; justify-content: space-between; align-items: center; margin-bottom: 50px; }
+        .company-name { font-size: 38px; font-weight: 900; color: #0f172a; margin: 0; letter-spacing: -2px; line-height: 1; }
+        .badge-status { background: #f8fafc; color: #0f172a; padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 800; margin-top: 8px; display: inline-block; border: 1px solid #e2e8f0; text-transform: uppercase; }
+        .date-display { background: #0f172a; padding: 12px 24px; border-radius: 12px; font-weight: 700; color: #ffffff; font-size: 13px; box-shadow: 0 4px 6px rgba(15, 23, 42, 0.2); }
+        .section-block { margin-bottom: 50px; }
+        .block-title::after { content: ""; flex: 1; height: 2px; background: #f1f5f9; }
+        .form-row { display: grid; gap: 30px; margin-bottom: 20px; }
+        .row-2 { grid-template-columns: 1fr 1fr; }
+        .row-3 { grid-template-columns: repeat(3, 1fr); }
+        .input-box { display: flex; flex-direction: column; gap: 10px; }
+        .input-box label { font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; padding-left: 4px; }
+        input, select { padding: 15px; border: 2px solid #f1f5f9; border-radius: 14px; font-size: 15px; font-weight: 600; transition: all 0.2s ease; background: #f8fafc; color: #1e293b; }
+        input:hover, select:hover { border-color: #e2e8f0; }
+        input:focus, select:focus { border-color: #e30613; outline: none; background: white; box-shadow: 0 0 0 4px rgba(227, 6, 19, 0.1); transform: translateY(-2px); }
+        .select-primary { border-color: #0f172a; background: #ffffff; }
+        .highlight-input input { border: 2px solid #3b82f6; background: #eff6ff; color: #1e40af; }
+        .checkbox-center { justify-content: center; align-items: center; }
+        .checkbox-label { display: flex; align-items: center; gap: 12px; cursor: pointer; font-weight: 700; color: #0f172a; font-size: 13px; padding: 10px 20px; border-radius: 12px; background: #f1f5f9; transition: 0.3s; }
+        .checkbox-label:hover { background: #e2e8f0; }
+        .checkbox-label input { width: 18px; height: 18px; accent-color: #e30613; cursor: pointer; }
+        .form-footer { margin-top: 30px; display: flex; justify-content: flex-end; }
+        .btn-submit-invecem { background: #e30613; color: white; border: none; padding: 20px 60px; border-radius: 16px; font-weight: 800; font-size: 16px; cursor: pointer; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 10px 20px rgba(227, 6, 19, 0.3); text-transform: uppercase; letter-spacing: 1px; }
+        .btn-submit-invecem:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 15px 30px rgba(227, 6, 19, 0.4); background: #c20510; }
+        .btn-submit-invecem:active { transform: translateY(0); }
+        .mt-15 { margin-top: 15px; }
+        @media (max-width: 850px) { .row-3, .row-2 { grid-template-columns: 1fr; } .form-card-invecem { padding: 30px; border-radius: 0; } .form-top-info { flex-direction: column; gap: 20px; align-items: flex-start; } }
       `}</style>
     </div>
   );
@@ -347,7 +318,7 @@ function FormularioRegistro() {
 
 export default function RegistrarPersonal() {
   return (
-    <Suspense fallback={<div className="loader">Cargando aplicación...</div>}>
+    <Suspense fallback={<div>Cargando Aplicación...</div>}>
       <FormularioRegistro />
     </Suspense>
   );

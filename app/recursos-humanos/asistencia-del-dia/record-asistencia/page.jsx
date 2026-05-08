@@ -3,154 +3,197 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { db } from "@/app/lib/firebase";
-import { 
-  collection, 
-  query, 
-  onSnapshot, 
-  orderBy 
-} from "firebase/firestore";
+import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
 
-export default function RecordAsistencia() {
+export default function RecordFuncionalAsistencia() {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
-  const [records, setRecords] = useState([]);
+  const [personal, setPersonal] = useState([]);
+  const [asistencias, setAsistencias] = useState([]);
   const [filtro, setFiltro] = useState("");
+  const [vista, setVista] = useState("semanal");
+  const [fechaReferencia, setFechaReferencia] = useState(new Date());
+
+  // Configuración de días
+  const nombresDias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
   useEffect(() => {
-    setMounted(true);
-
-    // Consultamos la colección de asistencias para armar el récord histórico
-    const q = query(collection(db, "asistencias"), orderBy("fechaHora", "desc"));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      
-      // Agrupamos por ficha para contar puntualidad, retrasos y faltas históricas
-      const agrupado = data.reduce((acc, curr) => {
-        const ficha = curr.ficha;
-        if (!acc[ficha]) {
-          acc[ficha] = { 
-            ficha, 
-            nombre: curr.nombreCompleto, 
-            area: curr.area,
-            puntuales: 0, 
-            retrasos: 0,
-            totalAsistencias: 0 
-          };
-        }
-        
-        // Lógica simple de conteo basada en el estatus que guardó el inspector
-        // (Asumiendo que el inspector guarda el campo 'estatus')
-        if (curr.entrada) {
-          acc[ficha].totalAsistencias++;
-          // Aquí podrías usar la misma lógica de getEstadoEstilo si no guardas el estatus en DB
-          // Por ahora simulamos con un campo 'estatus' que debería venir de la DB
-          if (curr.estatus === "Puntual") acc[ficha].puntuales++;
-          if (curr.estatus === "Retraso") acc[ficha].retrasos++;
-        }
-        
-        return acc;
-      }, {});
-
-      setRecords(Object.values(agrupado).sort((a, b) => b.puntuales - a.puntuales));
+    const unsubPersonal = onSnapshot(collection(db, "personal"), (snap) => {
+      setPersonal(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
-
-    return () => unsubscribe();
+    const unsubAsist = onSnapshot(query(collection(db, "asistencias"), orderBy("fechaHora", "desc")), (snap) => {
+      setAsistencias(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => { unsubPersonal(); unsubAsist(); };
   }, []);
 
-  const listaFiltrada = records.filter(r => 
-    r.nombre?.toLowerCase().includes(filtro.toLowerCase()) || 
-    r.ficha?.toLowerCase().includes(filtro.toLowerCase())
+  // Obtener las fechas de la semana seleccionada
+  const obtenerDiasSemana = () => {
+    const inicio = new Date(fechaReferencia);
+    const diaSemana = inicio.getDay();
+    const diferencia = inicio.getDate() - diaSemana + (diaSemana === 0 ? -6 : 1);
+    inicio.setDate(diferencia);
+
+    return nombresDias.map((nombre, i) => {
+      const fecha = new Date(inicio);
+      fecha.setDate(inicio.getDate() + i);
+      return { nombre, fecha: fecha.getDate(), mes: fecha.getMonth(), fullDate: fecha };
+    });
+  };
+
+  // Obtener los días del mes seleccionado
+  const obtenerDiasMes = () => {
+    const anio = fechaReferencia.getFullYear();
+    const mes = fechaReferencia.getMonth();
+    const diasEnMes = new Date(anio, mes + 1, 0).getDate();
+    return Array.from({ length: diasEnMes }, (_, i) => i + 1);
+  };
+
+  const obtenerDatosReales = (ficha, dia, mes, anio) => {
+    const registro = asistencias.find(a => {
+      const fA = a.fechaHora?.toDate();
+      return fA && fA.getDate() === dia && fA.getMonth() === mes && fA.getFullYear() === anio && a.ficha === ficha;
+    });
+
+    if (!registro) return { clase: "status-ausente", extra: 0 };
+    
+    let hExtra = 0;
+    if (registro.salida && registro.horaSalidaProgramada) {
+      const [hS, mS] = registro.salida.split(":").map(Number);
+      const [hP, mP] = registro.horaSalidaProgramada.split(":").map(Number);
+      const diff = (hS * 60 + mS) - (hP * 60 + mP);
+      if (diff > 0) hExtra = Math.floor(diff / 60);
+    }
+    return { clase: "status-presente", extra: hExtra };
+  };
+
+  const exportarPDF = () => window.print();
+
+  const listaFiltrada = personal.filter(p => 
+    p.nombres?.toLowerCase().includes(filtro.toLowerCase()) || p.ficha?.toLowerCase().includes(filtro.toLowerCase())
   );
 
-  if (!mounted) return null;
-
   return (
-    <div className="container">
-      <button className="btn-back" onClick={() => router.back()}>
-        ← Volver a Asistencia Diaria
-      </button>
-
-      <header className="header">
-        <h1 className="title">🏆 Récord Histórico de Asistencia</h1>
-        <p className="subtitle">Ranking de puntualidad y constancia del personal INVECEM</p>
-      </header>
-
-      <div className="search-bar">
-        <input 
-          type="text" 
-          placeholder="Buscar trabajador por ficha o nombre..." 
-          onChange={(e) => setFiltro(e.target.value)}
-        />
-      </div>
-
-      <div className="grid-records">
-        {listaFiltrada.map((user, index) => (
-          <div key={user.ficha} className="record-card">
-            <div className="rank-badge">{index + 1}</div>
-            <div className="user-info">
-              <h3>{user.nombre}</h3>
-              <p>Ficha: <strong>{user.ficha}</strong> | {user.area}</p>
-            </div>
-            <div className="stats">
-              <div className="stat-item">
-                <span className="val puntual">{user.puntuales}</span>
-                <span className="lab">Puntuales</span>
-              </div>
-              <div className="stat-item">
-                <span className="val retraso">{user.retrasos}</span>
-                <span className="lab">Retrasos</span>
-              </div>
+    <div className="main-wrapper">
+      <div className="container">
+        <div className="nav-header no-print">
+          <button className="btn-back" onClick={() => router.back()}>← VOLVER</button>
+          
+          <div className="controls-group">
+            <input 
+              type="date" 
+              className="date-selector"
+              onChange={(e) => setFechaReferencia(new Date(e.target.value + "T12:00:00"))}
+            />
+            <div className="tabs-selector">
+              <button className={vista === 'semanal' ? 'active' : ''} onClick={() => setVista('semanal')}>SEMANAL</button>
+              <button className={vista === 'mensual' ? 'active' : ''} onClick={() => setVista('mensual')}>MENSUAL</button>
             </div>
           </div>
-        ))}
+
+          <button className="btn-export" onClick={exportarPDF}>GENERAR REPORTE PDF</button>
+        </div>
+
+        <div className="glass-container">
+          <div className="accent-line"></div>
+          <header className="header-info">
+            <div>
+              <h2>Récord de Asistencia y Horas Extra</h2>
+              <p>INVECEM - Período: {fechaReferencia.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }).toUpperCase()}</p>
+            </div>
+            <input type="text" placeholder="Buscar ficha o nombre..." className="search-box no-print" onChange={(e) => setFiltro(e.target.value)} />
+          </header>
+
+          <div className="table-overflow">
+            <table className="db-table">
+              <thead>
+                <tr>
+                  <th className="sticky-col">DATOS DEL PERSONAL</th>
+                  {vista === 'semanal' ? (
+                    obtenerDiasSemana().map(d => (
+                      <th key={d.fecha}>{d.nombre.substring(0, 2)} <br/> <small>{d.fecha}</small></th>
+                    ))
+                  ) : (
+                    obtenerDiasMes().map(d => <th key={d}>{d}</th>)
+                  )}
+                  <th className="total-col">TOTAL EXTRA</th>
+                </tr>
+              </thead>
+              <tbody>
+                {listaFiltrada.map((p) => {
+                  let acumuladoExtra = 0;
+                  return (
+                    <tr key={p.id}>
+                      <td className="sticky-col worker-info">
+                        <strong>{p.nombres} {p.apellidos}</strong>
+                        <span>FICHA: {p.ficha}</span>
+                      </td>
+                      {vista === 'semanal' ? (
+                        obtenerDiasSemana().map(d => {
+                          const info = obtenerDatosReales(p.ficha, d.fecha, d.mes, d.fullDate.getFullYear());
+                          acumuladoExtra += info.extra;
+                          return <td key={d.fecha} className="dot-cell"><div className={`dot ${info.clase}`}></div></td>;
+                        })
+                      ) : (
+                        obtenerDiasMes().map(d => {
+                          const info = obtenerDatosReales(p.ficha, d, fechaReferencia.getMonth(), fechaReferencia.getFullYear());
+                          acumuladoExtra += info.extra;
+                          return <td key={d} className="dot-cell"><div className={`dot ${info.clase}`}></div></td>;
+                        })
+                      )}
+                      <td className="extra-total">{acumuladoExtra}h</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <style jsx>{`
-        .container { padding: 30px; max-width: 1000px; margin: 0 auto; font-family: 'Inter', sans-serif; }
-        .btn-back { background: none; border: none; color: #64748b; cursor: pointer; font-weight: 600; margin-bottom: 20px; }
-        .header { margin-bottom: 30px; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; }
-        .title { color: #0f172a; font-size: 28px; font-weight: 800; margin: 0; }
-        .subtitle { color: #64748b; margin-top: 5px; }
+        .main-wrapper { background: #f1f5f9; min-height: 100vh; padding: 40px; font-family: 'Inter', sans-serif; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .nav-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; gap: 15px; }
         
-        .search-bar input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #cbd5e1; margin-bottom: 25px; outline: none; }
+        .controls-group { display: flex; gap: 15px; align-items: center; }
+        .date-selector { padding: 10px; border-radius: 10px; border: 2px solid #cbd5e1; font-weight: bold; }
         
-        .grid-records { display: flex; flex-direction: column; gap: 15px; }
-        .record-card { 
-          display: flex; 
-          align-items: center; 
-          background: white; 
-          padding: 20px; 
-          border-radius: 15px; 
-          box-shadow: 6px 6px 0px #0f172a; 
-          border: 1px solid #0f172a;
-          position: relative;
+        .tabs-selector { background: #e2e8f0; padding: 4px; border-radius: 12px; display: flex; }
+        .tabs-selector button { border: none; padding: 10px 20px; border-radius: 10px; font-weight: 800; cursor: pointer; color: #64748b; background: none; }
+        .tabs-selector button.active { background: white; color: #e30613; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+
+        .glass-container { background: white; border-radius: 20px; border: 1px solid #e2e8f0; position: relative; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.05); }
+        .accent-line { position: absolute; top: 0; width: 100%; height: 6px; background: #e30613; }
+        .header-info { padding: 25px; display: flex; justify-content: space-between; align-items: center; }
+        .header-info h2 { margin: 0; font-weight: 900; }
+        
+        .db-table { width: 100%; border-collapse: collapse; }
+        .db-table th { padding: 12px 5px; font-size: 10px; color: #94a3b8; border-bottom: 1px solid #f1f5f9; }
+        .db-table td { padding: 10px 5px; border-bottom: 1px solid #f1f5f9; text-align: center; }
+        .sticky-col { position: sticky; left: 0; background: white; z-index: 5; text-align: left !important; min-width: 200px; padding-left: 20px !important; border-right: 2px solid #f1f5f9; }
+        
+        .worker-info strong { display: block; font-size: 12px; color: #0f172a; }
+        .worker-info span { font-size: 10px; color: #e30613; font-weight: 900; }
+
+        .dot { width: 10px; height: 10px; border-radius: 50%; margin: 0 auto; }
+        .status-presente { background: #22c55e !important; }
+        .status-ausente { background: #e2e8f0 !important; }
+        .extra-total { font-weight: 900; color: #0f172a; background: #fff1f2 !important; }
+        .total-col { background: #0f172a !important; color: white !important; }
+
+        .btn-export { background: #e30613; color: white; border: none; padding: 12px 25px; border-radius: 12px; font-weight: 800; cursor: pointer; }
+        .btn-back { background: #0f172a; color: white; border: none; padding: 12px 25px; border-radius: 12px; font-weight: 800; cursor: pointer; }
+
+        @media print {
+          @page { size: landscape; margin: 5mm; }
+          .no-print { display: none !important; }
+          .main-wrapper { padding: 0; background: white; }
+          .glass-container { border: none; }
+          .db-table { font-size: 8px; } /* Achicamos la letra para que quepa el mes */
+          .dot { width: 7px; height: 7px; }
+          .sticky-col { position: static !important; border-right: 1px solid #ddd; }
+          -webkit-print-color-adjust: exact;
         }
-        
-        .rank-badge { 
-          background: #e30613; 
-          color: white; 
-          width: 35px; 
-          height: 35px; 
-          display: flex; 
-          align-items: center; 
-          justify-content: center; 
-          border-radius: 50%; 
-          font-weight: 900; 
-          margin-right: 20px;
-        }
-        
-        .user-info { flex-grow: 1; }
-        .user-info h3 { margin: 0; color: #0f172a; font-size: 18px; }
-        .user-info p { margin: 5px 0 0; color: #64748b; font-size: 14px; }
-        
-        .stats { display: flex; gap: 20px; text-align: center; }
-        .stat-item { display: flex; flex-direction: column; }
-        .val { font-size: 20px; font-weight: 800; }
-        .lab { font-size: 10px; text-transform: uppercase; color: #94a3b8; font-weight: 700; }
-        
-        .puntual { color: #22c55e; }
-        .retraso { color: #f59e0b; }
       `}</style>
     </div>
   );
