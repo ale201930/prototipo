@@ -35,12 +35,10 @@ export default function RegistroAsistencia() {
     const opciones = { day: 'numeric', month: 'long', year: 'numeric' };
     setFechaHoy(new Date().toLocaleDateString('es-ES', opciones).toUpperCase());
 
-    const inicioHoy = new Date();
-    inicioHoy.setHours(0, 0, 0, 0);
-
+    // CAMBIO 1: Quitamos el filtro de "inicioHoy" para que el personal nocturno 
+    // que entró ayer aparezca en la lista del inspector como "Sin Salida".
     const q = query(
       collection(db, "asistencias"),
-      where("fechaHora", ">=", inicioHoy),
       orderBy("fechaHora", "desc")
     );
 
@@ -94,10 +92,13 @@ export default function RegistroAsistencia() {
       if (!snap.empty) {
         const trabajador = { id: snap.docs[0].id, ...snap.docs[0].data() };
         const horaActual = obtenerHora24();
+        
+        // CAMBIO 2: La búsqueda del "existe" ahora encontrará al trabajador 
+        // aunque su entrada sea de ayer, siempre y cuando no tenga salida marcada.
         const existe = asistenciasHoy.find(a => a.ficha === trabajador.ficha && !a.salida);
 
         if (existe) {
-          // REGISTRAR SALIDA
+          // REGISTRAR SALIDA (Funciona para Diurnos y Nocturnos)
           await updateDoc(doc(db, "asistencias", existe.id), {
             salida: horaActual,
             estado: "FINALIZADO" 
@@ -117,7 +118,7 @@ export default function RegistroAsistencia() {
             tipoPersonal: trabajador.categoria || "INVECEM",
             entrada: horaActual,
             salida: null,
-            estatus: estatusCalculado, // Se guarda para RRHH
+            estatus: estatusCalculado, 
             fechaHora: serverTimestamp()
           });
         }
@@ -204,7 +205,6 @@ export default function RegistroAsistencia() {
                       <td className="time-text">{reg.entrada}</td>
                       <td className="time-text">{reg.salida || "--:--"}</td>
                       <td>
-                        {/* UNIFICADO: Muestra estatus incluso si ya salió */}
                         <div className="status-container">
                           <span className={`status-pill ${(reg.estatus || "").toLowerCase()}`}>
                             {reg.estatus}
