@@ -12,7 +12,8 @@ import {
   doc, 
   updateDoc,
   setDoc,
-  getDoc
+  getDoc,
+  or // Importamos 'or' para la nueva lógica
 } from "firebase/firestore";
 
 export default function AsistenciaDiariaRRHH() {
@@ -79,7 +80,18 @@ export default function AsistenciaDiariaRRHH() {
     const inicioHoy = new Date();
     inicioHoy.setHours(0, 0, 0, 0);
 
-    const unsubscribeAsist = onSnapshot(query(collection(db, "asistencias"), where("fechaHora", ">=", inicioHoy), orderBy("fechaHora", "desc")), (snapshot) => {
+    // CORRECCIÓN AQUÍ: 
+    // Ahora busca registros que sean de hoy O que no tengan salida marcada (para el turno nocturno)
+    const qAsistencias = query(
+      collection(db, "asistencias"),
+      or(
+        where("fechaHora", ">=", inicioHoy),
+        where("salida", "==", null)
+      ),
+      orderBy("fechaHora", "desc")
+    );
+
+    const unsubscribeAsist = onSnapshot(qAsistencias, (snapshot) => {
       const lista = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setAsistencias(lista);
       setHaySolicitudPendiente(lista.some(a => a.alertaSalida === "ANTICIPADA" && a.solicitudSalida === "PENDIENTE"));
@@ -124,7 +136,7 @@ export default function AsistenciaDiariaRRHH() {
       if (filtroTipo === "PASANTES") cumpleTipo = p.tipoPersonal === "Pasante";
       return cumpleTexto && cumpleArea && cumpleTipo;
     });
-    if (filtroEstadoClic === "PRESENTES") return base.filter(p => p.asistioHoy);
+    if (filtroEstadoClic === "PRESENTES") return base.filter(p => p.asistioHoy && !p.salida); // Solo los que están en planta realmente
     if (filtroEstadoClic === "INASISTENCIAS") return base.filter(p => !p.asistioHoy && (p.estatus?.includes("Activo") || !p.estatus));
     if (filtroEstadoClic === "VACACIONES") return base.filter(p => p.estatus === "Vacaciones");
     if (filtroEstadoClic === "REPOSO") return base.filter(p => p.estatus === "Reposo Médico");
@@ -263,7 +275,6 @@ export default function AsistenciaDiariaRRHH() {
         
         .btn-master { background: #334155; color: white; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 800; cursor: pointer; transition: 0.3s; }
         
-        /* BOTÓN RÉCORD CORREGIDO (ROJO INVECEM) */
         .btn-record { 
           background: #e30613; 
           color: white; 
@@ -299,7 +310,6 @@ export default function AsistenciaDiariaRRHH() {
         .active-card { box-shadow: 0 10px 20px rgba(0,0,0,0.05); transform: scale(1.02); }
         .hint { font-size: 9px; color: #94a3b8; font-weight: 800; text-transform: uppercase; display: block; margin-top: 10px; }
 
-        /* Bordes Superiores Gruesos Estilo Original */
         .card-presentes { border-top: 6px solid #22c55e; }
         .card-inasistencias { border-top: 6px solid #ef4444; }
         .card-vacaciones { border-top: 6px solid #3b82f6; }
@@ -307,8 +317,6 @@ export default function AsistenciaDiariaRRHH() {
         .card-total { border-top: 6px solid #0f172a; }
 
         .table-container { background: white; padding: 25px; border-radius: 20px; border: 1px solid #e2e8f0; }
-        
-        /* SOMBRA RELEVO CORREGIDA (AHORA ES ROJA PARA COMBINAR) */
         .shadow-relief { box-shadow: 10px 10px 0px #e30613; }
 
         .table-actions { display: flex; gap: 15px; margin-bottom: 20px; }
@@ -320,11 +328,10 @@ export default function AsistenciaDiariaRRHH() {
         .asistencia-table td { padding: 18px 15px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
         .ficha-cell { font-weight: 900; color: #0f172a; }
         .nombre-cell { font-weight: 700; text-transform: uppercase; color: #1e293b; }
-        .cargo-text { font-weight: 800; color: #e30613; font-size: 12px; } /* Texto de cargo ahora en rojo */
+        .cargo-text { font-weight: 800; color: #e30613; font-size: 12px; }
         .area-text { font-weight: 600; color: #94a3b8; font-size: 10px; }
         .hora-cell { font-family: monospace; font-weight: 900; color: #1e293b; font-size: 15px; }
 
-        /* Badges Sólidos Estilo Original */
         .badge { padding: 6px 14px; border-radius: 8px; font-weight: 900; font-size: 10px; text-transform: uppercase; display: inline-block; }
         .puntual { background: #22c55e; color: white; }
         .retraso { background: #f59e0b; color: white; }
