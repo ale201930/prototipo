@@ -49,8 +49,6 @@ export default function ReportesGenerales() {
     setLoading(true);
     try {
       // AJUSTE PARA TURNO NOCTURNO:
-      // Buscamos desde las 12 horas antes del día seleccionado hasta el final del día seleccionado.
-      // Esto permite que aparezcan los registros de entrada de la noche anterior que tienen salida hoy.
       const fechaElegida = new Date(fechaBusqueda + "T00:00:00");
       const inicioExtendido = new Date(fechaElegida.getTime() - (12 * 60 * 60 * 1000));
       const finDelDia = new Date(fechaBusqueda + "T23:59:59");
@@ -65,6 +63,13 @@ export default function ReportesGenerales() {
       const snap = await getDocs(q);
       let data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
+      // 1. FILTRO DE SEGURIDAD EXCLUSIVO DE RRHH:
+      // Excluye radicalmente contratistas o contratas del Reporte General
+      data = data.filter(item => {
+        const tipo = item.tipoPersonal?.toUpperCase() || "";
+        return !tipo.includes("CONTRATA") && !tipo.includes("CONTRATISTA");
+      });
+
       // Filtro de seguridad: Solo mostramos registros que pertenecen al día de hoy,
       // O registros de ayer cuya salida fue hoy (después de las 00:00).
       data = data.filter(item => {
@@ -76,6 +81,7 @@ export default function ReportesGenerales() {
         return item.salida && item.salida !== "--:--";
       });
 
+      // Filtros por Categoría (Fijo, Inces, Pasante)
       if (filtroEmpresa !== "TODOS") {
         data = data.filter(item => {
           if (filtroEmpresa === "INCES") return item.tipoPersonal?.includes("INCES");

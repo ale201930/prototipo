@@ -18,6 +18,10 @@ export default function RegistroAsistencia() {
   const [cargando, setCargando] = useState(false);
   const [fechaHoy, setFechaHoy] = useState("");
 
+  // ESTADOS NUEVOS PARA EL MODAL EXCEPCIONAL DE BENEFICIOS
+  const [mostrarModalBeneficio, setMostrarModalBeneficio] = useState(false);
+  const [trabajadorEspecial, setTrabajadorEspecial] = useState(null);
+
   const MASTER_PIN = "1234"; 
 
   // --- LÓGICA DE TIEMPO ---
@@ -52,14 +56,19 @@ export default function RegistroAsistencia() {
       setAsistenciasHoy(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
-    const mantenerFoco = () => inputRef.current?.focus();
+    const mantenerFoco = () => {
+      // Bloqueamos el autofoco cíclico únicamente si el modal de alerta está abierto
+      if (!mostrarModalBeneficio) {
+        inputRef.current?.focus();
+      }
+    };
     const interval = setInterval(mantenerFoco, 500);
 
     return () => {
       unsubscribe();
       clearInterval(interval);
     };
-  }, []);
+  }, [mostrarModalBeneficio]);
 
   const handleLimpiarBase = async () => {
     const pin = prompt("MODO DESARROLLADOR: Ingrese PIN para vaciar asistencias de hoy:");
@@ -72,6 +81,34 @@ export default function RegistroAsistencia() {
       } catch (error) {
         console.error("Error al limpiar:", error);
       }
+      setCargando(false);
+    }
+  };
+
+  // FUNCIÓN NUEVA: Inserta de manera forzada al trabajador guardando la trazabilidad de beneficios
+  const ejecutarEntradaExcepcional = async (trabajador) => {
+    setCargando(true);
+    try {
+      const horaActual = obtenerHora24();
+      await addDoc(collection(db, "asistencias"), {
+        nombreCompleto: `${trabajador.nombres} ${trabajador.apellidos}`.toUpperCase(),
+        ficha: trabajador.idAcceso || trabajador.ficha || "S/F",
+        cedula: trabajador.cedula,
+        cargo: trabajador.nombreContrata || trabajador.cargo || "OPERARIO",
+        area: trabajador.areaTrabajo || trabajador.area || "PLANTA", 
+        tipoPersonal: trabajador.tipoPersonal || "INVECEM",
+        entrada: horaActual,
+        salida: null,
+        estatus: "BENEFICIO", // Estatus único e identificable
+        fechaHora: serverTimestamp(),
+        observacionAcceso: `INGRESO AUTORIZADO POR BENEFICIOS: Personal en ${trabajador.estatus.toUpperCase()}`
+      });
+      alert("✅ Acceso por entrega de beneficio registrado correctamente.");
+    } catch (error) {
+      console.error("Error al registrar entrada por beneficio:", error);
+    } finally {
+      setTrabajadorEspecial(null);
+      setMostrarModalBeneficio(false);
       setCargando(false);
     }
   };
@@ -124,6 +161,14 @@ export default function RegistroAsistencia() {
         const existe = asistenciasHoy.find(a => 
           (a.cedula === trabajador.cedula || (trabajador.ficha && a.ficha === trabajador.ficha)) && !a.salida
         );
+
+        // INTERCEPCIÓN DE SEGURIDAD OPERATIVA: Solo aplica si va a ENTRAR (no si ya va de salida)
+        if (!existe && (trabajador.estatus === "Vacaciones" || trabajador.estatus === "Reposo Médico")) {
+          setTrabajadorEspecial(trabajador);
+          setMostrarModalBeneficio(true);
+          setCargando(false);
+          return; // Detiene el flujo inmediato para obligar la acción del Inspector
+        }
 
         if (existe) {
           // REGISTRAR SALIDA
@@ -200,9 +245,10 @@ export default function RegistroAsistencia() {
                 type="text"
                 value={identificador}
                 onChange={(e) => setIdentificador(e.target.value)}
-                placeholder="ESPERANDO..."
+                placeholder={mostrarModalBeneficio ? "RESTRICCIÓN ACTIVA" : "ESPERANDO..."}
                 className="input-scan"
                 autoComplete="off"
+                disabled={mostrarModalBeneficio}
               />
             </div>
           </section>
@@ -247,6 +293,60 @@ export default function RegistroAsistencia() {
           </div>
         </div>
       </div>
+
+      {/* MODAL INTERACTIVO DE CONTROL DE BENEFICIOS CON ESTÉTICA INDUSTRIAL */}
+      {mostrarModalBeneficio && (
+        <div className="industrial-modal-overlay">
+          <div className="industrial-modal-card">
+            <div className="industrial-alert-header">
+              <div className="warning-shield">⚠️</div>
+              <h2>RESTRICCIÓN DE ACCESO LABORAL</h2>
+            </div>
+            
+            <div className="industrial-modal-body">
+              <p className="industrial-notice">
+                El sistema detectó un bloqueo administrativo activo en la ficha de este trabajador. No tiene permitido el acceso para cumplir jornadas laborales ordinarias.
+              </p>
+
+              <div className="industrial-info-box">
+                <div className="info-box-row">
+                  <span>COLABORADOR:</span>
+                  <strong>{trabajadorEspecial?.nombres} {trabajadorEspecial?.apellidos}</strong>
+                </div>
+                <div className="info-box-row">
+                  <span>CÉDULA / FICHA:</span>
+                  <strong className="text-red">{trabajadorEspecial?.cedula} / {trabajadorEspecial?.ficha || "S/F"}</strong>
+                </div>
+                <div className="info-box-row">
+                  <span>ESTATUS LEGAL:</span>
+                  <span className="industrial-status-badge">{trabajadorEspecial?.estatus?.toUpperCase()}</span>
+                </div>
+              </div>
+
+              <p className="industrial-question">
+                ¿El motivo del ingreso es únicamente para el <strong>RETIRO DE BENEFICIOS MENSUALES</strong> (Bolsa de Comida / Higiene)?
+              </p>
+            </div>
+
+            <div className="industrial-modal-footer">
+              <button 
+                type="button" 
+                className="btn-industrial-deny" 
+                onClick={() => { setMostrarModalBeneficio(false); setTrabajadorEspecial(null); }}
+              >
+                ❌ DENEGAR ENTRADA
+              </button>
+              <button 
+                type="button" 
+                className="btn-industrial-allow" 
+                onClick={() => ejecutarEntradaExcepcional(trabajadorEspecial)}
+              >
+                📦 PERMITIR ENTRADA (RETIRO)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         .main-wrapper { 
@@ -295,7 +395,78 @@ export default function RegistroAsistencia() {
         .status-pill { padding: 6px 12px; border-radius: 8px; font-size: 10px; font-weight: 900; text-transform: uppercase; width: fit-content; text-align: center; }
         .puntual { background: #dcfce7; color: #166534; }
         .retraso { background: #fee2e2; color: #991b1b; }
+        .beneficio { background: #e0f2fe; color: #0369a1; }
         .label-finalizado { font-size: 9px; font-weight: 800; color: #94a3b8; margin-left: 2px; }
+
+        /* ESTILOS DEL MODAL INDUSTRIAL DE CONTROL */
+        .industrial-modal-overlay {
+          position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+          background: rgba(15, 23, 42, 0.85); display: flex; justify-content: center;
+          align-items: center; z-index: 9999; padding: 20px; backdrop-filter: blur(4px);
+        }
+        .industrial-modal-card {
+          background: #ffffff; width: 100%; max-width: 600px; border-radius: 16px;
+          overflow: hidden; border: 3px solid #0f172a; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+          animation: modalAppear 0.25s ease-out;
+        }
+        .industrial-alert-header {
+          background: #0f172a; padding: 20px; display: flex; align-items: center; gap: 15px;
+          border-bottom: 4px solid #e30613;
+        }
+        .warning-shield {
+          font-size: 28px; background: #e30613; padding: 4px 10px; border-radius: 8px;
+          animation: pulseIcon 1s infinite alternate;
+        }
+        .industrial-alert-header h2 {
+          color: #ffffff; font-size: 18px; font-weight: 900; margin: 0; letter-spacing: 0.5px;
+        }
+        .industrial-modal-body { padding: 30px; background: #ffffff; }
+        .industrial-notice {
+          color: #475569; font-size: 13px; font-weight: 600; line-height: 1.5; margin: 0 0 20px 0;
+        }
+        .industrial-info-box {
+          background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 10px;
+          padding: 18px; display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;
+        }
+        .info-box-row {
+          display: flex; justify-content: space-between; font-size: 13px; align-items: center;
+        }
+        .info-box-row span { font-weight: 800; color: #64748b; font-size: 11px; }
+        .info-box-row strong { font-weight: 900; color: #0f172a; }
+        .info-box-row .text-red { color: #e30613; }
+        .industrial-status-badge {
+          background: #fee2e2; color: #e30613; padding: 4px 12px; border-radius: 6px;
+          font-weight: 900; font-size: 11px; border: 1px solid #fca5a5;
+        }
+        .industrial-question {
+          font-size: 14px; color: #0f172a; font-weight: 700; text-align: center;
+          margin: 15px 0 0 0; line-height: 1.5;
+        }
+        .industrial-modal-footer {
+          background: #f1f5f9; padding: 20px 30px; display: flex; gap: 15px;
+          border-top: 1px solid #e2e8f0;
+        }
+        .btn-industrial-deny {
+          flex: 1; background: #ffffff; color: #e30613; border: 2px solid #e30613;
+          padding: 14px; border-radius: 10px; font-weight: 800; font-size: 12px;
+          cursor: pointer; transition: 0.2s;
+        }
+        .btn-industrial-deny:hover { background: #fee2e2; }
+        .btn-industrial-allow {
+          flex: 1; background: #0f172a; color: #ffffff; border: none;
+          padding: 14px; border-radius: 10px; font-weight: 800; font-size: 12px;
+          cursor: pointer; transition: 0.2s; border-bottom: 4px solid #000000;
+        }
+        .btn-industrial-allow:hover { background: #1e293b; transform: translateY(1px); }
+
+        @keyframes modalAppear {
+          from { transform: scale(0.95); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
+        }
+        @keyframes pulseIcon {
+          from { transform: scale(1); }
+          to { transform: scale(1.1); }
+        }
 
         @media print {
           .no-print { display: none !important; }

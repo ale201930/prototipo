@@ -5,8 +5,52 @@ import { useRouter } from "next/navigation";
 import { db } from "@/app/lib/firebase";
 import { 
   collection, addDoc, onSnapshot, query, where, orderBy, 
-  serverTimestamp, doc, updateDoc, Timestamp 
+  doc, updateDoc, Timestamp 
 } from "firebase/firestore";
+
+// --- COMPONENTE AUXILIAR: CRONÓMETRO INDUSTRIAL EN TIEMPO REAL (CON SEGUNDOS) ---
+function ContadorEstancia({ fechaIngreso }) {
+  const [estancia, setEstancia] = useState("00:00:00");
+
+  useEffect(() => {
+    if (!fechaIngreso) return;
+
+    const calcular = () => {
+      const entrada = fechaIngreso.toDate ? fechaIngreso.toDate() : new Date(fechaIngreso);
+      const ahora = new Date();
+      const diferenciaMs = ahora - entrada;
+
+      // Resguardo anti-negativos por desfase de milisegundos en relojes
+      if (diferenciaMs < 0) {
+        setEstancia("00:00:00");
+        return;
+      }
+
+      // Desglose matemático preciso del tiempo
+      const totalSegundos = Math.floor(diferenciaMs / 1000);
+      const horas = Math.floor(totalSegundos / 3600);
+      const minutos = Math.floor((totalSegundos % 3600) / 60);
+      const segundos = totalSegundos % 60;
+
+      // Formateo con ceros a la izquierda (ej. 02:05:09)
+      const horasStr = String(horas).padStart(2, "0");
+      const minutosStr = String(minutos).padStart(2, "0");
+      const segundosStr = String(segundos).padStart(2, "0");
+
+      setEstancia(`${horasStr}:${minutosStr}:${segundosStr}`);
+    };
+
+    // Renderizado inmediato al montar el registro
+    calcular();
+
+    // Actualización cíclica en vivo cada 1 segundo
+    const intervalo = setInterval(calcular, 1000);
+
+    return () => clearInterval(intervalo);
+  }, [fechaIngreso]);
+
+  return <span className="cronometro-activo">⏱️ {estancia}</span>;
+}
 
 export default function RegistroVisitantes() {
   const router = useRouter();
@@ -54,7 +98,7 @@ export default function RegistroVisitantes() {
         entrada: formatAMPM(new Date()), 
         salida: "--:--", 
         estado: "En Planta", 
-        fechaIngreso: serverTimestamp(),
+        fechaIngreso: new Date() // Sincroniza al instante con la hora local de planta
       });
       setFormData({ cedula: "", nombre: "", empresa: "", autoriza: "", area: "Producción", motivo: "" });
     } catch (err) { alert("Error al guardar en la base de datos"); }
@@ -62,8 +106,14 @@ export default function RegistroVisitantes() {
 
   const handleSalida = async (id, fechaIngreso) => {
     try {
+      if (!fechaIngreso) return alert("Error: No se puede calcular la estancia sin marca de entrada.");
+      
       const ahora = new Date();
-      const minutos = Math.floor((ahora.getTime() - fechaIngreso.toDate().getTime()) / 60000);
+      const entrada = fechaIngreso.toDate ? fechaIngreso.toDate() : new Date(fechaIngreso);
+      
+      let minutos = Math.floor((ahora.getTime() - entrada.getTime()) / 60000);
+      if (minutos < 0) minutos = 0; 
+
       await updateDoc(doc(db, "visitantes", id), { 
         salida: formatAMPM(ahora), 
         estado: "Finalizado", 
@@ -72,16 +122,11 @@ export default function RegistroVisitantes() {
     } catch (err) { alert("Error en salida"); }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = () => { window.print(); };
 
-  // --- FUNCIÓN PDF CORREGIDA (FIX AUTO-TABLE) ---
   const handlePDF = async () => {
     if (typeof window === "undefined") return;
-
     try {
-      // Importamos jsPDF y autoTable de forma dinámica
       const { default: jsPDF } = await import("jspdf");
       const { default: autoTable } = await import("jspdf-autotable");
 
@@ -107,7 +152,6 @@ export default function RegistroVisitantes() {
         v.estado
       ]);
 
-      // Usamos la función autoTable importada directamente sobre el documento
       autoTable(doc, {
         head: [columns],
         body: rows,
@@ -115,15 +159,10 @@ export default function RegistroVisitantes() {
         theme: 'grid',
         headStyles: { fillColor: [211, 47, 47], textColor: [255, 255, 255], fontStyle: 'bold' },
         styles: { fontSize: 8, cellPadding: 2 },
-        columnStyles: {
-          0: { cellWidth: 'auto' },
-          1: { cellWidth: 'auto' }
-        }
       });
 
       doc.save(`Reporte_INVECEM_${fecha.replace(/\//g, '-')}.pdf`);
     } catch (error) {
-      console.error("Error al generar PDF:", error);
       alert("Error al cargar las herramientas de PDF.");
     }
   };
@@ -131,21 +170,21 @@ export default function RegistroVisitantes() {
   if (!mounted) return null;
 
   const listaFiltrada = visitantes.filter(v => 
-    v.nombre.toLowerCase().includes(busqueda.toLowerCase()) || v.cedula.includes(busqueda)
+    v.nombre?.toLowerCase().includes(busqueda.toLowerCase()) || v.cedula?.includes(busqueda)
   );
 
   return (
     <div className="layout">
       <header className="top-nav no-print">
-        <div className="logo">INVECEM <span className="red-text">Seguridad</span></div>
-        <button className="btn-panel" onClick={() => router.push("/inspector")}>← VOLVER AL PANEL</button>
+        <div className="logo">SYSTEM-CONTROL <span className="red-text">INVECEM</span></div>
+        <button className="btn-panel" onClick={() => router.push("/inspector")}>← VOLVER </button>
       </header>
 
       <main className="content">
         <div className="report-header">
-  <h1 className="report-title">INVECEM - CONTROL DE ACCESO</h1>
-  <p className="report-subtitle">Reporte de Visitantes • Fecha: {new Date().toLocaleDateString()}</p>
-</div>
+          <h1 className="report-title">INVECEM - CONTROL DE ACCESO</h1>
+          <p className="report-subtitle">Reporte de Visitantes • Fecha: {new Date().toLocaleDateString()}</p>
+        </div>
 
         <div className="stats-grid no-print">
           <div className="stat-card shadow-relief">
@@ -220,7 +259,7 @@ export default function RegistroVisitantes() {
                     <th>ÁREA</th>
                     <th>ENTRADA</th>
                     <th>ESTADO</th>
-                    <th className="no-print">GESTIÓN</th>
+                    <th className="no-print">GESTIÓN / ESTANCIA</th>
                     <th className="only-print">SALIDA</th>
                   </tr>
                 </thead>
@@ -232,12 +271,19 @@ export default function RegistroVisitantes() {
                       <td><span className="tag">{v.area}</span></td>
                       <td className="bold">{v.entrada}</td>
                       <td><span className={`badge ${v.estado === "En Planta" ? "in" : "out"}`}>{v.estado}</span></td>
+                      
+                      {/* ACCIONES Y CRONÓMETRO DIGITAL */}
                       <td className="no-print">
-                        {v.estado === "En Planta" ? 
-                          <button className="btn-salida" onClick={() => handleSalida(v.id, v.fechaIngreso)}>Marcar Salida</button> : 
-                          <span className="time-out">Salió: {v.salida}</span>
-                        }
+                        {v.estado === "En Planta" ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "center" }}>
+                            <ContadorEstancia fechaIngreso={v.fechaIngreso} />
+                            <button className="btn-salida" onClick={() => handleSalida(v.id, v.fechaIngreso)}>Marcar Salida</button>
+                          </div>
+                        ) : (
+                          <span className="time-out">Salió: {v.salida} ({v.minutosEstancia || 0} min)</span>
+                        )}
                       </td>
+
                       <td className="only-print bold">
                           {v.salida !== "--:--" ? v.salida : "EN PLANTA"}
                       </td>
@@ -251,7 +297,6 @@ export default function RegistroVisitantes() {
       </main>
 
       <style jsx>{`
-  /* Fondo General con Patrón INVECEM */
   .layout { 
     background-color: #f0f4f8;
     background-image: radial-gradient(#d1d5db 0.8px, transparent 0.8px);
@@ -285,7 +330,6 @@ export default function RegistroVisitantes() {
     letter-spacing: 1px;
   }
 
-  /* Barra de Navegación */
   .top-nav { 
     background: #0f172a; 
     color: white; 
@@ -314,7 +358,6 @@ export default function RegistroVisitantes() {
 
   .content { padding: 30px; max-width: 1400px; margin: 0 auto; position: relative; z-index: 1; }
 
-  /* Grid de Estadísticas */
   .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 25px; }
   .stat-card { 
     background: rgba(255, 255, 255, 0.8); 
@@ -328,10 +371,8 @@ export default function RegistroVisitantes() {
   .stat-card .label { font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
   .stat-card .value { font-size: 28px; font-weight: 900; color: #0f172a; display: block; margin-top: 5px; }
 
-  /* Layout Principal */
   .main-grid { display: grid; grid-template-columns: 420px 1fr; gap: 25px; }
 
-  /* Tarjetas Estilo Glassmorphism (Reemplaza shadow-relief) */
   .shadow-relief { 
     background: rgba(255, 255, 255, 0.94); 
     backdrop-filter: blur(10px);
@@ -357,7 +398,6 @@ export default function RegistroVisitantes() {
     content: ""; width: 8px; height: 8px; background: #e30613; border-radius: 2px;
   }
 
-  /* Formulario e Inputs */
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
   .field { margin-bottom: 15px; }
   .field label { font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 6px; display: block; padding-left: 4px; }
@@ -396,38 +436,19 @@ export default function RegistroVisitantes() {
   }
   .btn-confirmar:hover { transform: translateY(-3px); box-shadow: 0 12px 20px rgba(227, 6, 19, 0.3); }
 
-  /* Controles de Tabla */
   .table-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 15px; }
-  .search-input { 
-    flex: 1; max-width: 300px; 
-    background: #f8fafc;
-    border: 2px solid #f1f5f9;
-    padding: 10px 15px; 
-  }
+  .search-input { flex: 1; max-width: 300px; background: #f8fafc; border: 2px solid #f1f5f9; padding: 10px 15px; }
 
   .btn-action { 
-    padding: 10px 18px; 
-    border-radius: 10px; 
-    font-weight: 800; 
-    font-size: 11px; 
-    text-transform: uppercase; 
-    cursor: pointer;
-    transition: 0.3s;
+    padding: 10px 18px; border-radius: 10px; font-weight: 800; font-size: 11px; text-transform: uppercase; cursor: pointer; transition: 0.3s;
   }
   .btn-pdf { background: #e30613; color: white; border: none; }
   .btn-print { background: #0f172a; color: white; border: none; }
   .btn-action:hover { transform: translateY(-2px); opacity: 0.9; }
 
-  /* Tabla de Visitantes */
   .visit-table { width: 100%; border-collapse: collapse; }
-  .visit-table th { 
-    text-align: left; font-size: 11px; 
-    color: #94a3b8; 
-    padding: 15px 10px; 
-    border-bottom: 2px solid #f1f5f9;
-    text-transform: uppercase;
-  }
-  .visit-table td { padding: 15px 10px; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+  .visit-table th { text-align: left; font-size: 11px; color: #94a3b8; padding: 15px 10px; border-bottom: 2px solid #f1f5f9; text-transform: uppercase; }
+  .visit-table td { padding: 15px 10px; border-bottom: 1px solid #f1f5f9; font-size: 13px; text-align: left; }
   
   .v-info strong { display: block; color: #0f172a; font-size: 14px; }
   .v-info small { color: #e30613; font-weight: 700; font-size: 10px; text-transform: uppercase; }
@@ -437,6 +458,26 @@ export default function RegistroVisitantes() {
   .badge { font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 4px 10px; border-radius: 20px; }
   .badge.in { background: #fee2e2; color: #e30613; }
   .badge.out { background: #f1f5f9; color: #64748b; }
+
+  /* ESTILO RELOJ DIGITAL DE PLANTA */
+  .cronometro-activo {
+    font-size: 12px;
+    font-weight: 800;
+    color: #15803d;
+    background: #dcfce7;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-family: monospace;
+    letter-spacing: 0.5px;
+    border: 1px solid #bbf7d0;
+    display: inline-block;
+  }
+
+  .time-out {
+    font-weight: 600;
+    color: #475569;
+    font-size: 12px;
+  }
 
   .btn-salida { 
     background: #0f172a; color: white; border: none; padding: 6px 12px; 

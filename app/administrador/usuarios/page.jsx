@@ -64,28 +64,34 @@ export default function GestionUsuarios() {
   };
 
   return (
-    <div className="container-usuarios">
-      {/* HEADER SUPERIOR */}
-      <header className="header-top shadow">
-        <div className="header-info">
-          
-          <div>
-            
-            <p>Gestión de Usuarios </p>
-          </div>
+    <div className="layout">
+      
+      {/* BARRA DE NAVEGACIÓN SUPERIOR UNIFICADA */}
+      <nav className="top-nav">
+        <div className="logo">
+          SYSTEM-CONTROL <span className="red-text">INVECEM</span>
         </div>
-        <button className="btn-volver" onClick={() => router.push("/administrador")}>
-          ⬅ Volver
+        <button className="btn-panel" onClick={() => router.push("/administrador")}>
+          ← VOLVER
         </button>
-      </header>
+      </nav>
 
-      <main className="main-content">
-        <div className="action-bar">
+      {/* CONTENEDOR DE CONTENIDO PRINCIPAL */}
+      <div className="content">
+        
+        {/* ENCABEZADO DE REPORTE TÉCNICO */}
+        <header className="report-header">
+          <h1 className="report-title">Gestión de Usuarios</h1>
+          <p className="subtitle-header">Administración, control de estatus y asignación de roles para el personal de planta</p>
+        </header>
+
+        {/* BARRA DE ACCIONES (BÚSQUEDA Y REGISTRO) */}
+        <div className="action-bar shadow-relief">
           <div className="search-container">
             <span className="search-icon">🔍</span>
             <input 
               type="text" 
-              placeholder="Buscar por Nombre, Ficha, Rol, Departamento..." 
+              placeholder="Buscar por Nombre, Ficha, Cédula, Rol..." 
               value={filtro}
               onChange={(e) => setFiltro(e.target.value)}
             />
@@ -95,7 +101,8 @@ export default function GestionUsuarios() {
           </button>
         </div>
 
-        <div className="card shadow mt-20">
+        {/* TABLA PRINCIPAL EN TARJETA SHADOW-RELIEF */}
+        <div className="card shadow-relief mt-20">
           <div className="table-wrapper">
             <table className="user-table">
               <thead>
@@ -110,252 +117,282 @@ export default function GestionUsuarios() {
                 </tr>
               </thead>
               <tbody>
-                {usuariosFiltrados.map((user) => (
-                  <tr key={user.id}>
-                    <td>
-                      <span className={`status-pill ${user.estado === "Activo" ? "active" : "inactive"}`}>
-                        ● {user.estado || "Activo"}
-                      </span>
-                    </td>
-                    <td className="bold-blue">{user.ficha || "N/A"}</td>
-                    <td>{user.cedula}</td>
-                    <td>{user.nombres || user.usuario}</td>
-                    <td>
-                      <div className="cargo-main">{user.cargo || "Sin cargo"}</div>
-                      <div className="unidad-sub">{user.departamento || "Sin unidad"}</div>
-                    </td>
-                    <td>
-                      <span className="role-tag">{user.rol}</span>
-                    </td>
-                    <td className="actions-cell">
-                      <button 
-                        className="btn-icon view" 
-                        title="Ver Perfil"
-                        onClick={() => router.push(`/administrador/usuarios/ver?id=${user.id}`)}
-                      >
-                        👁️
-                      </button>
-                      <button 
-                        className="btn-icon edit" 
-                        title="Editar"
-                        onClick={() => router.push(`/administrador/usuarios/editar?id=${user.id}`)}
-                      >
-                        ✏️
-                      </button>
-                      <button 
-                        className="btn-icon block" 
-                        onClick={() => toggleEstado(user.id, user.estado)}
-                        title="Bloquear/Activar"
-                      >
-                        🚫
-                      </button>
-                      <button 
-                        className="btn-icon delete" 
-                        onClick={() => eliminarUsuario(user.id, user.nombres)}
-                        title="Eliminar"
-                      >
-                        🗑️
-                      </button>
-                    </td>
+                {usuariosFiltrados.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="empty-message">No se encontraron usuarios en los registros.</td>
                   </tr>
-                ))}
+                ) : (
+                  usuariosFiltrados.map((user) => (
+                    <tr key={user.id}>
+                      <td>
+                        <span className={`status-pill ${user.estado === "Activo" ? "active" : "inactive"}`}>
+                          ● {user.estado || "Activo"}
+                        </span>
+                      </td>
+                      <td className="bold-blue">{user.ficha || "N/A"}</td>
+                      <td className="bold-text">{user.cedula}</td>
+                      <td className="name-text">{user.nombres || user.usuario}</td>
+                      <td>
+                        <div className="cargo-main">{user.cargo || "Sin cargo"}</div>
+                        <div className="unidad-sub">{user.departamento || "Sin unidad"}</div>
+                      </td>
+                      <td>
+                        <span className="role-tag">{user.rol}</span>
+                      </td>
+                      <td className="actions-cell">
+                        <button 
+                          className="btn-icon view" 
+                          title="Ver Perfil"
+                          onClick={() => router.push(`/administrador/usuarios/ver?id=${user.id}`)}
+                        >
+                          👁️
+                        </button>
+                        <button 
+                          className="btn-icon edit" 
+                          title="Editar"
+                          onClick={() => router.push(`/administrador/usuarios/editar?id=${user.id}`)}
+                        >
+                          ✏️
+                        </button>
+                        <button 
+                          className="btn-icon block" 
+                          onClick={() => toggleEstado(user.id, user.estado)}
+                          title="Bloquear/Activar"
+                        >
+                          🚫
+                        </button>
+                        <button 
+                          className="btn-icon delete" 
+                          onClick={() => eliminarUsuario(user.id, user.nombres)}
+                          title="Eliminar"
+                        >
+                          🗑️
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </div>
-      </main>
+      </div>
 
       <style jsx>{`
-  /* --- WRAPPER Y FONDO (SIN CAMBIOS) --- */
-  .container-usuarios { 
-    min-height: 100vh; 
-    background-color: #f0f4f8; 
-    background-image: radial-gradient(#d1d5db 0.8px, transparent 0.8px);
-    background-size: 24px 24px;
-    font-family: 'Inter', sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center; 
-  }
+        /* --- ESTILOS GENERALES DEL LAYOUT UNIFICADO --- */
+        .layout { 
+          background-color: #f0f4f8;
+          background-image: radial-gradient(#d1d5db 0.8px, transparent 0.8px);
+          background-size: 24px 24px;
+          min-height: 100vh; 
+          font-family: 'Inter', system-ui, -apple-system, sans-serif; 
+          color: #0f172a;
+        }
 
-  
-  /* 1. El contenedor padre debe ser relativo para anclar el botón */
-  .header-top { 
-    width: 100%;
-    background: #fff; 
-    padding: 20px 0; 
-    display: flex; 
-    justify-content: center; /* Esto mantiene el título centrado */
-    align-items: center;
-    border-bottom: 4px solid #e30613; 
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    position: relative; 
-  }
+        /* --- BARRA DE NAVEGACIÓN SUPERIOR --- */
+        .top-nav { 
+          background: #0f172a; 
+          color: white; 
+          padding: 12px 25px; 
+          display: flex; 
+          justify-content: space-between; 
+          align-items: center; 
+          border-bottom: 4px solid #e30613; 
+          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .logo { font-weight: 900; font-size: 20px; letter-spacing: -1px; }
+        .red-text { color: #e30613; }
+        
+        .btn-panel { 
+          background: #e30613; 
+          color: white; 
+          border: none; 
+          padding: 8px 16px; 
+          border-radius: 8px; 
+          cursor: pointer; 
+          font-size: 11px; 
+          font-weight: 800; 
+          text-transform: uppercase;
+          transition: 0.3s;
+        }
+        .btn-panel:hover { background: #b8050f; transform: translateY(-2px); }
 
-  .header-inner {
-    width: 100%;
-    max-width: 1400px;
-    display: flex;
-    justify-content: center; /* Centrado absoluto del título */
-    align-items: center;
-    padding: 0 40px;
-    position: relative;
-  }
+        /* --- CONTENEDOR DE CONTENIDO --- */
+        .content { padding: 30px; max-width: 1200px; margin: 0 auto; }
 
-  /* 2. El botón ahora se posiciona de forma independiente */
-  .btn-volver {
-    position: absolute; /* Lo saca del flujo para que no empuje al título */
-    left: 40px;        /* Lo pega a la izquierda */
-    background: #f8fafc;
-    color: #64748b;
-    border: 2px solid #e2e8f0;
-    padding: 10px 20px;
-    border-radius: 12px;
-    font-weight: 800;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    cursor: pointer;
-    transition: 0.3s;
-    z-index: 10;
-  }
+        /* --- ENCABEZADO DE REPORTE --- */
+        .report-header {
+          margin-bottom: 35px;
+          border-left: 6px solid #0f172a;
+          padding-left: 20px;
+        }
+        .report-title {
+          font-size: 38px;
+          font-weight: 900;
+          color: #0f172a;
+          margin: 0;
+          letter-spacing: -2px;
+          line-height: 1;
+          text-transform: uppercase;
+        }
+        .subtitle-header {
+          font-size: 14px;
+          font-weight: 700;
+          color: #64748b;
+          margin-top: 5px;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+        }
 
-  .btn-volver:hover {
-    background: #0f172a;
-    color: white;
-    border-color: #0f172a;
-  }
+        /* --- BARRA DE ACCIÓN INTERMEDIA --- */
+        .action-bar { 
+          display: flex; 
+          justify-content: space-between; 
+          gap: 15px; 
+          margin-bottom: 25px; 
+          padding: 20px; 
+          background: white;
+          border-radius: 18px;
+          align-items: center;
+        }
 
-  /* 3. Título centrado y más imponente */
-  .header-info h1 { 
-    margin: 0; 
-    color: #000000; 
-    font-size: 1.8rem; 
-    font-weight: 900; 
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    text-align: center;
-  }
+        .search-container { position: relative; flex: 1; display: flex; align-items: center; }
+        .search-icon { position: absolute; left: 15px; color: #94a3b8; font-size: 14px; }
+        .search-container input { 
+          width: 100%; 
+          padding: 12px 12px 12px 45px; 
+          border: 2px solid #f1f5f9; 
+          border-radius: 12px; 
+          font-weight: 600;
+          font-size: 0.9rem;
+          outline: none;
+          background: #f8fafc;
+          transition: 0.3s;
+        }
+        .search-container input:focus {
+          border-color: #e30613;
+          background: white;
+        }
 
+        .btn-registrar { 
+          background: #e30613; 
+          color: white; 
+          border: none; 
+          padding: 12px 25px; 
+          border-radius: 12px; 
+          font-weight: 900; 
+          font-size: 12px;
+          text-transform: uppercase;
+          cursor: pointer; 
+          transition: 0.2s;
+          box-shadow: 0 4px 0px #b8050f;
+          white-space: nowrap;
+        }
+        .btn-registrar:hover { transform: translateY(2px); box-shadow: 0 2px 0px #8a040b; }
+        .btn-registrar:active { transform: translateY(4px); box-shadow: none; }
 
-  /* --- TÍTULO GRANDE Y CENTRADO --- */
-  .header-center { 
-    text-align: center; 
-  }
+        /* --- TARJETA PRINCIPAL NEOMÓRFICA INDUSTRIAL (SHADOW RELIEF) --- */
+        .card { 
+          background: white; 
+          border-radius: 24px; 
+          overflow: hidden;
+          margin-top: 20px;
+        }
 
-  .header-info h1 { 
-    margin: 0; 
-    color: #0f172a; 
-    font-size: 1.8rem; /* Más grande y llamativo */
-    font-weight: 900; 
-    text-transform: uppercase;
-    letter-spacing: 2px; /* Letras más separadas y estéticas */
-    line-height: 1.2;
-    background: linear-gradient(to bottom, #0f172a, #334155);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
+        .shadow-relief {
+          border: 1px solid #e2e8f0;
+          border-top: 8px solid #e30613; 
+          box-shadow: 12px 12px 0px #0f172a; 
+        }
 
-  /* --- ESPACIO DERECHO (VACÍO PARA EL LOGO SI LO USAS LUEGO) --- */
-  .header-right { 
-    position: absolute;
-    right: 40px;
-  }
+        .table-wrapper { overflow-x: auto; }
+        
+        /* --- ESTILOS DE LA TABLA --- */
+        .user-table { width: 100%; border-collapse: collapse; }
+        .user-table th { 
+          background: #f8fafc; 
+          padding: 18px; 
+          font-size: 11px; 
+          color: #64748b; 
+          text-transform: uppercase; 
+          font-weight: 900;
+          border-bottom: 3px solid #e30613; 
+          text-align: center;
+          letter-spacing: 0.5px;
+        }
 
-  /* --- EL RESTO DE TU CÓDIGO PERMANECE IGUAL (SIN MOVIMIENTOS) --- */
-  .action-bar { 
-    display: flex; 
-    justify-content: space-between; 
-    gap: 15px; 
-    margin: 40px 0 25px 0; 
-    width: 100%;
-    max-width: 1100px; 
-    padding: 20px; 
-    background: white;
-    border-radius: 18px;
-    border: 1px solid #e2e8f0;
-    align-items: center;
-    box-sizing: border-box;
-  }
+        .user-table td { 
+          padding: 16px 18px; 
+          border-bottom: 1px solid #f1f5f9; 
+          font-size: 0.88rem; 
+          color: #334155;
+          text-align: center;
+          vertical-align: middle;
+        }
+        .user-table tr:hover td { background-color: #f8fafc; }
 
-  .search-container { position: relative; flex: 1; }
-  .search-container input { 
-    width: 100%; 
-    padding: 12px 12px 12px 45px; 
-    border: 2px solid #f1f5f9; 
-    border-radius: 12px; 
-    font-weight: 600;
-    outline: none;
-    transition: 0.3s;
-  }
+        /* --- DETALLES DE CELDAS --- */
+        .bold-blue { color: #e30613; font-weight: 800; font-size: 0.9rem; }
+        .bold-text { font-weight: 700; color: #0f172a; }
+        .name-text { font-weight: 700; color: #1e293b; text-align: left !important; }
+        
+        .cargo-main { font-weight: 700; color: #0f172a; font-size: 0.85rem; }
+        .unidad-sub { font-weight: 600; color: #64748b; font-size: 0.75rem; text-transform: uppercase; margin-top: 2px; }
 
-  .btn-registrar { 
-    background: #e30613; 
-    color: white; 
-    border: none; 
-    padding: 12px 25px; 
-    border-radius: 10px; 
-    font-weight: 900; 
-    font-size: 12px;
-    text-transform: uppercase;
-    cursor: pointer; 
-    box-shadow: 0 4px 0px #b8050f;
-  }
+        .role-tag {
+          background: #f1f5f9;
+          color: #334155;
+          padding: 4px 10px;
+          border-radius: 8px;
+          font-size: 11px;
+          font-weight: 800;
+          text-transform: uppercase;
+          border: 1px solid #e2e8f0;
+          display: inline-block;
+        }
 
-  .main-content { 
-    width: 100%;
-    max-width: 1100px; 
-    padding: 0 20px 40px 20px; 
-  }
+        /* --- CAPSULAS DE ESTATUS --- */
+        .status-pill { 
+          padding: 5px 12px; 
+          border-radius: 8px; 
+          font-size: 10px; 
+          font-weight: 900; 
+          text-transform: uppercase;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .active { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+        .inactive { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
 
-  .card { 
-    background: white; 
-    border-radius: 24px; 
-    border: 1px solid #e2e8f0;
-    box-shadow: 10px 10px 0px #0f172a; 
-    overflow: hidden;
-  }
-  
-  .user-table { width: 100%; border-collapse: collapse; }
-  .user-table th { 
-    background: #f8fafc; 
-    padding: 18px; 
-    font-size: 10px; 
-    color: #94a3b8; 
-    text-transform: uppercase; 
-    font-weight: 900;
-    border-bottom: 3px solid #e30613; 
-    text-align: center;
-  }
+        /* --- BOTONES DE ACCIÓN EN CELDAS --- */
+        .actions-cell { display: flex; gap: 8px; justify-content: center; align-items: center; }
+        .btn-icon { 
+          background: white; 
+          border: 1px solid #cbd5e1; 
+          padding: 8px; 
+          border-radius: 10px; 
+          cursor: pointer; 
+          font-size: 14px;
+          transition: 0.2s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .btn-icon:hover { transform: scale(1.1); background: #f8fafc; color: #0f172a; border-color: #0f172a; }
+        .btn-icon.delete:hover { background: #fee2e2; border-color: #ef4444; }
 
-  .user-table td { 
-    padding: 15px; 
-    border-bottom: 1px solid #f1f5f9; 
-    font-size: 0.85rem; 
-    color: #1e293b;
-    text-align: center;
-  }
+        .empty-message { padding: 40px !important; color: #64748b; font-weight: 600; font-style: italic; }
 
-  .status-pill { 
-    padding: 4px 10px; 
-    border-radius: 8px; 
-    font-size: 9px; 
-    font-weight: 900; 
-    text-transform: uppercase;
-    display: inline-block;
-  }
-  .active { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
-  .inactive { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
-
-  .actions-cell { display: flex; gap: 8px; justify-content: center; }
-  .btn-icon { 
-    background: white; 
-    border: 1px solid #e2e8f0; 
-    padding: 7px; 
-    border-radius: 8px; 
-    cursor: pointer; 
-  }
-`}</style>
+        /* --- RESPONSIVO --- */
+        @media (max-width: 768px) {
+          .content { padding: 15px; }
+          .report-title { font-size: 28px; }
+          .action-bar { flex-direction: column; align-items: stretch; }
+          .btn-registrar { width: 100%; text-align: center; }
+          .card.shadow-relief { box-shadow: 8px 8px 0px #0f172a; }
+        }
+      `}</style>
     </div>
   );
 }

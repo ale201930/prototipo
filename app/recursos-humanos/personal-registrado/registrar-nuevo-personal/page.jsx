@@ -75,7 +75,7 @@ function FormularioRegistro() {
     <div className="main-wrapper">
       <div className="container">
         <header className="nav-header">
-          <button className="btn-back-minimal" onClick={() => router.push("/recursos-humanos")}>
+          <button className="btn-back-minimal" onClick={() => router.push("/recursos-humanos/personal-registrado")}>
             <span>←</span> Volver al Panel Principal
           </button>
         </header>

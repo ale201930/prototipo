@@ -82,12 +82,10 @@ export default function PanelRecursosHumanos() {
             ⚙️ Mi Perfil
           </li>
 
-          <li className="nav-item" onClick={() => router.push("/recursos-humanos/registro-personal")}>
-            📝 Registrar Personal
-          </li>
+          
 
-          <li className="nav-item" onClick={() => router.push("/recursos-humanos/usuarios-registrados")}>
-            👥 Usuarios Registrados
+          <li className="nav-item" onClick={() => router.push("/recursos-humanos/personal-registrado")}>
+            👥 Personal Registrado
           </li>
 
           <li className="nav-item" onClick={() => router.push("/recursos-humanos/asistencia-del-dia")}>

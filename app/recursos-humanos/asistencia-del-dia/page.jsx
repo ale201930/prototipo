@@ -74,7 +74,6 @@ export default function AsistenciaDiariaRRHH() {
     const unsubscribeNomina = onSnapshot(collection(db, "personal"), (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       
-      // Mantenemos la captura segura en memoria del cliente
       const dataFiltrada = data.filter(p => 
         ["INVECEM", "Estudiante INCES", "Estudiante INCESS", "Pasante"].includes(p.tipoPersonal) || 
         p.estatus === "Reposo Médico" ||
@@ -106,13 +105,18 @@ export default function AsistenciaDiariaRRHH() {
     return () => { unsubscribeNomina(); unsubscribeAsist(); };
   }, []);
 
-  // CORRECCIÓN 1: useEffect de totales adaptado para incluir registros sin tipoPersonal pero con estatus especial
+  // CONFIGURACIÓN CORREGIDA: Sincronización estricta de "En Planta" cruzando asistencias con la nómina de RRHH
   useEffect(() => {
-    const fAsistencias = asistencias.filter(a => {
+    let fAsistencias = asistencias.filter(a => {
       if (filtroTipo === "INVECEM") return a.tipoPersonal === "INVECEM";
       if (filtroTipo === "INCES") return a.tipoPersonal?.includes("INCES");
       if (filtroTipo === "PASANTES") return a.tipoPersonal === "Pasante";
       return true;
+    });
+
+    fAsistencias = fAsistencias.filter(a => {
+      const tipo = a.tipoPersonal?.toUpperCase() || "";
+      return !tipo.includes("CONTRATA") && !tipo.includes("CONTRATISTA");
     });
 
     const nominaFiltrada = nominaTotalData.filter(p => {
@@ -122,19 +126,28 @@ export default function AsistenciaDiariaRRHH() {
       return true;
     });
 
+    const activosEnPlanta = fAsistencias.filter(a => {
+      if (a.salida && a.salida !== "--:--") return false;
+      return nominaFiltrada.some(p => p.ficha === a.ficha);
+    });
+
     setResumen({
       total: nominaFiltrada.length,
-      presentes: fAsistencias.filter(a => !a.salida).length,
+      presentes: activosEnPlanta.length, 
       inasistencias: nominaFiltrada.filter(p => (p.estatus?.includes("Activo") || !p.estatus) && p.tipoPersonal && !fAsistencias.some(a => a.ficha === p.ficha)).length,
       vacaciones: nominaFiltrada.filter(p => p.estatus === "Vacaciones").length,
       reposo: nominaFiltrada.filter(p => p.estatus === "Reposo Médico").length
     });
   }, [filtroTipo, asistencias, nominaTotalData]);
 
-  // CORRECCIÓN 2: Lógica de filtrado tolerante a fallos de campos faltantes en estatus especiales
   const obtenerListaFinal = () => {
     let base = nominaTotalData.map(p => {
       const registro = asistencias.find(a => a.ficha === p.ficha);
+      
+      // SOLUCIÓN: Cruce unificado, jerárquico y bidireccional de fechas para evitar celdas vacías
+      const fechaFinReposoCalculada = p.fechaFinReposo || p.fechaHasta || p.fechaFin || p.fechafinreposo || p.hasta || registro?.fechaFinReposo || p.fechaRegreso || null;
+      const fechaRegresoCalculada = p.fechaRegreso || p.fechaFin || registro?.fechaRegreso || fechaFinReposoCalculada;
+
       return { 
         ...p, 
         entrada: registro?.entrada || null, 
@@ -143,14 +156,10 @@ export default function AsistenciaDiariaRRHH() {
         alertaSalida: registro?.alertaSalida || null, 
         solicitudSalida: registro?.solicitudSalida || null, 
         regId: registro?.id || null,
+        estatusAsistenciaHoy: registro?.estatus || null, 
         
-        fechaRegreso: registro?.fechaRegreso || p.fechaRegreso || null,
-        
-        fechaFinReposo: registro?.fechaFinReposo || p.fechaFinReposo || 
-                        registro?.fechaHasta || p.fechaHasta || 
-                        registro?.fechaFin || p.fechaFin || 
-                        registro?.fechafinreposo || p.fechafinreposo || 
-                        registro?.hasta || p.hasta || null
+        fechaRegreso: fechaRegresoCalculada,
+        fechaFinReposo: fechaFinReposoCalculada
       };
     });
 
@@ -162,8 +171,6 @@ export default function AsistenciaDiariaRRHH() {
       if (filtroTipo === "INVECEM") cumpleTipo = p.tipoPersonal === "INVECEM";
       if (filtroTipo === "INCES") cumpleTipo = p.tipoPersonal?.includes("INCES");
       if (filtroTipo === "PASANTES") cumpleTipo = p.tipoPersonal === "Pasante";
-      
-      // Si el filtro de la pestaña superior está en TODOS, dejamos pasar a los que no tienen tipoPersonal
       if (filtroTipo === "TODOS") cumpleTipo = true;
 
       return cumpleTexto && cumpleArea && cumpleTipo;
@@ -171,12 +178,30 @@ export default function AsistenciaDiariaRRHH() {
 
     if (filtroEstadoClic === "PRESENTES") return base.filter(p => p.asistioHoy && !p.salida); 
     if (filtroEstadoClic === "INASISTENCIAS") return base.filter(p => !p.asistioHoy && (p.estatus?.includes("Activo") || !p.estatus));
-    if (filtroEstadoClic === "VACACIONES") return base.filter(p => p.estatus === "Vacaciones");
-    if (filtroEstadoClic === "REPOSO") return base.filter(p => p.estatus === "Reposo Médico");
+    if (filtroEstadoClic === "VACACIONES") return base.filter(p => p.estatus === "Vacaciones" || (p.asistioHoy && p.estatusAsistenciaHoy === "BENEFICIO" && p.estatus === "Vacaciones"));
+    if (filtroEstadoClic === "REPOSO") return base.filter(p => p.estatus === "Reposo Médico" || (p.asistioHoy && p.estatusAsistenciaHoy === "BENEFICIO" && p.estatus === "Reposo Médico"));
+    
+    if (filtroEstadoClic === "TODOS") {
+      return base.sort((a, b) => {
+        const aEnPlanta = a.asistioHoy && !a.salida;
+        const bEnPlanta = b.asistioHoy && !b.salida;
+        if (aEnPlanta && !bEnPlanta) return -1;
+        if (!aEnPlanta && bEnPlanta) return 1;
+        return 0;
+      });
+    }
+
     return base;
   };
 
   const getEstadoEstilo = (reg) => {
+    if (reg.asistioHoy && reg.estatusAsistenciaHoy === "BENEFICIO") {
+      if (reg.estatus === "Vacaciones") {
+        return { texto: "Vacaciones", clase: "vacaciones-status", esBeneficio: true };
+      }
+      return { texto: "Reposo Médico", clase: "reposo-status", esBeneficio: true };
+    }
+
     if (reg.estatus === "Vacaciones") return { texto: "Vacaciones", clase: "vacaciones-status" };
     if (reg.estatus === "Reposo Médico") return { texto: "Reposo Médico", clase: "reposo-status" };
     if (!reg.asistioHoy) return { texto: "Inasistencia", clase: "falta" };
@@ -235,8 +260,8 @@ export default function AsistenciaDiariaRRHH() {
               <span className="hint">Ver quiénes</span>
             </div>
             <div className={`card card-total ${filtroEstadoClic === "TODOS" ? "active-card" : ""}`} onClick={() => setFiltroEstadoClic("TODOS")}>
-              <small>TOTAL REGISTROS</small><h2>{asistencias.length}</h2>
-              <span className="hint">Asistencias totales hoy</span>
+              <small>TOTAL NÓMINA</small><h2>{resumen.total}</h2>
+              <span className="hint">Personal total hoy</span>
             </div>
           </section>
 
@@ -279,6 +304,11 @@ export default function AsistenciaDiariaRRHH() {
                         <div className="status-cell-wrapper">
                           <span className={`badge ${est.clase}`}>{est.texto}</span>
                           
+                          {est.esBeneficio && (
+                            <span className="badge-benefit-label">📦 BENEFICIO</span>
+                          )}
+                          
+                          {/* FECHA DE REGRESO DE VACACIONES */}
                           {reg.estatus === "Vacaciones" && reg.fechaRegreso && (
                             <div className="return-date-text">
                               Regresa: <span>
@@ -290,6 +320,7 @@ export default function AsistenciaDiariaRRHH() {
                             </div>
                           )}
 
+                          {/* FECHA DE CULMINACIÓN DE REPOSO MÉDICO */}
                           {reg.estatus === "Reposo Médico" && reg.fechaFinReposo && (
                             <div className="return-date-text">
                               Hasta: <span>
@@ -397,6 +428,12 @@ export default function AsistenciaDiariaRRHH() {
         .reposo-status { background: #f59e0b; color: white; }
         .alerta-blink { background: #e30613; color: white; animation: blink 0.8s infinite; }
         .terminado { background: #0f172a; color: white; }
+
+        .badge-benefit-label {
+          background: #0f172a; color: #ffffff; padding: 4px 10px; border-radius: 6px;
+          font-weight: 900; font-size: 9px; text-transform: uppercase; display: inline-block;
+          margin-top: 3px; letter-spacing: 0.3px; border: 1px solid #cbd5e1;
+        }
 
         .status-cell-wrapper { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
         .return-date-text { font-size: 11px; font-weight: 700; color: #64748b; margin-top: 2px; }

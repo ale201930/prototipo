@@ -23,7 +23,7 @@ const ESTADOS_NOMINALES = [
   "Inactivo"
 ];
 
-export default function UsuariosRegistrados() {
+export default function PersonalRegistrado() {
   const router = useRouter();
   const [usuarios, setUsuarios] = useState([]);
   const [asistenciasHoy, setAsistenciasHoy] = useState([]); 
@@ -234,16 +234,21 @@ export default function UsuariosRegistrados() {
   };
 
   const cambiarEstatusFirebase = async (id, nuevoEstatus, inicio, fin) => {
-    try {
-      await updateDoc(doc(db, "personal", id), { 
-        estatus: nuevoEstatus, 
-        estado: nuevoEstatus.includes("Activo") ? "Activo" : nuevoEstatus,
-        fechaSalida: inicio || null,
-        fechaRegreso: fin || null
-      });
-    } catch (error) { console.error(error); }
-  };
+  try {
+    const esActivo = nuevoEstatus.includes("Activo");
 
+    await updateDoc(doc(db, "personal", id), { 
+      estatus: nuevoEstatus, 
+      estado: esActivo ? "Activo" : nuevoEstatus,
+      fechaSalida: esActivo ? null : (inicio || null),
+      fechaRegreso: esActivo ? null : (fin || null),
+      fechaFin: esActivo ? null : (fin || null) // 💡 Respaldo por si el otro archivo lee 'fechaFin'
+    });
+  } catch (error) { 
+    console.error(error); 
+    alert("Error al actualizar el estatus.");
+  }
+};
   // --- CONFIRMACIÓN DEL MODAL DE AUSENCIAS ---
   const confirmarAusenciaMódulo = async () => {
     if (!fechas.inicio || !fechas.fin) {
@@ -399,7 +404,7 @@ export default function UsuariosRegistrados() {
                   
                   {verificarPresenciaHoy(usuarioExpediente) ? (
                     <div style={{ marginTop: '10px', textAlign: 'center', padding: '10px', background: 'white', borderRadius: '8px' }}>
-                      <p style={{ fontSize: '13px', color: '#16a34a', fontWeight: 'bold' }}>✅ Presente: Registro confirmado en sistema.</p>
+                      <p style={{ fontSize: '13px', color: '#16a34a', fontWeight: 'bold' }}>✅ Presente: Registro confirmed en sistema.</p>
                     </div>
                   ) : (
                     verificarSiDebeMarcarFalta(usuarioExpediente) ? (
@@ -463,7 +468,8 @@ export default function UsuariosRegistrados() {
         <button className="btn-back" onClick={() => router.push("/recursos-humanos")}>← Volver al Panel</button>
         <div className="title-wrapper" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px' }}>
           <div>
-            <h1 className="title">Base de Datos de Personal</h1>
+            {/* CORRECCIÓN: TÍTULO PRINCIPAL ACTUALIZADO A PERSONAL REGISTRADO */}
+            <h1 className="title">Personal Registrado</h1>
             <div className="total-badge">Registros encontrados: {usuariosFiltrados.length}</div>
           </div>
           <div className="seguridad-box shadow-relief no-print">
@@ -488,12 +494,19 @@ export default function UsuariosRegistrados() {
 
       <div className="filters-bar no-print">
         <div className="btn-group">
-          ={["TODOS", "INVECEM", "INCES", "PASANTES"].map(f => (
+          {["TODOS", "INVECEM", "INCES", "PASANTES"].map(f => (
             <button key={f} className={`btn-toggle ${filtroTipo === f ? "active" : ""}`} onClick={() => setFiltroTipo(f)}>{f}</button>
           ))}
         </div>
         <input type="text" placeholder="Buscar por nombre, ficha o cédula..." className="search-input" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
-        <div className="actions-buttons">
+        <div className="actions-buttons" style={{ display: 'flex', gap: '10px' }}>
+            {/* CORRECCIÓN: NUEVO BOTÓN INTEGRADO HACIA LA SUBRUTA EN MINÚSCULAS */}
+            <button 
+              className="btn-record-new" 
+              onClick={() => router.push("/recursos-humanos/personal-registrado/registrar-nuevo-personal")}
+            >
+              ➕ Registrar Nuevo Personal
+            </button>
             <button className="btn-pdf" onClick={generarPDF}>Descargar PDF</button>
             <button className="btn-print" onClick={() => window.print()}>Imprimir</button>
         </div>
@@ -604,6 +617,25 @@ export default function UsuariosRegistrados() {
     padding: 15px; 
     border-radius: 18px; 
     border: 1px solid #e2e8f0; 
+  }
+
+  /* ESTILO DEL NUEVO BOTÓN VERDE REQUERIDO */
+  .btn-record-new {
+    background: #22c55e;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-weight: 800;
+    cursor: pointer;
+    font-size: 13px;
+    transition: 0.3s;
+    box-shadow: 0 4px 0px #16a34a;
+    white-space: nowrap;
+  }
+  .btn-record-new:hover {
+    transform: translateY(2px);
+    box-shadow: 0 2px 0px #15803d;
   }
 
   /* BOTONES DE IMPRIMIR Y PDF */
