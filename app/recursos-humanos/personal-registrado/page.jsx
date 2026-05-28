@@ -37,7 +37,7 @@ export default function PersonalRegistrado() {
   const [nuevaClave, setNuevaClave] = useState("");
   const [editandoClave, setEditandoClave] = useState(false);
 
-  // --- CONTROL DE AUSENCIAS (MODAL RESTAURADO) ---
+  // --- CONTROL DE AUSENCIAS ---
   const [showModal, setShowModal] = useState(false);
   const [tipoSeleccionado, setTipoSeleccionado] = useState("");
   const [usuarioParaEstado, setUsuarioParaEstado] = useState(null);
@@ -47,13 +47,11 @@ export default function PersonalRegistrado() {
   const [usuarioExpediente, setUsuarioExpediente] = useState(null);
   const [notaAmonestacion, setNotaAmonestacion] = useState("");
 
-  // --- 1. CORRECCIÓN: NORMALIZACIÓN DE FECHAS (8/5/2026 siempre) ---
   const normalizarFecha = (fechaStr) => {
     if (!fechaStr) return "";
     return fechaStr.replace(/-/g, '/').split('/').map(num => parseInt(num, 10)).join('/');
   };
 
-  // --- 2. CORRECCIÓN: NORMALIZACIÓN DE TEXTO/ID ---
   const limpiarID = (val) => val ? val.toString().trim().toLowerCase() : "";
 
   useEffect(() => {
@@ -94,7 +92,6 @@ export default function PersonalRegistrado() {
     };
   }, []);
 
-  // --- 3. CORRECCIÓN: VERIFICACIÓN MULTI-ID ---
   const verificarPresenciaHoy = (usuario) => {
     if (!usuario || asistenciasHoy.length === 0) return false;
     
@@ -226,7 +223,7 @@ export default function PersonalRegistrado() {
     if (nuevoEstatus === "Vacaciones" || nuevoEstatus === "Reposo Médico") {
       setUsuarioParaEstado(user);
       setTipoSeleccionado(nuevoEstatus);
-      setFechas({ inicio: "", fin: "" }); // Resetear fechas previas
+      setFechas({ inicio: "", fin: "" });
       setShowModal(true);
     } else {
       cambiarEstatusFirebase(user.id, nuevoEstatus, null, null);
@@ -234,22 +231,21 @@ export default function PersonalRegistrado() {
   };
 
   const cambiarEstatusFirebase = async (id, nuevoEstatus, inicio, fin) => {
-  try {
-    const esActivo = nuevoEstatus.includes("Activo");
+    try {
+      const esActivo = nuevoEstatus.includes("Activo");
+      await updateDoc(doc(db, "personal", id), { 
+        estatus: nuevoEstatus, 
+        estado: esActivo ? "Activo" : nuevoEstatus,
+        fechaSalida: esActivo ? null : (inicio || null),
+        fechaRegreso: esActivo ? null : (fin || null),
+        fechaFin: esActivo ? null : (fin || null)
+      });
+    } catch (error) { 
+      console.error(error); 
+      alert("Error al actualizar el estatus.");
+    }
+  };
 
-    await updateDoc(doc(db, "personal", id), { 
-      estatus: nuevoEstatus, 
-      estado: esActivo ? "Activo" : nuevoEstatus,
-      fechaSalida: esActivo ? null : (inicio || null),
-      fechaRegreso: esActivo ? null : (fin || null),
-      fechaFin: esActivo ? null : (fin || null) // 💡 Respaldo por si el otro archivo lee 'fechaFin'
-    });
-  } catch (error) { 
-    console.error(error); 
-    alert("Error al actualizar el estatus.");
-  }
-};
-  // --- CONFIRMACIÓN DEL MODAL DE AUSENCIAS ---
   const confirmarAusenciaMódulo = async () => {
     if (!fechas.inicio || !fechas.fin) {
       alert("⚠️ Debe rellenar la fecha de inicio y de regreso.");
@@ -300,8 +296,15 @@ export default function PersonalRegistrado() {
   if (!isClient) return null;
 
   return (
-    <div className="container">
-      {/* MODAL DE SELECCIÓN DE FECHAS (VACACIONES / REPOSOS) - RECONSTRUIDO AL 100% */}
+    <div className="container main-wrapper">
+      <header className="invecem-header">
+        <div className="logo-box">
+          SYSTEM-CONTROL<span className="red-text"> INVECEM</span>
+        </div>
+        <button className="btn-return" onClick={() => router.push("/recursos-humanos")}>VOLVER </button>
+      </header>
+
+      {/* MODAL DE SELECCIÓN DE FECHAS */}
       {showModal && usuarioParaEstado && (
         <div className="modal-overlay">
           <div className="modal-content shadow-relief" style={{ width: '450px', border: '3px solid #e30613' }}>
@@ -404,7 +407,7 @@ export default function PersonalRegistrado() {
                   
                   {verificarPresenciaHoy(usuarioExpediente) ? (
                     <div style={{ marginTop: '10px', textAlign: 'center', padding: '10px', background: 'white', borderRadius: '8px' }}>
-                      <p style={{ fontSize: '13px', color: '#16a34a', fontWeight: 'bold' }}>✅ Presente: Registro confirmed en sistema.</p>
+                      <p style={{ fontSize: '13px', color: '#16a34a', fontWeight: 'bold' }}>✅ Presente: Registro confirmado en sistema.</p>
                     </div>
                   ) : (
                     verificarSiDebeMarcarFalta(usuarioExpediente) ? (
@@ -463,30 +466,28 @@ export default function PersonalRegistrado() {
         </div>
       )}
 
-      {/* RESTO DE LA ESTRUCTURA PRINCIPAL */}
-      <div className="header-section no-print">
-        <button className="btn-back" onClick={() => router.push("/recursos-humanos")}>← Volver al Panel</button>
+      {/* VISTA PRINCIPAL */}
+      <div className="header-section no-print" style={{marginTop: '20px'}}>
         <div className="title-wrapper" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px' }}>
           <div>
-            {/* CORRECCIÓN: TÍTULO PRINCIPAL ACTUALIZADO A PERSONAL REGISTRADO */}
             <h1 className="title">Personal Registrado</h1>
             <div className="total-badge">Registros encontrados: {usuariosFiltrados.length}</div>
           </div>
           <div className="seguridad-box shadow-relief no-print">
              <label className="exp-label">🔐 Gestión Clave de Expedientes</label>
              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
-                {editandoClave ? (
-                  <>
-                    <input type="password" placeholder="Clave ACTUAL..." className="clave-input full-width" onChange={(e) => setConfirmarVieja(e.target.value)} />
-                    <input type="password" placeholder="Nueva Clave..." className="clave-input full-width" onChange={(e) => setNuevaClave(e.target.value)} />
-                    <div style={{ display: 'flex', gap: '5px' }}>
-                      <button className="btn-save-clave" style={{ flex: 1 }} onClick={actualizarClaveMaestra}>Confirmar</button>
-                      <button className="btn-cancel-clave" onClick={() => setEditandoClave(false)}>X</button>
-                    </div>
-                  </>
-                ) : (
-                  <button className="btn-edit-clave" onClick={() => setEditandoClave(true)}>Configurar Clave Maestra</button>
-                )}
+               {editandoClave ? (
+                 <>
+                   <input type="password" placeholder="Clave ACTUAL..." className="clave-input full-width" onChange={(e) => setConfirmarVieja(e.target.value)} />
+                   <input type="password" placeholder="Nueva Clave..." className="clave-input full-width" onChange={(e) => setNuevaClave(e.target.value)} />
+                   <div style={{ display: 'flex', gap: '5px' }}>
+                     <button className="btn-save-clave" style={{ flex: 1 }} onClick={actualizarClaveMaestra}>Confirmar</button>
+                     <button className="btn-cancel-clave" onClick={() => setEditandoClave(false)}>X</button>
+                   </div>
+                 </>
+               ) : (
+                 <button className="btn-edit-clave" onClick={() => setEditandoClave(true)}>Configurar Clave Maestra</button>
+               )}
              </div>
           </div>
         </div>
@@ -500,7 +501,6 @@ export default function PersonalRegistrado() {
         </div>
         <input type="text" placeholder="Buscar por nombre, ficha o cédula..." className="search-input" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
         <div className="actions-buttons" style={{ display: 'flex', gap: '10px' }}>
-            {/* CORRECCIÓN: NUEVO BOTÓN INTEGRADO HACIA LA SUBRUTA EN MINÚSCULAS */}
             <button 
               className="btn-record-new" 
               onClick={() => router.push("/recursos-humanos/personal-registrado/registrar-nuevo-personal")}
@@ -550,243 +550,66 @@ export default function PersonalRegistrado() {
       </div>
 
       <style jsx>{`
-  /* --- WRAPPER Y FONDO GENERAL --- */
-  .container { 
-    padding: 40px 20px; 
-    max-width: 1450px; 
-    margin: 0 auto; 
-    background-color: #f0f4f8; 
-    background-image: radial-gradient(#d1d5db 0.8px, transparent 0.8px);
-    background-size: 24px 24px;
-    min-height: 100vh; 
-    font-family: 'Inter', sans-serif; 
-  }
+        .container { padding: 40px 20px; max-width: 1450px; margin: 0 auto; background-color: #f0f4f8; background-image: radial-gradient(#d1d5db 0.8px, transparent 0.8px); background-size: 24px 24px; min-height: 100vh; font-family: 'Inter', sans-serif; }
+        
+       /* --- CABECERA ESTILO PANEL (UNIFICADA) --- */
+        .invecem-header { 
+          background: #0f172a; 
+          color: white; 
+          padding: 12px 25px; 
+          display: flex; 
+          justify-content: space-between; 
+          align-items: center; 
+          border-bottom: 4px solid #e30613; 
+          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .logo-box { font-weight: 900; font-size: 20px; letter-spacing: -1px; }
+        .red-text { color: #e30613; }
+        
+        .btn-return { 
+          background: #e30613; 
+          color: white; 
+          border: none; 
+          padding: 8px 16px; 
+          border-radius: 8px; 
+          cursor: pointer; 
+          font-size: 11px; 
+          font-weight: 800; 
+          text-transform: uppercase;
+          transition: 0.3s;
+        }
+        .btn-return:hover { background: #b8050f; transform: translateY(-2px); }
 
-  /* --- SECCIÓN DE CABECERA --- */
-  .header-section { 
-    display: flex;
-    justify-content: space-between;
-    align-items: center; 
-    margin-bottom: 30px; 
-    border-left: 8px solid #e30613; 
-    padding-left: 20px; 
-  }
-
-  /* --- CAJA DE SEGURIDAD / CLAVE MAESTRA --- */
-  .seguridad-box { 
-    background: white; 
-    padding: 15px; 
-    border-radius: 12px; 
-    border: 2px solid #0f172a; 
-    width: 280px;
-    box-shadow: 6px 6px 0px rgba(15, 23, 42, 0.1);
-  }
-  .clave-input { 
-    padding: 10px; 
-    border: 2px solid #f1f5f9; 
-    border-radius: 8px; 
-    font-size: 12px; 
-    width: 100%;
-    margin-bottom: 8px;
-    outline: none;
-    transition: 0.3s;
-  }
-  .clave-input:focus { border-color: #e30613; }
-
-  .title { color: #0f172a; font-size: 38px; font-weight: 900; letter-spacing: -1.5px; margin: 0; }
-  
-  .total-badge { 
-    font-weight: 900; 
-    color: white; 
-    background: #0f172a; 
-    padding: 8px 18px; 
-    border-radius: 12px; 
-    font-size: 13px; 
-    display: inline-block; 
-    margin-top: 10px;
-    box-shadow: 0 4px 6px rgba(15, 23, 42, 0.2);
-  }
-
-  /* --- BARRA DE FILTROS Y BOTONES PRINCIPALES --- */
-  .filters-bar { 
-    display: flex; 
-    gap: 15px; 
-    margin-bottom: 25px; 
-    align-items: center; 
-    background: white; 
-    padding: 15px; 
-    border-radius: 18px; 
-    border: 1px solid #e2e8f0; 
-  }
-
-  /* ESTILO DEL NUEVO BOTÓN VERDE REQUERIDO */
-  .btn-record-new {
-    background: #22c55e;
-    color: white;
-    border: none;
-    padding: 12px 24px;
-    border-radius: 10px;
-    font-weight: 800;
-    cursor: pointer;
-    font-size: 13px;
-    transition: 0.3s;
-    box-shadow: 0 4px 0px #16a34a;
-    white-space: nowrap;
-  }
-  .btn-record-new:hover {
-    transform: translateY(2px);
-    box-shadow: 0 2px 0px #15803d;
-  }
-
-  /* BOTONES DE IMPRIMIR Y PDF */
-  .btn-print, .btn-pdf { 
-    background: #e30613; 
-    color: white; 
-    border: none; 
-    padding: 12px 24px; 
-    border-radius: 10px; 
-    font-weight: 800; 
-    cursor: pointer; 
-    font-size: 13px;
-    transition: 0.3s;
-    box-shadow: 0 4px 0px #b8050f;
-    white-space: nowrap;
-  }
-  .btn-pdf { background: #0f172a; box-shadow: 0 4px 0px #000; } 
-
-  .btn-print:hover, .btn-pdf:hover { 
-    transform: translateY(2px); 
-    box-shadow: 0 2px 0px #8a040b; 
-  }
-
-  .btn-group { display: flex; background: #f1f5f9; padding: 5px; border-radius: 12px; }
-  .btn-toggle { 
-    border: none; 
-    padding: 10px 22px; 
-    border-radius: 10px; 
-    cursor: pointer; 
-    font-size: 11px; 
-    font-weight: 900; 
-    color: #64748b; 
-    text-transform: uppercase;
-  }
-  .btn-toggle.active { background: #0f172a; color: white; }
-
-  .search-input { 
-    flex-grow: 1; 
-    padding: 14px; 
-    border: 2px solid #f1f5f9; 
-    border-radius: 12px; 
-    outline: none; 
-    font-weight: 600;
-  }
-  .search-input:focus { border-color: #e30613; }
-
-  /* --- TABLA --- */
-  .table-card { 
-    background: white; 
-    border-radius: 24px; 
-    border: 1px solid #e2e8f0; 
-    overflow: hidden; 
-    position: relative;
-    box-shadow: 10px 10px 0px #0f172a; 
-  }
-  
-  table { width: 100%; border-collapse: collapse; }
-  th { 
-    background: #f8fafc; 
-    padding: 20px 15px; 
-    text-align: left; 
-    color: #94a3b8; 
-    font-size: 11px; 
-    text-transform: uppercase; 
-    border-bottom: 3px solid #e30613; 
-    font-weight: 900;
-  }
-  td { padding: 18px 15px; border-bottom: 1px solid #f1f5f9; font-size: 14px; color: #1e293b; }
-
-  .name-text { font-weight: 800; text-transform: uppercase; color: #0f172a; }
-  .cargo-text { font-weight: 800; color: #e30613; font-size: 12px; }
-  
-  .status-select { 
-    padding: 10px 12px; 
-    border-radius: 10px; 
-    font-size: 11px; 
-    font-weight: 800; 
-    cursor: pointer; 
-    border: 1px solid #e2e8f0;
-    border-left: 6px solid #e30613;
-    background: white;
-  }
-
-  /* --- BOTONES DE ACCIÓN EN FILA --- */
-  .actions-cell { display: flex; gap: 8px; align-items: center; }
-  
-  .btn-historial { 
-    background: #e30613; 
-    color: white; 
-    border: none; 
-    padding: 8px 14px; 
-    border-radius: 8px; 
-    font-weight: 900; 
-    cursor: pointer; 
-    font-size: 10px; 
-    box-shadow: 0 3px 0px #b8050f;
-  }
-
-  .btn-edit { 
-    background: #3b82f6; 
-    color: white; 
-    border: none; 
-    padding: 8px 14px; 
-    border-radius: 8px; 
-    font-weight: 900; 
-    cursor: pointer; 
-    font-size: 10px; 
-    box-shadow: 0 3px 0px #1d4ed8;
-  }
-
-  .btn-delete { 
-    background: #0f172a; 
-    color: white; 
-    border: none; 
-    padding: 8px 14px; 
-    border-radius: 8px; 
-    font-weight: 900; 
-    cursor: pointer; 
-    font-size: 10px; 
-    box-shadow: 0 3px 0px #000;
-  }
-
-  .btn-historial:hover, .btn-edit:hover, .btn-delete:hover {
-    transform: translateY(1px);
-    box-shadow: 0 1px 0px rgba(0,0,0,0.5);
-  }
-
-  /* --- MODAL GENERAL --- */
-  .modal-overlay { 
-    position: fixed; 
-    top: 0; left: 0; width: 100%; height: 100%; 
-    background: rgba(15, 23, 42, 0.9); 
-    display: flex; align-items: center; justify-content: center; 
-    z-index: 1000; 
-    backdrop-filter: blur(5px);
-  }
-  .modal-content { 
-    background: white; 
-    padding: 40px; 
-    border-radius: 24px; 
-    border: 2px solid #e30613;
-  }
-  .shadow-relief { box-shadow: 10px 10px 0px #0f172a; }
-  .exp-label { font-size: 11px; font-weight: 900; color: #94a3b8; text-transform: uppercase; }
-
-  @media print { 
-    .no-print { display: none !important; } 
-    .container { background: white; padding: 0; } 
-    .table-card { box-shadow: none; border: 1px solid #000; }
-  }
-`}</style>
+        .header-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-left: 8px solid #e30613; padding-left: 20px; }
+        .seguridad-box { background: white; padding: 15px; border-radius: 12px; border: 2px solid #0f172a; width: 280px; box-shadow: 6px 6px 0px rgba(15, 23, 42, 0.1); }
+        .clave-input { padding: 10px; border: 2px solid #f1f5f9; border-radius: 8px; font-size: 12px; width: 100%; margin-bottom: 8px; outline: none; }
+        .title { color: #0f172a; font-size: 38px; font-weight: 900; letter-spacing: -1.5px; margin: 0; }
+        .total-badge { font-weight: 900; color: white; background: #0f172a; padding: 8px 18px; border-radius: 12px; font-size: 13px; display: inline-block; margin-top: 10px; }
+        .filters-bar { display: flex; gap: 15px; margin-bottom: 25px; align-items: center; background: white; padding: 15px; border-radius: 18px; border: 1px solid #e2e8f0; }
+        .btn-record-new { background: #22c55e; color: white; border: none; padding: 12px 24px; border-radius: 10px; font-weight: 800; cursor: pointer; font-size: 13px; box-shadow: 0 4px 0px #16a34a; }
+        .btn-print, .btn-pdf { background: #e30613; color: white; border: none; padding: 12px 24px; border-radius: 10px; font-weight: 800; cursor: pointer; font-size: 13px; box-shadow: 0 4px 0px #b8050f; }
+        .btn-pdf { background: #0f172a; box-shadow: 0 4px 0px #000; }
+        .btn-group { display: flex; background: #f1f5f9; padding: 5px; border-radius: 12px; }
+        .btn-toggle { border: none; padding: 10px 22px; border-radius: 10px; cursor: pointer; font-size: 11px; font-weight: 900; color: #64748b; text-transform: uppercase; }
+        .btn-toggle.active { background: #0f172a; color: white; }
+        .search-input { flex-grow: 1; padding: 14px; border: 2px solid #f1f5f9; border-radius: 12px; outline: none; font-weight: 600; }
+        .table-card { background: white; border-radius: 24px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 10px 10px 0px #0f172a; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #f8fafc; padding: 20px 15px; text-align: left; color: #94a3b8; font-size: 11px; text-transform: uppercase; border-bottom: 3px solid #e30613; font-weight: 900; }
+        td { padding: 18px 15px; border-bottom: 1px solid #f1f5f9; font-size: 14px; color: #1e293b; }
+        .name-text { font-weight: 800; text-transform: uppercase; color: #0f172a; }
+        .cargo-text { font-weight: 800; color: #e30613; font-size: 12px; }
+        .status-select { padding: 10px 12px; border-radius: 10px; font-size: 11px; font-weight: 800; cursor: pointer; border: 1px solid #e2e8f0; border-left: 6px solid #e30613; background: white; }
+        .actions-cell { display: flex; gap: 8px; align-items: center; }
+        .btn-historial { background: #e30613; color: white; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 900; cursor: pointer; font-size: 10px; }
+        .btn-edit { background: #3b82f6; color: white; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 900; cursor: pointer; font-size: 10px; }
+        .btn-delete { background: #0f172a; color: white; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 900; cursor: pointer; font-size: 10px; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.9); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(5px); }
+        .modal-content { background: white; padding: 40px; border-radius: 24px; border: 2px solid #e30613; }
+        .shadow-relief { box-shadow: 10px 10px 0px #0f172a; }
+        .exp-label { font-size: 11px; font-weight: 900; color: #94a3b8; text-transform: uppercase; }
+        @media print { .no-print { display: none !important; } .container { background: white; padding: 0; } .table-card { box-shadow: none; border: 1px solid #000; } }
+      `}</style>
     </div>
   );
 }

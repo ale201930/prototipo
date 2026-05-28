@@ -74,11 +74,12 @@ function FormularioRegistro() {
   return (
     <div className="main-wrapper">
       <div className="container">
-        <header className="nav-header">
-          <button className="btn-back-minimal" onClick={() => router.push("/recursos-humanos/personal-registrado")}>
-            <span>←</span> Volver al Panel Principal
-          </button>
-        </header>
+       <header className="invecem-header">
+        <div className="logo-box">
+          SYSTEM-CONTROL<span className="red-text"> INVECEM</span>
+        </div>
+        <button className="btn-return" onClick={() => router.push("/recursos-humanos/personal-registrado")}>VOLVER </button>
+      </header>
 
         <div className="form-card-invecem">
           <div className="red-accent-bar"></div>
@@ -207,6 +208,33 @@ function FormularioRegistro() {
       </div>
 
      <style jsx>{`
+     /* --- CABECERA ESTILO PANEL (UNIFICADA) --- */
+        .invecem-header { 
+          background: #0f172a; 
+          color: white; 
+          padding: 12px 25px; 
+          display: flex; 
+          justify-content: space-between; 
+          align-items: center; 
+          border-bottom: 4px solid #e30613; 
+          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .logo-box { font-weight: 900; font-size: 20px; letter-spacing: -1px; }
+        .red-text { color: #e30613; }
+        
+        .btn-return { 
+          background: #e30613; 
+          color: white; 
+          border: none; 
+          padding: 8px 16px; 
+          border-radius: 8px; 
+          cursor: pointer; 
+          font-size: 11px; 
+          font-weight: 800; 
+          text-transform: uppercase;
+          transition: 0.3s;
+        }
+        .btn-return:hover { background: #b8050f; transform: translateY(-2px); }
         /* Fondos y Tipografía - ACTUALIZADO PARA MÁS ESTILO */
         .main-wrapper { 
           /* Fondo con gradiente sutil y patrón de puntos profesional */
@@ -214,9 +242,9 @@ function FormularioRegistro() {
           background-image: radial-gradient(#d1d5db 0.8px, transparent 0.8px);
           background-size: 24px 24px;
           min-height: 100vh; 
-          padding: 60px 20px; 
+          
           font-family: 'Inter', system-ui, -apple-system, sans-serif; 
-          position: relative;
+          
         }
 
         /* Añadimos un resplandor de color muy suave al fondo para que no sea solo gris */

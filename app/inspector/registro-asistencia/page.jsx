@@ -18,13 +18,11 @@ export default function RegistroAsistencia() {
   const [cargando, setCargando] = useState(false);
   const [fechaHoy, setFechaHoy] = useState("");
 
-  // ESTADOS NUEVOS PARA EL MODAL EXCEPCIONAL DE BENEFICIOS
   const [mostrarModalBeneficio, setMostrarModalBeneficio] = useState(false);
   const [trabajadorEspecial, setTrabajadorEspecial] = useState(null);
 
   const MASTER_PIN = "1234"; 
 
-  // --- LÓGICA DE TIEMPO ---
   const obtenerHora24 = () => {
     return new Date().toLocaleTimeString('es-ES', { hour12: false, hour: '2-digit', minute: '2-digit' });
   };
@@ -39,9 +37,6 @@ export default function RegistroAsistencia() {
     const opciones = { day: 'numeric', month: 'long', year: 'numeric' };
     setFechaHoy(new Date().toLocaleDateString('es-ES', opciones).toUpperCase());
 
-    // CORRECCIÓN DE FILTRO TEMPORAL:
-    // Calculamos el inicio del día de ayer (00:00 AM) para evitar basura del pasado, 
-    // pero manteniendo el margen necesario para rescatar el turno nocturno que entró anoche.
     const limiteAyer = new Date();
     limiteAyer.setDate(limiteAyer.getDate() - 1);
     limiteAyer.setHours(0, 0, 0, 0);
@@ -57,7 +52,6 @@ export default function RegistroAsistencia() {
     });
 
     const mantenerFoco = () => {
-      // Bloqueamos el autofoco cíclico únicamente si el modal de alerta está abierto
       if (!mostrarModalBeneficio) {
         inputRef.current?.focus();
       }
@@ -85,7 +79,6 @@ export default function RegistroAsistencia() {
     }
   };
 
-  // FUNCIÓN NUEVA: Inserta de manera forzada al trabajador guardando la trazabilidad de beneficios
   const ejecutarEntradaExcepcional = async (trabajador) => {
     setCargando(true);
     try {
@@ -99,7 +92,7 @@ export default function RegistroAsistencia() {
         tipoPersonal: trabajador.tipoPersonal || "INVECEM",
         entrada: horaActual,
         salida: null,
-        estatus: "BENEFICIO", // Estatus único e identificable
+        estatus: "BENEFICIO",
         fechaHora: serverTimestamp(),
         observacionAcceso: `INGRESO AUTORIZADO POR BENEFICIOS: Personal en ${trabajador.estatus.toUpperCase()}`
       });
@@ -113,7 +106,6 @@ export default function RegistroAsistencia() {
     }
   };
 
-  // PROCESAR REGISTRO AUTOMÁTICO (AJUSTADO PARA idAcceso)
   const procesarRegistro = useCallback(async () => {
     const valor = identificador.trim();
     if (!valor || cargando) return;
@@ -122,7 +114,6 @@ export default function RegistroAsistencia() {
     setIdentificador(""); 
 
     try {
-      // 1. BUSCAR EN PERSONAL (Ficha o Cédula)
       const personalRef = collection(db, "personal");
       let q = query(personalRef, where("ficha", "==", valor));
       let snap = await getDocs(q);
@@ -138,7 +129,6 @@ export default function RegistroAsistencia() {
       if (!snap.empty) {
         trabajador = { id: snap.docs[0].id, ...snap.docs[0].data() };
       } else {
-        // 2. BUSCAR EN CONTRATISTAS (Por idAcceso o Cedula según imagen)
         const contratistasRef = collection(db, "contratistas");
         let qC = query(contratistasRef, where("idAcceso", "==", valor));
         let snapC = await getDocs(qC);
@@ -157,27 +147,23 @@ export default function RegistroAsistencia() {
       if (trabajador) {
         const horaActual = obtenerHora24();
         
-        // Búsqueda de registro existente para marcar salida
         const existe = asistenciasHoy.find(a => 
           (a.cedula === trabajador.cedula || (trabajador.ficha && a.ficha === trabajador.ficha)) && !a.salida
         );
 
-        // INTERCEPCIÓN DE SEGURIDAD OPERATIVA: Solo aplica si va a ENTRAR (no si ya va de salida)
         if (!existe && (trabajador.estatus === "Vacaciones" || trabajador.estatus === "Reposo Médico")) {
           setTrabajadorEspecial(trabajador);
           setMostrarModalBeneficio(true);
           setCargando(false);
-          return; // Detiene el flujo inmediato para obligar la acción del Inspector
+          return;
         }
 
         if (existe) {
-          // REGISTRAR SALIDA
           await updateDoc(doc(db, "asistencias", existe.id), {
             salida: horaActual,
             estado: "FINALIZADO" 
           });
         } else {
-          // REGISTRAR ENTRADA
           const minM = convertirAMinutos(horaActual);
           const minT = convertirAMinutos(trabajador.horaEntrada || "07:00");
           const estatusCalculado = minM > (minT + 15) ? "RETRASO" : "PUNTUAL";
@@ -204,7 +190,7 @@ export default function RegistroAsistencia() {
   }, [identificador, cargando, asistenciasHoy]);
 
   useEffect(() => {
-    if (identificador.length >= 4) { // Bajado a 4 dígitos para soportar IDs cortos de acceso
+    if (identificador.length >= 4) {
       const timeoutId = setTimeout(() => procesarRegistro(), 400);
       return () => clearTimeout(timeoutId);
     }
@@ -212,10 +198,18 @@ export default function RegistroAsistencia() {
 
   return (
     <div className="main-wrapper">
-      <div className="container">
+      {/* NUEVA CABECERA INDUSTRIAL */}
+       <header className="invecem-header">
+        <div className="logo-box">
+          SYSTEM-CONTROL<span className="red-text"> INVECEM</span>
+        </div>
+        <button className="btn-return" onClick={() => router.push("/inspector")}>VOLVER </button>
+      </header>
+
+      <div className="container" style={{ marginTop: '20px' }}>
         
         <div className="no-print nav-row">
-          <button onClick={() => router.push("/inspector")} className="btn-back">← VOLVER AL PANEL</button>
+          <div style={{width: '100px'}}></div> {/* Espaciador */}
           <div className="nav-actions">
             <button onClick={handleLimpiarBase} className="btn-clean">🧹 Limpiar Base</button>
             <button onClick={() => window.print()} className="btn-action btn-white">🖨️ Imprimir</button>
@@ -237,8 +231,8 @@ export default function RegistroAsistencia() {
           <section className="scanner-section no-print">
             <div className="scanner-layout">
               <div className="info">
-                <label>LECTOR DE IDENTIFICACIÓN</label>
-                <p>Escanee la ficha para registro automático</p>
+                <label>IDENTIFICACIÓN</label>
+                <p>Escriba la ficha para registro automático</p>
               </div>
               <input
                 ref={inputRef}
@@ -294,7 +288,6 @@ export default function RegistroAsistencia() {
         </div>
       </div>
 
-      {/* MODAL INTERACTIVO DE CONTROL DE BENEFICIOS CON ESTÉTICA INDUSTRIAL */}
       {mostrarModalBeneficio && (
         <div className="industrial-modal-overlay">
           <div className="industrial-modal-card">
@@ -349,17 +342,42 @@ export default function RegistroAsistencia() {
       )}
 
       <style jsx>{`
+        .invecem-header { 
+          background: #0f172a; 
+          color: white; 
+          padding: 12px 25px; 
+          display: flex; 
+          justify-content: space-between; 
+          align-items: center; 
+          border-bottom: 4px solid #e30613; 
+          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .logo-box { font-weight: 900; font-size: 20px; letter-spacing: -1px; }
+        .red-text { color: #e30613; }
+        
+        .btn-return { 
+          background: #e30613; 
+          color: white; 
+          border: none; 
+          padding: 8px 16px; 
+          border-radius: 8px; 
+          cursor: pointer; 
+          font-size: 11px; 
+          font-weight: 800; 
+          text-transform: uppercase;
+          transition: 0.3s;
+        }
+        .btn-return:hover { background: #b8050f; transform: translateY(-2px); }
         .main-wrapper { 
           background-color: #f1f5f9; 
           background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
           background-size: 20px 20px;
-          min-height: 100vh; padding: 40px 20px; font-family: 'Inter', sans-serif; 
+          min-height: 100vh; padding-bottom: 40px; font-family: 'Inter', sans-serif; 
         }
         .container { max-width: 1200px; margin: 0 auto; }
         
         .nav-row { display: flex; justify-content: space-between; margin-bottom: 25px; align-items: center; }
         .nav-actions { display: flex; gap: 12px; }
-        .btn-back { background: #0f172a; color: white; border: none; padding: 12px 20px; border-radius: 10px; font-weight: 800; cursor: pointer; }
         
         .btn-clean { background: white; color: #e30613; border: 2px solid #e30613; padding: 10px 20px; border-radius: 10px; font-weight: 800; cursor: pointer; }
         .btn-action { padding: 12px 25px; border-radius: 10px; font-weight: 800; cursor: pointer; border: none; font-size: 14px; }
@@ -398,7 +416,6 @@ export default function RegistroAsistencia() {
         .beneficio { background: #e0f2fe; color: #0369a1; }
         .label-finalizado { font-size: 9px; font-weight: 800; color: #94a3b8; margin-left: 2px; }
 
-        /* ESTILOS DEL MODAL INDUSTRIAL DE CONTROL */
         .industrial-modal-overlay {
           position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
           background: rgba(15, 23, 42, 0.85); display: flex; justify-content: center;
