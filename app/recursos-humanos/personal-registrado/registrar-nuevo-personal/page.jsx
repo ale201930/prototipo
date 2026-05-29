@@ -13,7 +13,7 @@ const estadoInicial = {
   cargo: "", area: "", tipoPersonal: "INVECEM", 
   programaInces: "", cohorteInces: "",
   universidadPasante: "", carreraPasante: "",       
-  regimenLaboral: "NORMAL", // Cambiado de ADMINISTRATIVO a NORMAL
+  regimenLaboral: "NORMAL",
   fechaInicioCiclo: "", 
   horaEntrada: "07:00", horaSalida: "16:00", esNocturno: false,
   estatus: "Activo (En funciones)", fechaIngreso: "",
@@ -55,14 +55,30 @@ function FormularioRegistro() {
     setLoading(true);
     try {
       const personalRef = collection(db, "personal");
+      
       if (editId) {
         await updateDoc(doc(db, "personal", editId), { ...formData, ultimaActualizacion: serverTimestamp() });
         alert("✅ Registro actualizado.");
-        router.push("/recursos-humanos/usuarios-registrados");
+        router.push("/recursos-humanos/personal-registrado");
       } else {
+        // Validación de Ficha
         const qFicha = query(personalRef, where("ficha", "==", formData.ficha));
         const queryFicha = await getDocs(qFicha);
-        if (!queryFicha.empty) { alert(`⚠️ La ficha ${formData.ficha} ya existe.`); setLoading(false); return; }
+        if (!queryFicha.empty) { 
+            alert(`⚠️ La ficha ${formData.ficha} ya existe.`); 
+            setLoading(false); 
+            return; 
+        }
+
+        // Validación de Cédula (NUEVA VALIDACIÓN)
+        const qCedula = query(personalRef, where("cedula", "==", formData.cedula));
+        const queryCedula = await getDocs(qCedula);
+        if (!queryCedula.empty) { 
+            alert(`⚠️ La cédula ${formData.cedula} ya está registrada.`); 
+            setLoading(false); 
+            return; 
+        }
+
         await addDoc(personalRef, { ...formData, fechaRegistro: serverTimestamp() });
         alert("✅ Personal registrado exitosamente.");
         setFormData(estadoInicial);
@@ -73,14 +89,15 @@ function FormularioRegistro() {
 
   return (
     <div className="main-wrapper">
-      <div className="container">
-       <header className="invecem-header">
+      {/* HEADER MOVIDO AFUERA DEL CONTAINER PARA QUE OCUPE EL 100% */}
+      <header className="invecem-header">
         <div className="logo-box">
           SYSTEM-CONTROL<span className="red-text"> INVECEM</span>
         </div>
         <button className="btn-return" onClick={() => router.push("/recursos-humanos/personal-registrado")}>VOLVER </button>
       </header>
 
+      <div className="container">
         <div className="form-card-invecem">
           <div className="red-accent-bar"></div>
           
@@ -93,7 +110,6 @@ function FormularioRegistro() {
           </div>
 
           <form onSubmit={handleSubmit} className="styled-form">
-            
             <div className="section-block">
               <h2 className="block-title">Identificación y Estatus</h2>
               <div className="form-row row-2">
@@ -170,8 +186,6 @@ function FormularioRegistro() {
                     <option value="TURNO_4X4">TURNO 4x4 (Rotativo)</option>
                   </select>
                 </div>
-
-                {/* La sincronización solo aparece si es 4x4 */}
                 {formData.regimenLaboral === "TURNO_4X4" && (
                   <div className="input-box highlight-input">
                     <label>Sincronización de Ciclo</label>
@@ -207,8 +221,7 @@ function FormularioRegistro() {
         </div>
       </div>
 
-     <style jsx>{`
-     /* --- CABECERA ESTILO PANEL (UNIFICADA) --- */
+      <style jsx>{`
         .invecem-header { 
           background: #0f172a; 
           color: white; 
@@ -218,127 +231,58 @@ function FormularioRegistro() {
           align-items: center; 
           border-bottom: 4px solid #e30613; 
           box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+          width: 100%;
         }
         .logo-box { font-weight: 900; font-size: 20px; letter-spacing: -1px; }
         .red-text { color: #e30613; }
         
         .btn-return { 
-          background: #e30613; 
-          color: white; 
-          border: none; 
-          padding: 8px 16px; 
-          border-radius: 8px; 
-          cursor: pointer; 
-          font-size: 11px; 
-          font-weight: 800; 
-          text-transform: uppercase;
-          transition: 0.3s;
+          background: #e30613; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 11px; font-weight: 800; text-transform: uppercase; transition: 0.3s;
         }
         .btn-return:hover { background: #b8050f; transform: translateY(-2px); }
-        /* Fondos y Tipografía - ACTUALIZADO PARA MÁS ESTILO */
+        
         .main-wrapper { 
-          /* Fondo con gradiente sutil y patrón de puntos profesional */
           background-color: #f0f4f8;
           background-image: radial-gradient(#d1d5db 0.8px, transparent 0.8px);
           background-size: 24px 24px;
           min-height: 100vh; 
-          
-          font-family: 'Inter', system-ui, -apple-system, sans-serif; 
-          
+          font-family: 'Inter', sans-serif; 
         }
-
-        /* Añadimos un resplandor de color muy suave al fondo para que no sea solo gris */
-        .main-wrapper::before {
-          content: "";
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background: radial-gradient(circle at 10% 20%, rgba(227, 6, 19, 0.03) 0%, transparent 40%),
-                      radial-gradient(circle at 90% 80%, rgba(15, 23, 42, 0.03) 0%, transparent 40%);
-          pointer-events: none;
-        }
+        .container { max-width: 1000px; margin: 0 auto; position: relative; z-index: 1; padding: 40px 20px; }
         
-        .container { max-width: 1000px; margin: 0 auto; position: relative; z-index: 1; }
-        
-        /* Tarjeta Principal - EFECTO CRISTAL Y ELEVACIÓN */
         .form-card-invecem { 
-          background: rgba(255, 255, 255, 0.94); /* Un toque de transparencia */
-          backdrop-filter: blur(10px); /* Desenfoque de fondo tipo iOS/Mac */
+          background: rgba(255, 255, 255, 0.94); 
+          backdrop-filter: blur(10px); 
           border-radius: 28px; 
           position: relative; 
           overflow: hidden; 
           border: 1px solid rgba(255, 255, 255, 0.7); 
-          /* Sombra mucho más profunda y llamativa */
-          box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.15), 
-                      0 10px 10px -5px rgba(15, 23, 42, 0.04),
-                      inset 0 0 0 1px rgba(255, 255, 255, 0.5); 
+          box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.15); 
           padding: 60px; 
         }
-
-        /* Títulos de sección con un toque de color para romper el blanco */
-        .block-title { 
-          font-size: 14px; 
-          font-weight: 800; 
-          color: #0f172a; 
-          text-transform: uppercase; 
-          margin-bottom: 30px; 
-          display: flex; 
-          align-items: center; 
-          gap: 15px; 
-          letter-spacing: 1px;
-        }
-
-        /* Indicador de color en el título para que se vea "Brutal" */
-        .block-title::before {
-          content: "";
-          width: 10px;
-          height: 10px;
-          background: #e30613;
-          border-radius: 3px;
-          display: inline-block;
-          box-shadow: 0 0 10px rgba(227, 6, 19, 0.4);
-        }
-
-        /* ... El resto de tus estilos se mantienen iguales ... */
+        .block-title { font-size: 14px; font-weight: 800; color: #0f172a; text-transform: uppercase; margin-bottom: 30px; display: flex; align-items: center; gap: 15px; letter-spacing: 1px; }
+        .block-title::before { content: ""; width: 10px; height: 10px; background: #e30613; border-radius: 3px; display: inline-block; }
+        .block-title::after { content: ""; flex: 1; height: 2px; background: #f1f5f9; }
         
-        .nav-header { margin-bottom: 30px; }
-        .btn-back-minimal { 
-          background: white; border: 1px solid #e2e8f0; color: #475569; padding: 10px 16px;
-          border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; 
-          display: flex; align-items: center; gap: 10px; transition: all 0.3s ease;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-        .btn-back-minimal:hover { color: #e30613; border-color: #e30613; transform: translateX(-5px); }
-
         .red-accent-bar { position: absolute; top: 0; left: 0; width: 100%; height: 8px; background: linear-gradient(90deg, #e30613 0%, #b8050f 100%); }
         .form-top-info { display: flex; justify-content: space-between; align-items: center; margin-bottom: 50px; }
-        .company-name { font-size: 38px; font-weight: 900; color: #0f172a; margin: 0; letter-spacing: -2px; line-height: 1; }
+        .company-name { font-size: 38px; font-weight: 900; color: #0f172a; margin: 0; letter-spacing: -2px; }
         .badge-status { background: #f8fafc; color: #0f172a; padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 800; margin-top: 8px; display: inline-block; border: 1px solid #e2e8f0; text-transform: uppercase; }
-        .date-display { background: #0f172a; padding: 12px 24px; border-radius: 12px; font-weight: 700; color: #ffffff; font-size: 13px; box-shadow: 0 4px 6px rgba(15, 23, 42, 0.2); }
-        .section-block { margin-bottom: 50px; }
-        .block-title::after { content: ""; flex: 1; height: 2px; background: #f1f5f9; }
+        .date-display { background: #0f172a; padding: 12px 24px; border-radius: 12px; font-weight: 700; color: #ffffff; font-size: 13px; }
+        
         .form-row { display: grid; gap: 30px; margin-bottom: 20px; }
         .row-2 { grid-template-columns: 1fr 1fr; }
         .row-3 { grid-template-columns: repeat(3, 1fr); }
         .input-box { display: flex; flex-direction: column; gap: 10px; }
         .input-box label { font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; padding-left: 4px; }
-        input, select { padding: 15px; border: 2px solid #f1f5f9; border-radius: 14px; font-size: 15px; font-weight: 600; transition: all 0.2s ease; background: #f8fafc; color: #1e293b; }
-        input:hover, select:hover { border-color: #e2e8f0; }
-        input:focus, select:focus { border-color: #e30613; outline: none; background: white; box-shadow: 0 0 0 4px rgba(227, 6, 19, 0.1); transform: translateY(-2px); }
-        .select-primary { border-color: #0f172a; background: #ffffff; }
-        .highlight-input input { border: 2px solid #3b82f6; background: #eff6ff; color: #1e40af; }
+        input, select { padding: 15px; border: 2px solid #f1f5f9; border-radius: 14px; font-size: 15px; font-weight: 600; background: #f8fafc; color: #1e293b; }
+        input:focus, select:focus { border-color: #e30613; outline: none; background: white; }
         .checkbox-center { justify-content: center; align-items: center; }
-        .checkbox-label { display: flex; align-items: center; gap: 12px; cursor: pointer; font-weight: 700; color: #0f172a; font-size: 13px; padding: 10px 20px; border-radius: 12px; background: #f1f5f9; transition: 0.3s; }
-        .checkbox-label:hover { background: #e2e8f0; }
-        .checkbox-label input { width: 18px; height: 18px; accent-color: #e30613; cursor: pointer; }
-        .form-footer { margin-top: 30px; display: flex; justify-content: flex-end; }
-        .btn-submit-invecem { background: #e30613; color: white; border: none; padding: 20px 60px; border-radius: 16px; font-weight: 800; font-size: 16px; cursor: pointer; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 10px 20px rgba(227, 6, 19, 0.3); text-transform: uppercase; letter-spacing: 1px; }
-        .btn-submit-invecem:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 15px 30px rgba(227, 6, 19, 0.4); background: #c20510; }
-        .btn-submit-invecem:active { transform: translateY(0); }
+        .checkbox-label { display: flex; align-items: center; gap: 12px; cursor: pointer; font-weight: 700; color: #0f172a; font-size: 13px; padding: 10px 20px; border-radius: 12px; background: #f1f5f9; }
+        .btn-submit-invecem { background: #e30613; color: white; border: none; padding: 20px 60px; border-radius: 16px; font-weight: 800; font-size: 16px; cursor: pointer; text-transform: uppercase; }
+        .btn-submit-invecem:hover { background: #c20510; }
         .mt-15 { margin-top: 15px; }
-        @media (max-width: 850px) { .row-3, .row-2 { grid-template-columns: 1fr; } .form-card-invecem { padding: 30px; border-radius: 0; } .form-top-info { flex-direction: column; gap: 20px; align-items: flex-start; } }
+        @media (max-width: 850px) { .row-3, .row-2 { grid-template-columns: 1fr; } .form-card-invecem { padding: 30px; border-radius: 0; } }
       `}</style>
     </div>
   );

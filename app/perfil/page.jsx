@@ -123,7 +123,7 @@ export default function PerfilUsuario() {
       {/* BARRA DE NAVEGACIÓN CORPORATIVA */}
       <nav className="top-nav no-print">
         <div className="logo">
-          INVECEM <span className="red-text">SYSTEM CONTROL</span>
+          SYSTEM-CONTROL<span className="red-text"> INVECEM</span>
         </div>
         <button className="btn-panel" onClick={() => router.back()}>
           ← VOLVER

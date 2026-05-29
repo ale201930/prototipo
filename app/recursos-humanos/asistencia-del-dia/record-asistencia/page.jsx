@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { db } from "@/app/lib/firebase";
+import { db } from "@/app/lib/firebase"; 
 import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
 
 export default function RecordFuncionalAsistencia() {
@@ -10,11 +10,12 @@ export default function RecordFuncionalAsistencia() {
   const [personal, setPersonal] = useState([]);
   const [asistencias, setAsistencias] = useState([]);
   const [filtro, setFiltro] = useState("");
+  const [filtroTipo, setFiltroTipo] = useState("TODOS"); 
   const [vista, setVista] = useState("semanal");
   const [fechaReferencia, setFechaReferencia] = useState(new Date());
 
-  // Configuración de días
-  const nombresDias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+  const hoy = new Date();
+  const nombresDiasCortos = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
   useEffect(() => {
     const unsubPersonal = onSnapshot(collection(db, "personal"), (snap) => {
@@ -26,142 +27,132 @@ export default function RecordFuncionalAsistencia() {
     return () => { unsubPersonal(); unsubAsist(); };
   }, []);
 
-  // Obtener las fechas de la semana seleccionada
+  // --- LÓGICA DE FILTRADO CORREGIDA ---
+  const listaFiltrada = personal.filter(p => {
+    const coincideTexto = p.nombres?.toLowerCase().includes(filtro.toLowerCase()) || 
+                          p.ficha?.toLowerCase().includes(filtro.toLowerCase());
+
+    // Usamos la misma lógica del módulo de asistencia que ya te funciona:
+    const coincideTipo = (filtroTipo === "TODOS") || 
+                         (filtroTipo === "INVECEM" && p.tipoPersonal === "INVECEM") || 
+                         (filtroTipo === "INCES" && p.tipoPersonal?.includes("INCES")) || 
+                         (filtroTipo === "PASANTES" && p.tipoPersonal === "Pasante");
+    
+    return coincideTexto && coincideTipo;
+  });
+  // ------------------------------------
+
+  const obtenerTituloFecha = () => {
+    const ref = (fechaReferencia instanceof Date && !isNaN(fechaReferencia.getTime())) ? fechaReferencia : new Date();
+    const titulo = ref.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+    return titulo.charAt(0).toUpperCase() + titulo.slice(1);
+  };
+
   const obtenerDiasSemana = () => {
-    const inicio = new Date(fechaReferencia);
+    const ref = (fechaReferencia instanceof Date && !isNaN(fechaReferencia.getTime())) ? fechaReferencia : new Date();
+    const inicio = new Date(ref);
     const diaSemana = inicio.getDay();
     const diferencia = inicio.getDate() - diaSemana + (diaSemana === 0 ? -6 : 1);
     inicio.setDate(diferencia);
-
-    return nombresDias.map((nombre, i) => {
+    
+    return Array.from({ length: 7 }, (_, i) => {
       const fecha = new Date(inicio);
       fecha.setDate(inicio.getDate() + i);
-      return { nombre, fecha: fecha.getDate(), mes: fecha.getMonth(), fullDate: fecha };
+      return { nombre: nombresDiasCortos[fecha.getDay()], dia: fecha.getDate(), mes: fecha.getMonth(), anio: fecha.getFullYear() };
     });
   };
 
-  // Obtener los días del mes seleccionado
   const obtenerDiasMes = () => {
-    const anio = fechaReferencia.getFullYear();
-    const mes = fechaReferencia.getMonth();
+    const ref = (fechaReferencia instanceof Date && !isNaN(fechaReferencia.getTime())) ? fechaReferencia : new Date();
+    const anio = ref.getFullYear();
+    const mes = ref.getMonth();
     const diasEnMes = new Date(anio, mes + 1, 0).getDate();
-    return Array.from({ length: diasEnMes }, (_, i) => i + 1);
+    return Array.from({ length: diasEnMes }, (_, i) => ({ dia: i + 1, mes, anio, nombre: nombresDiasCortos[new Date(anio, mes, i + 1).getDay()] }));
   };
 
-  const obtenerDatosReales = (ficha, dia, mes, anio) => {
-    // Buscamos el registro que se INICIÓ en este día específico
+  const obtenerDatosReales = (p, dia, mes, anio) => {
+    const { ficha, regimenLaboral } = p; 
+    const fechaActual = new Date(anio, mes, dia);
+    const diaSemana = fechaActual.getDay();
+
     const registro = asistencias.find(a => {
       const fA = a.fechaHora?.toDate();
       return fA && fA.getDate() === dia && fA.getMonth() === mes && fA.getFullYear() === anio && a.ficha === ficha;
     });
 
-    // CORRECCIÓN 1: Si no hay registro de inicio hoy, verificamos si viene trabajando del turno nocturno de ayer
-    if (!registro) {
-      const fechaActualEval = new Date(anio, mes, dia);
-      fechaActualEval.setDate(fechaActualEval.getDate() - 1);
-      const ayerDia = fechaActualEval.getDate();
-      const ayerMes = fechaActualEval.getMonth();
-      const ayerAnio = fechaActualEval.getFullYear();
-
-      const registroAyer = asistencias.find(a => {
-        const fA = a.fechaHora?.toDate();
-        return fA && fA.getDate() === ayerDia && fA.getMonth() === ayerMes && fA.getFullYear() === ayerAnio && a.ficha === ficha;
-      });
-
-      if (registroAyer && registroAyer.entrada) {
-        const horaEntradaNum = parseInt(registroAyer.entrada.split(":")[0]);
-        // Si el registro de ayer fue nocturno, hoy sigue presente completando su jornada
-        if (horaEntradaNum >= 18 || horaEntradaNum < 5) {
-          return { clase: "status-presente", extra: 0 };
+    if (registro) {
+        let hExtra = 0;
+        if (registro.salida && registro.salida !== "--:--" && registro.entrada) {
+            const horaEntradaNum = parseInt(registro.entrada.split(":")[0]);
+            const esNocturno = (horaEntradaNum >= 18 || horaEntradaNum < 5);
+            const horaSalidaOficial = esNocturno ? 7 : 16;
+            const [hS, mS] = registro.salida.replace(/AM|PM/gi, '').trim().split(":").map(Number);
+            let minutosSalidaReal = (hS * 60) + mS;
+            if (esNocturno && hS < 12) minutosSalidaReal += 1440; 
+            const minutosSalidaOficial = (horaSalidaOficial * 60) + (esNocturno ? 1440 : 0);
+            const diff = minutosSalidaReal - minutosSalidaOficial;
+            if (diff > 0) hExtra = Math.floor(diff / 60);
         }
-      }
-
-      return { clase: "status-ausente", extra: 0 };
+        return { clase: "status-presente", extra: hExtra, label: "ASISTENCIA" };
     }
-    
-    let hExtra = 0;
-    
-    // CORRECCIÓN 2: Lógica de cálculo matemático exacto para horas extras acumuladas sin borrarse
-    if (registro.salida && registro.salida !== "--:--" && registro.entrada) {
-      const horaEntradaNum = parseInt(registro.entrada.split(":")[0]);
-      
-      let horaSalidaOficial = 16; // Diurno por defecto (4 PM)
-      let minutoSalidaOficial = 0;
-      let esNocturno = false;
 
-      if (horaEntradaNum >= 18 || horaEntradaNum < 5) {
-        horaSalidaOficial = 7; // Salida oficial Nocturno (7 AM)
-        esNocturno = true;
-      }
-
-      const horaLimpia = registro.salida.replace(/AM|PM/gi, '').trim();
-      let [hS, mS] = horaLimpia.split(":").map(Number);
-
-      let minutosSalidaReal = (hS * 60) + mS;
-      const minutosSalidaOficial = (horaSalidaOficial * 60) + minutoSalidaOficial;
-
-      // Si es turno nocturno y la salida se registró al día siguiente (en la mañana, ej: hS < 18)
-      if (esNocturno && hS < 18) {
-        minutosSalidaReal += 1440; // Añadimos las 24 horas transcurridas en minutos para la resta exacta
-      }
-
-      const diff = minutosSalidaReal - minutosSalidaOficial;
-      if (diff > 0) hExtra = Math.floor(diff / 60);
+    if (regimenLaboral === "TURNO_4X4") {
+        const fechaBase = new Date(2026, 0, 1); 
+        const diffTime = fechaActual - fechaBase;
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)); 
+        const ciclo = diffDays % 8; 
+        if (ciclo >= 4) return { clase: "status-descanso", extra: 0, label: "DESCANSO" };
+    } else {
+        if (diaSemana === 0 || diaSemana === 6) return { clase: "status-descanso", extra: 0, label: "DESCANSO" };
     }
-    
-    return { clase: "status-presente", extra: hExtra };
+    return { clase: "status-ausente", extra: 0, label: "FALTA" };
   };
 
-  const exportarPDF = () => window.print();
-
-  const listaFiltrada = personal.filter(p => 
-    p.nombres?.toLowerCase().includes(filtro.toLowerCase()) || p.ficha?.toLowerCase().includes(filtro.toLowerCase())
-  );
-
   return (
-    <div className="main-wrapper">
-      <div className="container">
-        <div className="nav-header no-print">
-          <button className="btn-back" onClick={() => router.back()}>← VOLVER</button>
-          
-          <div className="controls-group">
-            <input 
-              type="date" 
-              className="date-selector"
-              onChange={(e) => setFechaReferencia(new Date(e.target.value + "T12:00:00"))}
-            />
-            <div className="tabs-selector">
+    <div className="layout">
+      <nav className="top-nav">
+        <div className="logo">SYSTEM-CONTROL <span className="red-text">INVECEM</span></div>
+        <button className="btn-return" onClick={() => router.back()}>VOLVER</button>
+      </nav>
+
+      <div className="content">
+        <header className="report-header">
+          <h1 className="report-title">Control de Asistencia</h1>
+          <div className="date-display">{obtenerTituloFecha()}</div>
+        </header>
+
+        <div className="action-bar shadow-relief">
+          <div className="search-container">
+            <input type="date" className="date-input" onChange={(e) => setFechaReferencia(e.target.value ? new Date(e.target.value + "T12:00:00") : new Date())} />
+            
+            <select className="type-select" onChange={(e) => setFiltroTipo(e.target.value)}>
+                <option value="TODOS">TODOS</option>
+                <option value="INVECEM">INVECEM</option>
+                <option value="INCES">ESTUDIANTES INCES</option>
+                <option value="PASANTES">PASANTES</option>
+            </select>
+
+            <div className="tabs">
               <button className={vista === 'semanal' ? 'active' : ''} onClick={() => setVista('semanal')}>SEMANAL</button>
               <button className={vista === 'mensual' ? 'active' : ''} onClick={() => setVista('mensual')}>MENSUAL</button>
             </div>
           </div>
-
-          <button className="btn-export" onClick={exportarPDF}>GENERAR REPORTE PDF</button>
+          <div className="search-container" style={{flex: 1}}>
+             <input type="text" placeholder="Buscar personal..." onChange={(e) => setFiltro(e.target.value)} />
+          </div>
         </div>
 
-        <div className="glass-container">
-          <div className="accent-line"></div>
-          <header className="header-info">
-            <div>
-              <h2>Récord de Asistencia y Horas Extra</h2>
-              <p>INVECEM - Período: {fechaReferencia.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }).toUpperCase()}</p>
-            </div>
-            <input type="text" placeholder="Buscar ficha o nombre..." className="search-box no-print" onChange={(e) => setFiltro(e.target.value)} />
-          </header>
-
-          <div className="table-overflow">
-            <table className="db-table">
+        <div className="card shadow-relief">
+          <div className="table-wrapper">
+            <table className="user-table">
               <thead>
                 <tr>
-                  <th className="sticky-col">DATOS DEL PERSONAL</th>
-                  {vista === 'semanal' ? (
-                    obtenerDiasSemana().map(d => (
-                      <th key={d.fecha}>{d.nombre.substring(0, 2)} <br/> <small>{d.fecha}</small></th>
-                    ))
-                  ) : (
-                    obtenerDiasMes().map(d => <th key={d}>{d}</th>)
-                  )}
-                  <th className="total-col">TOTAL EXTRA</th>
+                  <th style={{minWidth: '200px'}}>PERSONAL</th>
+                  {vista === 'semanal' 
+                    ? obtenerDiasSemana().map((d, i) => <th key={i}>{d.nombre}<br/>{d.dia}</th>)
+                    : obtenerDiasMes().map((d, i) => <th key={i} className="mini-th">{d.nombre}<br/>{d.dia}</th>)
+                  }
+                  <th>TOTAL</th>
                 </tr>
               </thead>
               <tbody>
@@ -169,23 +160,22 @@ export default function RecordFuncionalAsistencia() {
                   let acumuladoExtra = 0;
                   return (
                     <tr key={p.id}>
-                      <td className="sticky-col worker-info">
-                        <strong>{p.nombres} {p.apellidos}</strong>
-                        <span>FICHA: {p.ficha}</span>
+                      <td className="sticky-col">
+                        <div className="worker-name">{p.nombres} {p.apellidos}</div>
+                        <div className="worker-ficha">FICHA: {p.ficha}</div>
                       </td>
-                      {vista === 'semanal' ? (
-                        obtenerDiasSemana().map(d => {
-                          const info = obtenerDatosReales(p.ficha, d.fecha, d.mes, d.fullDate.getFullYear());
-                          acumuladoExtra += info.extra;
-                          return <td key={d.fecha} className="dot-cell"><div className={`dot ${info.clase}`}></div></td>;
+                      {vista === 'semanal' ? 
+                        obtenerDiasSemana().map((d, i) => {
+                            const info = obtenerDatosReales(p, d.dia, d.mes, d.anio);
+                            acumuladoExtra += info.extra;
+                            return <td key={i}><div className={`status-badge ${info.clase}`}>{info.label}</div></td>;
+                        }) : 
+                        obtenerDiasMes().map((d, i) => {
+                            const info = obtenerDatosReales(p, d.dia, d.mes, d.anio);
+                            acumuladoExtra += info.extra;
+                            return <td key={i}><div className={`status-badge ${info.clase}`}>{info.label}</div></td>;
                         })
-                      ) : (
-                        obtenerDiasMes().map(d => {
-                          const info = obtenerDatosReales(p.ficha, d, fechaReferencia.getMonth(), fechaReferencia.getFullYear());
-                          acumuladoExtra += info.extra;
-                          return <td key={d} className="dot-cell"><div className={`dot ${info.clase}`}></div></td>;
-                        })
-                      )}
+                      }
                       <td className="extra-total">{acumuladoExtra}h</td>
                     </tr>
                   );
@@ -197,50 +187,36 @@ export default function RecordFuncionalAsistencia() {
       </div>
 
       <style jsx>{`
-        .main-wrapper { background: #f1f5f9; min-height: 100vh; padding: 40px; font-family: 'Inter', sans-serif; }
-        .container { max-width: 1400px; margin: 0 auto; }
-        .nav-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; gap: 15px; }
-        
-        .controls-group { display: flex; gap: 15px; align-items: center; }
-        .date-selector { padding: 10px; border-radius: 10px; border: 2px solid #cbd5e1; font-weight: bold; }
-        
-        .tabs-selector { background: #e2e8f0; padding: 4px; border-radius: 12px; display: flex; }
-        .tabs-selector button { border: none; padding: 10px 20px; border-radius: 10px; font-weight: 800; cursor: pointer; color: #64748b; background: none; }
-        .tabs-selector button.active { background: white; color: #e30613; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-
-        .glass-container { background: white; border-radius: 20px; border: 1px solid #e2e8f0; position: relative; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.05); }
-        .accent-line { position: absolute; top: 0; width: 100%; height: 6px; background: #e30613; }
-        .header-info { padding: 25px; display: flex; justify-content: space-between; align-items: center; }
-        .header-info h2 { margin: 0; font-weight: 900; }
-        
-        .db-table { width: 100%; border-collapse: collapse; }
-        .db-table th { padding: 12px 5px; font-size: 10px; color: #94a3b8; border-bottom: 1px solid #f1f5f9; }
-        .db-table td { padding: 10px 5px; border-bottom: 1px solid #f1f5f9; text-align: center; }
-        .sticky-col { position: sticky; left: 0; background: white; z-index: 5; text-align: left !important; min-width: 200px; padding-left: 20px !important; border-right: 2px solid #f1f5f9; }
-        
-        .worker-info strong { display: block; font-size: 12px; color: #0f172a; }
-        .worker-info span { font-size: 10px; color: #e30613; font-weight: 900; }
-
-        .dot { width: 10px; height: 10px; border-radius: 50%; margin: 0 auto; }
-        .status-presente { background: #22c55e !important; }
-        .status-ausente { background: #e2e8f0 !important; }
-        .extra-total { font-weight: 900; color: #0f172a; background: #fff1f2 !important; }
-        .total-col { background: #0f172a !important; color: white !important; }
-
-        .btn-export { background: #e30613; color: white; border: none; padding: 12px 25px; border-radius: 12px; font-weight: 800; cursor: pointer; }
-        .btn-back { background: #0f172a; color: white; border: none; padding: 12px 25px; border-radius: 12px; font-weight: 800; cursor: pointer; }
-        .search-box { padding: 10px; border-radius: 10px; border: 1px solid #cbd5e1; width: 250px; }
-
-        @media print {
-          @page { size: landscape; margin: 5mm; }
-          .no-print { display: none !important; }
-          .main-wrapper { padding: 0; background: white; }
-          .glass-container { border: none; }
-          .db-table { font-size: 8px; }
-          .dot { width: 7px; height: 7px; }
-          .sticky-col { position: static !important; border-right: 1px solid #ddd; }
-          -webkit-print-color-adjust: exact;
-        }
+        .layout { background-color: #f0f4f8; background-image: radial-gradient(#d1d5db 0.8px, transparent 0.8px); background-size: 24px 24px; min-height: 100vh; font-family: 'Inter', sans-serif; }
+        .top-nav { background: #0f172a; color: white; padding: 12px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid #e30613; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .logo { font-weight: 900; font-size: 20px; }
+        .red-text { color: #e30613; }
+        .btn-return { background: #e30613; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 11px; font-weight: 800; text-transform: uppercase; transition: 0.3s; }
+        .content { padding: 30px; max-width: 1200px; margin: 0 auto; }
+        .report-header { margin-bottom: 35px; border-left: 6px solid #0f172a; padding-left: 20px; }
+        .report-title { font-size: 38px; font-weight: 900; color: #0f172a; margin: 0; text-transform: uppercase; letter-spacing: -2px; }
+        .date-display { font-size: 20px; font-weight: 900; color: #e30613; text-transform: capitalize; margin-top: 5px; }
+        .action-bar { display: flex; gap: 15px; margin-bottom: 25px; padding: 20px; background: white; border-radius: 18px; align-items: center; }
+        .shadow-relief { border: 1px solid #e2e8f0; border-top: 8px solid #e30613; box-shadow: 12px 12px 0px #0f172a; }
+        .search-container input, .date-input, .type-select { padding: 12px; border: 2px solid #f1f5f9; border-radius: 12px; font-weight: 600; outline: none; }
+        .type-select { background: white; cursor: pointer; color: #0f172a; }
+        .tabs { background: #f1f5f9; padding: 4px; border-radius: 12px; display: flex; }
+        .tabs button { border: none; padding: 8px 20px; border-radius: 10px; font-weight: 800; cursor: pointer; background: transparent; color: #64748b; }
+        .tabs button.active { background: white; color: #e30613; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .card { background: white; border-radius: 24px; overflow: hidden; padding: 20px; }
+        .table-wrapper { overflow-x: auto; }
+        .user-table { width: 100%; border-collapse: collapse; }
+        .user-table th { padding: 15px; font-size: 11px; color: #64748b; border-bottom: 3px solid #e30613; text-align: center; }
+        .mini-th { font-size: 9px !important; }
+        .user-table td { padding: 10px; border-bottom: 1px solid #f1f5f9; text-align: center; }
+        .sticky-col { position: sticky; left: 0; background: white; text-align: left !important; min-width: 200px; border-right: 2px solid #f1f5f9; }
+        .worker-name { font-weight: 800; color: #0f172a; }
+        .worker-ficha { font-size: 10px; color: #e30613; font-weight: 900; }
+        .status-badge { padding: 4px 8px; border-radius: 6px; font-size: 9px; font-weight: 800; color: white; display: inline-block; white-space: nowrap; }
+        .status-presente { background: #22c55e; }
+        .status-ausente { background: #e11d48; } 
+        .status-descanso { background: #64748b; } 
+        .extra-total { font-weight: 900; color: #e30613; background: #fff1f2; }
       `}</style>
     </div>
   );

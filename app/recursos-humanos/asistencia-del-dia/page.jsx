@@ -32,6 +32,14 @@ export default function AsistenciaDiariaRRHH() {
   const [masterPin, setMasterPin] = useState("1234");
   const [haySolicitudPendiente, setHaySolicitudPendiente] = useState(false);
 
+  // Función auxiliar para formatear fechas sin error de zona horaria
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "";
+    // Asume formato YYYY-MM-DD
+    const [year, month, day] = dateStr.split("-");
+    return `${day}/${month}/${year}`;
+  };
+
   useEffect(() => {
     const fetchConfig = async () => {
       const configRef = doc(db, "configuracion", "seguridad");
@@ -189,7 +197,6 @@ export default function AsistenciaDiariaRRHH() {
 
       <div className="container">
         <div className="nav-actions no-print">
-             <button className={`btn-master ${haySolicitudPendiente ? "blink-red" : ""}`} onClick={handleChangeMasterPin}>⚙️ Código Maestro</button>
              <button className="btn-record" onClick={() => router.push("/recursos-humanos/asistencia-del-dia/record-asistencia")}>🏆 Ver Récord</button>
         </div>
 
@@ -234,7 +241,7 @@ export default function AsistenciaDiariaRRHH() {
                 <option value="TODAS">TODAS LAS ÁREAS</option>
                 {areasDisponibles.map(a => <option key={a} value={a}>{a}</option>)}
               </select>
-              <button onClick={() => window.print()} className="btn-print">🖨️ Imprimir</button>
+              <button onClick={() => window.print()} className="btn-print">Imprimir</button>
             </div>
 
             <table className="asistencia-table">
@@ -266,8 +273,8 @@ export default function AsistenciaDiariaRRHH() {
                         <div className="status-cell-wrapper">
                           <span className={`badge ${est.clase}`}>{est.texto}</span>
                           {est.esBeneficio && <span className="badge-benefit-label">📦 BENEFICIO</span>}
-                          {(reg.estatus === "Vacaciones" && reg.fechaRegreso) && <div className="return-date-text">Regresa: <span>{new Date(reg.fechaRegreso).toLocaleDateString('es-ES', {day:'2-digit', month:'2-digit', year:'numeric'})}</span></div>}
-                          {(reg.estatus === "Reposo Médico" && reg.fechaFinReposo) && <div className="return-date-text">Hasta: <span>{new Date(reg.fechaFinReposo).toLocaleDateString('es-ES', {day:'2-digit', month:'2-digit', year:'numeric'})}</span></div>}
+                          {(reg.estatus === "Vacaciones" && reg.fechaRegreso) && <div className="return-date-text">Regresa: <span>{formatDate(reg.fechaRegreso)}</span></div>}
+                          {(reg.estatus === "Reposo Médico" && reg.fechaFinReposo) && <div className="return-date-text">Hasta: <span>{formatDate(reg.fechaFinReposo)}</span></div>}
                         </div>
                       </td>
                       <td className="no-print">
@@ -281,7 +288,8 @@ export default function AsistenciaDiariaRRHH() {
           </div>
         </div>
       </div>
-      <style jsx>{`
+    
+         <style jsx>{`
         /* --- CABECERA ESTILO PANEL (UNIFICADA) --- */
         .invecem-header { 
           background: #0f172a; 
@@ -315,7 +323,8 @@ export default function AsistenciaDiariaRRHH() {
         .container { max-width: 1400px; margin: 0 auto; }
         .nav-actions { margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 20px; }
         .btn-master { background: #334155; color: white; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 800; cursor: pointer; transition: 0.3s; }
-        .btn-record { background: #e30613; color: white; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 800; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 0px #b8050f; }
+        .btn-record { background: #e30613; color: white; border: none; padding: 12px 24px; border-radius: 10px; font-weight: 800; cursor: pointer; font-size: 13px; box-shadow: 0 4px 0px #b8050f; }
+        .btn-print { background: #e30613; color: white; border: none; padding: 12px 24px; border-radius: 10px; font-weight: 800; cursor: pointer; font-size: 13px; box-shadow: 0 4px 0px #b8050f; }
         .form-card-invecem { background: rgba(255, 255, 255, 0.98); border-radius: 24px; position: relative; border: 1px solid #e2e8f0; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); padding: 50px; }
         .red-accent-bar { position: absolute; top: 0; left: 0; width: 100%; height: 8px; background: linear-gradient(90deg, #e30613, #b8050f); border-radius: 24px 24px 0 0; }
         .company-name { font-size: 38px; font-weight: 900; color: #0f172a; margin: 0; letter-spacing: -2px; }

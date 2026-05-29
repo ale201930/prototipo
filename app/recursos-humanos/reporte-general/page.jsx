@@ -196,8 +196,8 @@ export default function ReportesGenerales() {
                 <button className="btn-print" onClick={ejecutarBusqueda} disabled={loading} style={{background: '#0f172a'}}>
                    {loading ? "CARGANDO..." : "GENERAR"}
                 </button>
-                <button className="btn-print" onClick={descargarPDF}>📥 PDF</button>
-                <button className="btn-print" onClick={() => window.print()}>🖨️ IMPRIMIR</button>
+                <button className="btn-print" onClick={descargarPDF}> Descargar PDF</button>
+                <button className="btn-print" onClick={() => window.print()}> Imprimir</button>
             </div>
 
             <table className="asistencia-table">
@@ -255,7 +255,7 @@ export default function ReportesGenerales() {
         .shadow-relief { box-shadow: 10px 10px 0px #e30613; }
         .table-actions { display: flex; gap: 15px; margin-bottom: 20px; }
         .search-input, .area-select, .input-group input { padding: 12px; border: 2px solid #f1f5f9; border-radius: 10px; font-weight: 600; flex: 1; }
-        .btn-print { background: #e30613; color: white; border: none; padding: 0 20px; border-radius: 10px; font-weight: 800; cursor: pointer; height: 48px; }
+        .btn-print  { background: #e30613; color: white; border: none; padding: 12px 24px; border-radius: 10px; font-weight: 800; cursor: pointer; font-size: 13px; box-shadow: 0 4px 0px #b8050f; }
         
         .asistencia-table { width: 100%; border-collapse: collapse; }
         .asistencia-table th { text-align: left; padding: 15px; color: #94a3b8; font-size: 11px; border-bottom: 3px solid #f1f5f9; font-weight: 900; text-transform: uppercase; }

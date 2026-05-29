@@ -37,7 +37,6 @@ export default function PersonalRegistrado() {
   const [nuevaClave, setNuevaClave] = useState("");
   const [editandoClave, setEditandoClave] = useState(false);
 
-  // --- CONTROL DE AUSENCIAS ---
   const [showModal, setShowModal] = useState(false);
   const [tipoSeleccionado, setTipoSeleccionado] = useState("");
   const [usuarioParaEstado, setUsuarioParaEstado] = useState(null);
@@ -54,6 +53,32 @@ export default function PersonalRegistrado() {
 
   const limpiarID = (val) => val ? val.toString().trim().toLowerCase() : "";
 
+  // Lógica para verificar si la fecha de retorno ya pasó
+  const verificarRetornoAutomatico = async (usuario) => {
+    if (!usuario.fechaFin || usuario.estatus === "Activo (En funciones)") return;
+
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    
+    // Asumiendo formato YYYY-MM-DD del input type="date"
+    const [year, month, day] = usuario.fechaFin.split("-").map(Number);
+    const fechaFin = new Date(year, month - 1, day);
+
+    if (hoy > fechaFin) {
+      try {
+        await updateDoc(doc(db, "personal", usuario.id), { 
+          estatus: "Activo (En funciones)",
+          estado: "Activo",
+          fechaSalida: null,
+          fechaRegreso: null,
+          fechaFin: null
+        });
+      } catch (error) {
+        console.error("Error al reactivar usuario:", error);
+      }
+    }
+  };
+
   useEffect(() => {
     setIsClient(true);
     
@@ -62,8 +87,16 @@ export default function PersonalRegistrado() {
 
     const qPersonal = query(collection(db, "personal"), orderBy("fechaRegistro", "desc"));
     const unsubscribePersonal = onSnapshot(qPersonal, (snapshot) => {
-      setUsuarios(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const listaUsuarios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setUsuarios(listaUsuarios);
       setLoading(false);
+
+      // --- Verificación automática de retorno ---
+      listaUsuarios.forEach(user => {
+        if (user.estatus !== "Activo (En funciones)") {
+          verificarRetornoAutomatico(user);
+        }
+      });
     });
 
     const qAsistencias = query(collection(db, "asistencias"));
@@ -72,7 +105,6 @@ export default function PersonalRegistrado() {
       snapshot.docs.forEach(doc => {
         const data = doc.data();
         const fechaDoc = normalizarFecha(data.fecha); 
-        
         if (fechaDoc === hoyLimpio) {
           if (data.cedula) marcadosHoy.push(limpiarID(data.cedula));
           if (data.ficha) marcadosHoy.push(limpiarID(data.ficha));
@@ -94,20 +126,11 @@ export default function PersonalRegistrado() {
 
   const verificarPresenciaHoy = (usuario) => {
     if (!usuario || asistenciasHoy.length === 0) return false;
-    
     const fichaUser = limpiarID(usuario.ficha);
     const cedulaUser = limpiarID(usuario.cedula);
     const u4 = cedulaUser.slice(-4);
     const u5 = cedulaUser.slice(-5);
-
-    return asistenciasHoy.some(valorMarcado => {
-      return (
-        (fichaUser && valorMarcado === fichaUser) || 
-        (cedulaUser && valorMarcado === cedulaUser) ||
-        (u4 && valorMarcado === u4) ||
-        (u5 && valorMarcado === u5)
-      );
-    });
+    return asistenciasHoy.some(valorMarcado => (fichaUser && valorMarcado === fichaUser) || (cedulaUser && valorMarcado === cedulaUser) || (u4 && valorMarcado === u4) || (u5 && valorMarcado === u5));
   };
 
   const verificarSiDebeMarcarFalta = (usuario) => {
@@ -121,58 +144,24 @@ export default function PersonalRegistrado() {
     if (!descripcion) return alert("⚠️ Por favor, escriba el detalle.");
     try {
       const userRef = doc(db, "personal", usuarioExpediente.id);
-      const nuevaIncidencia = {
-        id: Date.now(), 
-        tipo: tipo,
-        descripcion: descripcion,
-        fecha: new Date().toLocaleString('es-ES'),
-        registradoPor: Cookies.get("user_session") || "Admin RRHH"
-      };
-
-      await updateDoc(userRef, {
-        historialIncidencias: arrayUnion(nuevaIncidencia)
-      });
-
+      const nuevaIncidencia = { id: Date.now(), tipo: tipo, descripcion: descripcion, fecha: new Date().toLocaleString('es-ES'), registradoPor: Cookies.get("user_session") || "Admin RRHH" };
+      await updateDoc(userRef, { historialIncidencias: arrayUnion(nuevaIncidencia) });
       setNotaAmonestacion("");
-      setUsuarioExpediente(prev => ({
-        ...prev,
-        historialIncidencias: prev.historialIncidencias ? [...prev.historialIncidencias, nuevaIncidencia] : [nuevaIncidencia]
-      }));
-    } catch (error) {
-      alert("Error: " + error.message);
-    }
+      setUsuarioExpediente(prev => ({ ...prev, historialIncidencias: prev.historialIncidencias ? [...prev.historialIncidencias, nuevaIncidencia] : [nuevaIncidencia] }));
+    } catch (error) { alert("Error: " + error.message); }
   };
 
   const registrarInasistenciaAutomatica = async (usuario) => {
     const d = new Date();
     const hoyStr = `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
-    
-    const yaRegistrada = usuario.historialIncidencias?.some(inc => 
-      inc.tipo === "FALTA" && inc.descripcion.includes(hoyStr)
-    );
-
+    const yaRegistrada = usuario.historialIncidencias?.some(inc => inc.tipo === "FALTA" && inc.descripcion.includes(hoyStr));
     if (!yaRegistrada && !verificarPresenciaHoy(usuario) && verificarSiDebeMarcarFalta(usuario)) {
       try {
         const userRef = doc(db, "personal", usuario.id);
-        const nuevaFalta = {
-          id: Date.now(),
-          tipo: "FALTA",
-          descripcion: `Inasistencia ${hoyStr} - AUSENCIA TOTAL JORNADA`,
-          fecha: new Date().toLocaleString('es-ES'),
-          registradoPor: "SISTEMA AUTOMÁTICO"
-        };
-
-        await updateDoc(userRef, {
-          historialIncidencias: arrayUnion(nuevaFalta)
-        });
-        
-        setUsuarioExpediente(prev => ({
-          ...prev,
-          historialIncidencias: prev.historialIncidencias ? [...prev.historialIncidencias, nuevaFalta] : [nuevaFalta]
-        }));
-      } catch (error) {
-        console.error("Error en registro automático:", error);
-      }
+        const nuevaFalta = { id: Date.now(), tipo: "FALTA", descripcion: `Inasistencia ${hoyStr} - AUSENCIA TOTAL JORNADA`, fecha: new Date().toLocaleString('es-ES'), registradoPor: "SISTEMA AUTOMÁTICO" };
+        await updateDoc(userRef, { historialIncidencias: arrayUnion(nuevaFalta) });
+        setUsuarioExpediente(prev => ({ ...prev, historialIncidencias: prev.historialIncidencias ? [...prev.historialIncidencias, nuevaFalta] : [nuevaFalta] }));
+      } catch (error) { console.error("Error en registro automático:", error); }
     }
   };
 
@@ -180,16 +169,9 @@ export default function PersonalRegistrado() {
     if (!window.confirm("¿Estás seguro de eliminar este registro del historial?")) return;
     try {
       const userRef = doc(db, "personal", usuarioExpediente.id);
-      await updateDoc(userRef, {
-        historialIncidencias: arrayRemove(item)
-      });
-      setUsuarioExpediente(prev => ({
-        ...prev,
-        historialIncidencias: prev.historialIncidencias.filter(i => i.id !== item.id)
-      }));
-    } catch (error) {
-      alert("Error al eliminar: " + error.message);
-    }
+      await updateDoc(userRef, { historialIncidencias: arrayRemove(item) });
+      setUsuarioExpediente(prev => ({ ...prev, historialIncidencias: prev.historialIncidencias.filter(i => i.id !== item.id) }));
+    } catch (error) { alert("Error al eliminar: " + error.message); }
   };
 
   const actualizarClaveMaestra = async () => {
@@ -207,9 +189,7 @@ export default function PersonalRegistrado() {
     if (pin === claveMaestra) {
       setUsuarioExpediente(user);
       setShowExpediente(true);
-      if (!verificarPresenciaHoy(user)) {
-        registrarInasistenciaAutomatica(user);
-      }
+      if (!verificarPresenciaHoy(user)) registrarInasistenciaAutomatica(user);
     } else if (pin !== null) { alert("❌ Clave incorrecta."); }
   };
 
@@ -256,7 +236,7 @@ export default function PersonalRegistrado() {
     setUsuarioParaEstado(null);
   };
 
-  const irAEditar = (id) => router.push(`/recursos-humanos/registro-personal?edit=${id}`);
+  const irAEditar = (id) => router.push(`/recursos-humanos/personal-registrado/registrar-nuevo-personal?edit=${id}`);
 
   const usuariosFiltrados = usuarios.filter(u => {
     const texto = busqueda.toLowerCase();
@@ -296,263 +276,280 @@ export default function PersonalRegistrado() {
   if (!isClient) return null;
 
   return (
-    <div className="container main-wrapper">
-      <header className="invecem-header">
+    <div className="main-wrapper">
+       <header className="invecem-header">
         <div className="logo-box">
           SYSTEM-CONTROL<span className="red-text"> INVECEM</span>
         </div>
         <button className="btn-return" onClick={() => router.push("/recursos-humanos")}>VOLVER </button>
       </header>
 
-      {/* MODAL DE SELECCIÓN DE FECHAS */}
-      {showModal && usuarioParaEstado && (
-        <div className="modal-overlay">
-          <div className="modal-content shadow-relief" style={{ width: '450px', border: '3px solid #e30613' }}>
-            <h2 className="title" style={{ fontSize: '24px', marginBottom: '10px', textTransform: 'uppercase' }}>
-              Registrar {tipoSeleccionado}
-            </h2>
-            <p style={{ fontSize: '13px', color: '#64748b', fontWeight: '700', marginBottom: '20px' }}>
-              Trabajador: <span style={{ color: '#0f172a' }}>{usuarioParaEstado.nombres} {usuarioParaEstado.apellidos}</span>
-            </p>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              <div>
-                <label className="exp-label" style={{ marginBottom: '6px', display: 'block' }}>Fecha de Inicio:</label>
-                <input 
-                  type="date" 
-                  className="search-input" 
-                  style={{ width: '100%', padding: '10px' }} 
-                  value={fechas.inicio}
-                  onChange={(e) => setFechas({ ...fechas, inicio: e.target.value })}
-                />
-              </div>
-              
-              <div>
-                <label className="exp-label" style={{ marginBottom: '6px', display: 'block' }}>Fecha de Retorno / Fin:</label>
-                <input 
-                  type="date" 
-                  className="search-input" 
-                  style={{ width: '100%', padding: '10px' }} 
-                  value={fechas.fin}
-                  onChange={(e) => setFechas({ ...fechas, fin: e.target.value })}
-                />
-              </div>
-            </div>
+      <div className="content-container">
 
-            <div style={{ display: 'flex', gap: '10px', marginTop: '30px', justifyContent: 'flex-end' }}>
-              <button 
-                className="btn-delete" 
-                style={{ background: '#64748b', boxShadow: '0 3px 0px #475569' }} 
-                onClick={() => { setShowModal(false); setUsuarioParaEstado(null); }}
-              >
-                Cancelar
-              </button>
-              <button 
-                className="btn-print" 
-                style={{ padding: '8px 20px' }} 
-                onClick={confirmarAusenciaMódulo}
-              >
-                Confirmar Registro
-              </button>
+        {/* MODAL DE SELECCIÓN DE FECHAS */}
+        {showModal && usuarioParaEstado && (
+          <div className="modal-overlay">
+            <div className="modal-content shadow-relief" style={{ width: '450px', border: '3px solid #e30613' }}>
+              <h2 className="title" style={{ fontSize: '24px', marginBottom: '10px', textTransform: 'uppercase' }}>
+                Registrar {tipoSeleccionado}
+              </h2>
+              <p style={{ fontSize: '13px', color: '#64748b', fontWeight: '700', marginBottom: '20px' }}>
+                Trabajador: <span style={{ color: '#0f172a' }}>{usuarioParaEstado.nombres} {usuarioParaEstado.apellidos}</span>
+              </p>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                <div>
+                  <label className="exp-label" style={{ marginBottom: '6px', display: 'block' }}>Fecha de Inicio:</label>
+                  <input 
+                    type="date" 
+                    className="search-input" 
+                    style={{ width: '100%', padding: '10px' }} 
+                    value={fechas.inicio}
+                    onChange={(e) => setFechas({ ...fechas, inicio: e.target.value })}
+                  />
+                </div>
+                
+                <div>
+                  <label className="exp-label" style={{ marginBottom: '6px', display: 'block' }}>Fecha de Retorno / Fin:</label>
+                  <input 
+                    type="date" 
+                    className="search-input" 
+                    style={{ width: '100%', padding: '10px' }} 
+                    value={fechas.fin}
+                    onChange={(e) => setFechas({ ...fechas, fin: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '30px', justifyContent: 'flex-end' }}>
+                <button 
+                  className="btn-delete" 
+                  style={{ background: '#64748b', boxShadow: '0 3px 0px #475569' }} 
+                  onClick={() => { setShowModal(false); setUsuarioParaEstado(null); }}
+                >
+                  Cancelar
+                </button>
+                <button 
+                  className="btn-print" 
+                  style={{ padding: '8px 20px' }} 
+                  onClick={confirmarAusenciaMódulo}
+                >
+                  Confirmar Registro
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* MODAL EXPEDIENTE */}
-      {showExpediente && usuarioExpediente && (
-        <div className="modal-overlay">
-          <div className="modal-content shadow-relief border-turquesa-full" style={{ width: '950px', maxWidth: '95vw' }}>
-            <div className="modal-header-exp">
-                <h2 className="modal-title">Expediente de Personal</h2>
-                <span className="badge-id">Ficha: {usuarioExpediente.ficha}</span>
-            </div>
-            
-            <div className="expediente-body" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '25px' }}>
-              <div className="registro-seccion">
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
-                  <div className="exp-section"><p className="exp-label">Empleado</p><p className="exp-value">{usuarioExpediente.nombres} {usuarioExpediente.apellidos}</p></div>
-                  <div className="exp-section"><p className="exp-label">Cédula</p><p className="exp-value">{usuarioExpediente.cedula}</p></div>
-                  <div className="exp-section"><p className="exp-label">Cargo</p><p className="exp-value">{usuarioExpediente.cargo}</p></div>
-                  <div className="exp-section">
-                    <p className="exp-label">Horario / Turno</p>
-                    <p className="exp-value" style={{color: '#0369a1'}}>
-                      {usuarioExpediente.horaEntrada && usuarioExpediente.horaSalida 
-                        ? `${usuarioExpediente.horaEntrada} a ${usuarioExpediente.horaSalida}` 
-                        : (usuarioExpediente.regimenLaboral || "No asignado")}
-                    </p>
-                  </div>
-                  <div className="exp-section"><p className="exp-label">Fecha de Ingreso</p><p className="exp-value">{usuarioExpediente.fechaIngreso || "No registrada"}</p></div>
-                  <div className="exp-section"><p className="exp-label">Estatus Actual</p><p className="exp-value" style={{color: '#008b8b'}}>{usuarioExpediente.estatus}</p></div>
-                </div>
-
-                <hr style={{ border: 'none', borderTop: '1px solid #e2e8f0', margin: '20px 0' }} />
-
-                <div>
-                  <p className="exp-label">Registrar Amonestación / Observación</p>
-                  <textarea 
-                    className="search-input" 
-                    style={{ width: '100%', height: '80px', margin: '10px 0', border: '1px solid #008b8b' }}
-                    placeholder="Escriba aquí los detalles..."
-                    value={notaAmonestacion}
-                    onChange={(e) => setNotaAmonestacion(e.target.value)}
-                  />
-                  <button className="btn-print" style={{ width: '100%' }} onClick={() => guardarIncidencia("AMONESTACIÓN", notaAmonestacion)}>
-                    Guardar en Historial
-                  </button>
-                </div>
-
-                <div className="exp-info-box" style={{ marginTop: '20px', background: '#fff7ed', padding: '15px', borderRadius: '10px', border: '1px solid #fdba74' }}>
-                  <p className="exp-label" style={{ color: '#c2410c' }}>Control de Asistencia (Estado Hoy)</p>
-                  
-                  {verificarPresenciaHoy(usuarioExpediente) ? (
-                    <div style={{ marginTop: '10px', textAlign: 'center', padding: '10px', background: 'white', borderRadius: '8px' }}>
-                      <p style={{ fontSize: '13px', color: '#16a34a', fontWeight: 'bold' }}>✅ Presente: Registro confirmado en sistema.</p>
+        {/* MODAL EXPEDIENTE */}
+        {showExpediente && usuarioExpediente && (
+          <div className="modal-overlay">
+            <div className="modal-content shadow-relief border-turquesa-full" style={{ width: '950px', maxWidth: '95vw' }}>
+              <div className="modal-header-exp">
+                  <h2 className="modal-title">Expediente de Personal</h2>
+                  <span className="badge-id">Ficha: {usuarioExpediente.ficha}</span>
+              </div>
+              
+              <div className="expediente-body" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '25px' }}>
+                <div className="registro-seccion">
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
+                    <div className="exp-section"><p className="exp-label">Empleado</p><p className="exp-value">{usuarioExpediente.nombres} {usuarioExpediente.apellidos}</p></div>
+                    <div className="exp-section"><p className="exp-label">Cédula</p><p className="exp-value">{usuarioExpediente.cedula}</p></div>
+                    <div className="exp-section"><p className="exp-label">Cargo</p><p className="exp-value">{usuarioExpediente.cargo}</p></div>
+                    <div className="exp-section">
+                      <p className="exp-label">Horario / Turno</p>
+                      <p className="exp-value" style={{color: '#0369a1'}}>
+                        {usuarioExpediente.horaEntrada && usuarioExpediente.horaSalida 
+                          ? `${usuarioExpediente.horaEntrada} a ${usuarioExpediente.horaSalida}` 
+                          : (usuarioExpediente.regimenLaboral || "No asignado")}
+                      </p>
                     </div>
-                  ) : (
-                    verificarSiDebeMarcarFalta(usuarioExpediente) ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
-                        <p style={{fontSize: '12px', fontWeight: 'bold', color: '#e30613'}}>⚠️ INASISTENCIA: No se detectó presencia hoy.</p>
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                          <button className="btn-historial" style={{flex: 1, border: '1px solid #008b8b', background: '#008b8b', color: 'white'}} onClick={() => guardarIncidencia("FALTA", `Inasistencia ${new Date().toLocaleDateString()} - JUSTIFICADA`)}>Justificar</button>
-                          <button className="btn-delete" style={{flex: 1, background: '#e30613', color: 'white'}} onClick={() => guardarIncidencia("FALTA", `Inasistencia ${new Date().toLocaleDateString()} - INJUSTIFICADA`)}>Injustificada</button>
-                        </div>
+                    <div className="exp-section"><p className="exp-label">Fecha de Ingreso</p><p className="exp-value">{usuarioExpediente.fechaIngreso || "No registrada"}</p></div>
+                    <div className="exp-section"><p className="exp-label">Estatus Actual</p><p className="exp-value" style={{color: '#008b8b'}}>{usuarioExpediente.estatus}</p></div>
+                  </div>
+
+                  <hr style={{ border: 'none', borderTop: '1px solid #e2e8f0', margin: '20px 0' }} />
+
+                  <div>
+                    <p className="exp-label">Registrar Amonestación / Observación</p>
+                    <textarea 
+                      className="search-input" 
+                      style={{ width: '100%', height: '80px', margin: '10px 0', border: '1px solid #008b8b' }}
+                      placeholder="Escriba aquí los detalles..."
+                      value={notaAmonestacion}
+                      onChange={(e) => setNotaAmonestacion(e.target.value)}
+                    />
+                    <button className="btn-print" style={{ width: '100%' }} onClick={() => guardarIncidencia("AMONESTACIÓN", notaAmonestacion)}>
+                      Guardar en Historial
+                    </button>
+                  </div>
+
+                  <div className="exp-info-box" style={{ marginTop: '20px', background: '#fff7ed', padding: '15px', borderRadius: '10px', border: '1px solid #fdba74' }}>
+                    <p className="exp-label" style={{ color: '#c2410c' }}>Control de Asistencia (Estado Hoy)</p>
+                    
+                    {verificarPresenciaHoy(usuarioExpediente) ? (
+                      <div style={{ marginTop: '10px', textAlign: 'center', padding: '10px', background: 'white', borderRadius: '8px' }}>
+                        <p style={{ fontSize: '13px', color: '#16a34a', fontWeight: 'bold' }}>✅ Presente: Registro confirmado en sistema.</p>
                       </div>
                     ) : (
-                      <div style={{ marginTop: '10px', textAlign: 'center', padding: '10px', background: '#f0f9ff', borderRadius: '8px' }}>
-                        <p style={{ fontSize: '12px', color: '#0369a1' }}>
-                          ⏳ Jornada en curso: Esperando registro del trabajador.
-                        </p>
-                      </div>
-                    )
+                      verificarSiDebeMarcarFalta(usuarioExpediente) ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
+                          <p style={{fontSize: '12px', fontWeight: 'bold', color: '#e30613'}}>⚠️ INASISTENCIA: No se detectó presencia hoy.</p>
+                          <div style={{ display: 'flex', gap: '10px' }}>
+                            <button className="btn-historial" style={{flex: 1, border: '1px solid #008b8b', background: '#008b8b', color: 'white'}} onClick={() => guardarIncidencia("FALTA", `Inasistencia ${new Date().toLocaleDateString()} - JUSTIFICADA`)}>Justificar</button>
+                            <button className="btn-delete" style={{flex: 1, background: '#e30613', color: 'white'}} onClick={() => guardarIncidencia("FALTA", `Inasistencia ${new Date().toLocaleDateString()} - INJUSTIFICADA`)}>Injustificada</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ marginTop: '10px', textAlign: 'center', padding: '10px', background: '#f0f9ff', borderRadius: '8px' }}>
+                          <p style={{ fontSize: '12px', color: '#0369a1' }}>
+                            ⏳ Jornada en curso: Esperando registro del trabajador.
+                          </p>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+
+                <div className="historial-lista" style={{ background: '#f8fafc', padding: '15px', borderRadius: '12px', maxHeight: '550px', overflowY: 'auto', border: '1px solid #e2e8f0' }}>
+                  <p className="exp-label" style={{ marginBottom: '10px' }}>Línea de Tiempo del Trabajador</p>
+                  {usuarioExpediente.historialIncidencias?.length > 0 ? (
+                    usuarioExpediente.historialIncidencias.slice().reverse().map((item, index) => {
+                      const esJustificada = item.descripcion.includes('JUSTIFICADA');
+                      const colorBorde = esJustificada ? '#008b8b' : (item.tipo === 'FALTA' ? '#e30613' : '#008b8b');
+                      
+                      return (
+                        <div key={item.id || index} style={{ position: 'relative', background: 'white', padding: '12px', borderRadius: '8px', marginBottom: '12px', borderLeft: `5px solid ${colorBorde}`, boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                          <button 
+                            onClick={() => eliminarIncidencia(item)}
+                            style={{ position: 'absolute', right: '10px', top: '10px', border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}
+                          >
+                            ×
+                          </button>
+                          <div style={{display: 'flex', justifyContent: 'space-between', paddingRight: '20px'}}>
+                            <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b' }}>{item.fecha}</span>
+                            <span style={{ fontSize: '9px', color: colorBorde, fontWeight: '900' }}>{item.tipo}</span>
+                          </div>
+                          <p style={{ fontSize: '13px', margin: '5px 0', color: '#334155' }}>{item.descripcion}</p>
+                          <p style={{ fontSize: '9px', textAlign: 'right', color: '#94a3b8', fontStyle: 'italic' }}>Reg: {item.registradoPor}</p>
+                        </div>
+                      )
+                    })
+                  ) : (
+                    <div style={{ textAlign: 'center', marginTop: '50px' }}><p style={{ fontSize: '12px', color: '#94a3b8' }}>Este expediente no posee registros aún.</p></div>
                   )}
                 </div>
               </div>
 
-              <div className="historial-lista" style={{ background: '#f8fafc', padding: '15px', borderRadius: '12px', maxHeight: '550px', overflowY: 'auto', border: '1px solid #e2e8f0' }}>
-                <p className="exp-label" style={{ marginBottom: '10px' }}>Línea de Tiempo del Trabajador</p>
-                {usuarioExpediente.historialIncidencias?.length > 0 ? (
-                  usuarioExpediente.historialIncidencias.slice().reverse().map((item, index) => {
-                    const esJustificada = item.descripcion.includes('JUSTIFICADA');
-                    const colorBorde = esJustificada ? '#008b8b' : (item.tipo === 'FALTA' ? '#e30613' : '#008b8b');
-                    
-                    return (
-                      <div key={item.id || index} style={{ position: 'relative', background: 'white', padding: '12px', borderRadius: '8px', marginBottom: '12px', borderLeft: `5px solid ${colorBorde}`, boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-                        <button 
-                          onClick={() => eliminarIncidencia(item)}
-                          style={{ position: 'absolute', right: '10px', top: '10px', border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}
-                        >
-                          ×
-                        </button>
-                        <div style={{display: 'flex', justifyContent: 'space-between', paddingRight: '20px'}}>
-                          <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b' }}>{item.fecha}</span>
-                          <span style={{ fontSize: '9px', color: colorBorde, fontWeight: '900' }}>{item.tipo}</span>
-                        </div>
-                        <p style={{ fontSize: '13px', margin: '5px 0', color: '#334155' }}>{item.descripcion}</p>
-                        <p style={{ fontSize: '9px', textAlign: 'right', color: '#94a3b8', fontStyle: 'italic' }}>Reg: {item.registradoPor}</p>
-                      </div>
-                    )
-                  })
-                ) : (
-                  <div style={{ textAlign: 'center', marginTop: '50px' }}><p style={{ fontSize: '12px', color: '#94a3b8' }}>Este expediente no posee registros aún.</p></div>
-                )}
+              <div className="modal-footer">
+                <button className="btn-confirm" onClick={() => setShowExpediente(false)}>Finalizar Consulta</button>
               </div>
             </div>
+          </div>
+        )}
 
-            <div className="modal-footer">
-              <button className="btn-confirm" onClick={() => setShowExpediente(false)}>Finalizar Consulta</button>
+        {/* VISTA PRINCIPAL */}
+        <div className="header-section no-print" style={{marginTop: '20px'}}>
+          <div className="title-wrapper" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px' }}>
+            <div>
+              <h1 className="title">Personal Registrado</h1>
+              <div className="total-badge">Registros encontrados: {usuariosFiltrados.length}</div>
+            </div>
+            
+            <div className="seguridad-box shadow-relief no-print" style={{ padding: '10px' }}>
+               {!editandoClave ? (
+                  <button onClick={() => setEditandoClave(true)} style={{cursor: 'pointer'}}>
+                    🔐 Gestión Clave de Expedientes
+                  </button>
+               ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <input type="password" placeholder="Clave ACTUAL..." className="clave-input full-width" onChange={(e) => setConfirmarVieja(e.target.value)} />
+                    <input type="password" placeholder="Nueva Clave..." className="clave-input full-width" onChange={(e) => setNuevaClave(e.target.value)} />
+                    <div style={{ display: 'flex', gap: '5px' }}>
+                      <button className="btn-save-clave" style={{ flex: 1 }} onClick={actualizarClaveMaestra}>Confirmar</button>
+                      <button className="btn-cancel-clave" onClick={() => setEditandoClave(false)}>X</button>
+                    </div>
+                  </div>
+               )}
             </div>
           </div>
         </div>
-      )}
 
-      {/* VISTA PRINCIPAL */}
-      <div className="header-section no-print" style={{marginTop: '20px'}}>
-        <div className="title-wrapper" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px' }}>
-          <div>
-            <h1 className="title">Personal Registrado</h1>
-            <div className="total-badge">Registros encontrados: {usuariosFiltrados.length}</div>
+        <div className="filters-bar no-print">
+          <div className="btn-group">
+            {["TODOS", "INVECEM", "INCES", "PASANTES"].map(f => (
+              <button key={f} className={`btn-toggle ${filtroTipo === f ? "active" : ""}`} onClick={() => setFiltroTipo(f)}>{f}</button>
+            ))}
           </div>
-          <div className="seguridad-box shadow-relief no-print">
-             <label className="exp-label">🔐 Gestión Clave de Expedientes</label>
-             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
-               {editandoClave ? (
-                 <>
-                   <input type="password" placeholder="Clave ACTUAL..." className="clave-input full-width" onChange={(e) => setConfirmarVieja(e.target.value)} />
-                   <input type="password" placeholder="Nueva Clave..." className="clave-input full-width" onChange={(e) => setNuevaClave(e.target.value)} />
-                   <div style={{ display: 'flex', gap: '5px' }}>
-                     <button className="btn-save-clave" style={{ flex: 1 }} onClick={actualizarClaveMaestra}>Confirmar</button>
-                     <button className="btn-cancel-clave" onClick={() => setEditandoClave(false)}>X</button>
-                   </div>
-                 </>
-               ) : (
-                 <button className="btn-edit-clave" onClick={() => setEditandoClave(true)}>Configurar Clave Maestra</button>
-               )}
-             </div>
+          <input type="text" placeholder="Buscar por nombre, ficha o cédula..." className="search-input" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
+          <div className="actions-buttons" style={{ display: 'flex', gap: '10px' }}>
+              <button 
+                className="btn-record-new" 
+                onClick={() => router.push("/recursos-humanos/personal-registrado/registrar-nuevo-personal")}
+              >
+                ➕ Registrar Nuevo Personal
+              </button>
+              <button className="btn-pdf" onClick={generarPDF}>Descargar PDF</button>
+              <button className="btn-print" onClick={() => window.print()}>Imprimir</button>
           </div>
         </div>
-      </div>
 
-      <div className="filters-bar no-print">
-        <div className="btn-group">
-          {["TODOS", "INVECEM", "INCES", "PASANTES"].map(f => (
-            <button key={f} className={`btn-toggle ${filtroTipo === f ? "active" : ""}`} onClick={() => setFiltroTipo(f)}>{f}</button>
-          ))}
-        </div>
-        <input type="text" placeholder="Buscar por nombre, ficha o cédula..." className="search-input" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
-        <div className="actions-buttons" style={{ display: 'flex', gap: '10px' }}>
-            <button 
-              className="btn-record-new" 
-              onClick={() => router.push("/recursos-humanos/personal-registrado/registrar-nuevo-personal")}
-            >
-              ➕ Registrar Nuevo Personal
-            </button>
-            <button className="btn-pdf" onClick={generarPDF}>Descargar PDF</button>
-            <button className="btn-print" onClick={() => window.print()}>Imprimir</button>
-        </div>
-      </div>
-
-      <div className="table-card shadow-relief">
-        {loading ? (
-          <div className="loader">Sincronizando...</div>
-        ) : (
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>Ficha</th><th>Cédula</th><th>Nombre y Apellido</th><th>ID</th><th>Cargo</th><th>Estatus</th><th className="text-center no-print">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {usuariosFiltrados.map((user) => (
-                  <tr key={user.id}>
-                    <td className="font-bold">{user.ficha || "---"}</td>
-                    <td>{user.cedula}</td>
-                    <td className="name-text">{user.nombres} {user.apellidos}</td>
-                    <td><span className="badge-id">{user.tipoPersonal || "INVECEM"}</span></td>
-                    <td className="cargo-text">{user.cargo}</td>
-                    <td>
-                      <select className={`status-select ${user.estatus?.toLowerCase().includes('activo') ? 'border-turquesa' : 'border-rojo'}`} value={user.estatus || "Activo (En funciones)"} onChange={(e) => handleCambioEstatus(user, e.target.value)}>
-                        {ESTADOS_NOMINALES.map(e => <option key={e} value={e}>{e}</option>)}
-                      </select>
-                    </td>
-                    <td className="actions-cell no-print">
-                      <button className="btn-historial" onClick={() => manejarAccesoExpediente(user)}>Historial</button>
-                      <button className="btn-edit" onClick={() => irAEditar(user.id)}>Editar</button>
-                      <button className="btn-delete" onClick={() => handleEliminar(user.id, user.nombres)}>Eliminar</button>
-                    </td>
+        <div className="table-card shadow-relief">
+          {loading ? (
+            <div className="loader">Sincronizando...</div>
+          ) : (
+            <div className="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Ficha</th><th>Cédula</th><th>Nombre y Apellido</th><th>ID</th><th>Cargo</th><th>Estatus</th><th className="text-center no-print">Acciones</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                </thead>
+                <tbody>
+                  {usuariosFiltrados.map((user) => (
+                    <tr key={user.id}>
+                      <td className="font-bold">{user.ficha || "---"}</td>
+                      <td>{user.cedula}</td>
+                      <td className="name-text">{user.nombres} {user.apellidos}</td>
+                      <td><span className="badge-id">{user.tipoPersonal || "INVECEM"}</span></td>
+                      <td className="cargo-text">{user.cargo}</td>
+                      <td>
+                        <select className={`status-select ${user.estatus?.toLowerCase().includes('activo') ? 'border-turquesa' : 'border-rojo'}`} value={user.estatus || "Activo (En funciones)"} onChange={(e) => handleCambioEstatus(user, e.target.value)}>
+                          {ESTADOS_NOMINALES.map(e => <option key={e} value={e}>{e}</option>)}
+                        </select>
+                      </td>
+                      <td className="actions-cell no-print">
+                        <button className="btn-historial" onClick={() => manejarAccesoExpediente(user)}>Historial</button>
+                        <button className="btn-edit" onClick={() => irAEditar(user.id)}>Editar</button>
+                        <button className="btn-delete" onClick={() => handleEliminar(user.id, user.nombres)}>Eliminar</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
+    
+           <style jsx>{`
+        /* 1. Fondo completo (sin padding) */
+        .main-wrapper { 
+          min-height: 100vh; 
+          background-color: #f0f4f8; 
+          background-image: radial-gradient(#d1d5db 0.8px, transparent 0.8px); 
+          background-size: 24px 24px; 
+          font-family: 'Inter', sans-serif; 
+        }
 
-      <style jsx>{`
-        .container { padding: 40px 20px; max-width: 1450px; margin: 0 auto; background-color: #f0f4f8; background-image: radial-gradient(#d1d5db 0.8px, transparent 0.8px); background-size: 24px 24px; min-height: 100vh; font-family: 'Inter', sans-serif; }
+        /* 2. Contenedor del contenido (con padding) */
+        .content-container { 
+          padding: 40px 20px; 
+          max-width: 1450px; 
+          margin: 0 auto; 
+        }
         
-       /* --- CABECERA ESTILO PANEL (UNIFICADA) --- */
+        /* 3. Cabecera (al 100% de ancho) */
         .invecem-header { 
           background: #0f172a; 
           color: white; 
@@ -562,7 +559,9 @@ export default function PersonalRegistrado() {
           align-items: center; 
           border-bottom: 4px solid #e30613; 
           box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+          width: 100%;
         }
+        
         .logo-box { font-weight: 900; font-size: 20px; letter-spacing: -1px; }
         .red-text { color: #e30613; }
         
@@ -588,7 +587,7 @@ export default function PersonalRegistrado() {
         .filters-bar { display: flex; gap: 15px; margin-bottom: 25px; align-items: center; background: white; padding: 15px; border-radius: 18px; border: 1px solid #e2e8f0; }
         .btn-record-new { background: #22c55e; color: white; border: none; padding: 12px 24px; border-radius: 10px; font-weight: 800; cursor: pointer; font-size: 13px; box-shadow: 0 4px 0px #16a34a; }
         .btn-print, .btn-pdf { background: #e30613; color: white; border: none; padding: 12px 24px; border-radius: 10px; font-weight: 800; cursor: pointer; font-size: 13px; box-shadow: 0 4px 0px #b8050f; }
-        .btn-pdf { background: #0f172a; box-shadow: 0 4px 0px #000; }
+        .btn-pdf { background: #e30613; color: white; border: none; padding: 12px 24px; border-radius: 10px; font-weight: 800; cursor: pointer; font-size: 13px; box-shadow: 0 4px 0px #b8050f; }
         .btn-group { display: flex; background: #f1f5f9; padding: 5px; border-radius: 12px; }
         .btn-toggle { border: none; padding: 10px 22px; border-radius: 10px; cursor: pointer; font-size: 11px; font-weight: 900; color: #64748b; text-transform: uppercase; }
         .btn-toggle.active { background: #0f172a; color: white; }
@@ -608,7 +607,7 @@ export default function PersonalRegistrado() {
         .modal-content { background: white; padding: 40px; border-radius: 24px; border: 2px solid #e30613; }
         .shadow-relief { box-shadow: 10px 10px 0px #0f172a; }
         .exp-label { font-size: 11px; font-weight: 900; color: #94a3b8; text-transform: uppercase; }
-        @media print { .no-print { display: none !important; } .container { background: white; padding: 0; } .table-card { box-shadow: none; border: 1px solid #000; } }
+        @media print { .no-print { display: none !important; } .main-wrapper { background: white; padding: 0; } .table-card { box-shadow: none; border: 1px solid #000; } }
       `}</style>
     </div>
   );
