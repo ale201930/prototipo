@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import { auth, db } from "../lib/firebase";
@@ -15,12 +15,10 @@ export default function PerfilUsuario() {
 
   const [cargando, setCargando] = useState(false);
 
-  // ESTADOS PARA CONTROLAR LA VISIBILIDAD DE LAS CONTRASEÑAS
   const [verClaveActual, setVerClaveActual] = useState(false);
   const [verNuevaClave, setVerNuevaClave] = useState(false);
   const [verConfirmarClave, setVerConfirmarClave] = useState(false);
 
-  // VALIDACIONES EN TIEMPO REAL
   const [validaciones, setValidaciones] = useState({
     longitud: false,
     mayuscula: false,
@@ -46,7 +44,6 @@ export default function PerfilUsuario() {
     return () => unsub();
   }, [router]);
 
-  // VALIDACIÓN DINÁMICA
   useEffect(() => {
     setValidaciones({
       longitud: nuevaClave.length >= 8,
@@ -63,7 +60,7 @@ export default function PerfilUsuario() {
     const todasValidas = Object.values(validaciones).every(v => v);
 
     if (!todasValidas) {
-      return alert("❌ Debes cumplir todos los requisitos.");
+      return alert("âŒ Debes cumplir todos los requisitos.");
     }
 
     setCargando(true);
@@ -79,7 +76,7 @@ export default function PerfilUsuario() {
       await reauthenticateWithCredential(user, credential);
       await updatePassword(user, nuevaClave);
 
-      alert("✅ Contraseña actualizada correctamente");
+      alert("âœ… ContraseÃ±a actualizada correctamente");
 
       setClaveActual("");
       setNuevaClave("");
@@ -90,7 +87,7 @@ export default function PerfilUsuario() {
 
     } catch (error) {
       if (error.code === "auth/wrong-password") {
-        alert("❌ La contraseña actual es incorrecta.");
+        alert("âŒ La contraseÃ±a actual es incorrecta.");
       } else {
         alert("Error: " + error.message);
       }
@@ -102,160 +99,191 @@ export default function PerfilUsuario() {
   const EyeIcon = ({ visible }) => {
     if (visible) {
       return (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="icon-svg">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
           <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 11-4.243-4.243m4.242 4.242L9.88 9.88" />
         </svg>
       );
     }
     return (
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="icon-svg">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
         <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
         <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
       </svg>
     );
   };
 
-  if (!userData) return <div className="loading">Cargando perfil...</div>;
+  if (!userData) {
+    return (
+      <div className="min-h-screen bg-slate-50 text-slate-800 flex items-center justify-center font-sans">
+        <div className="text-xs font-black uppercase tracking-widest text-red-500 animate-pulse">
+          <i className="fas fa-spinner fa-spin mr-2"></i> Cargando perfil...
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="layout">
-      
-      {/* BARRA DE NAVEGACIÓN CORPORATIVA */}
-      <nav className="top-nav no-print">
-        <div className="logo">
-          SYSTEM-CONTROL<span className="red-text"> INVECEM</span>
-        </div>
-        <button className="btn-panel" onClick={() => router.back()}>
-          ← VOLVER
+    <div className="min-h-screen bg-slate-50 text-slate-800 relative overflow-hidden font-sans pb-10 cyber-grid">
+      {/* Background glowing decorations */}
+      <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-tr from-cyan-400 to-indigo-500 rounded-full blur-3xl opacity-15 animate-pulse-glow"></div>
+      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-gradient-to-tr from-purple-500 to-pink-500 rounded-full blur-3xl opacity-10 animate-pulse-glow delay-1000"></div>
+
+      {/* BARRA DE NAVEGACIÃ“N CORPORATIVA */}
+      <nav className="top-nav no-print bg-white/60 backdrop-blur-xl border-b border-slate-200/80 px-6 py-4 flex justify-between items-center z-20 relative">
+        <div className="flex items-center gap-2.5"><div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:"linear-gradient(135deg,#06b6d4,#3b82f6)"}}><i className="fas fa-building-columns text-white" style={{fontSize:"11px"}}></i></div><span className="text-base font-black tracking-tight text-slate-900 uppercase">INVECEM</span></div>
+        <button 
+          className="px-4 py-2 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 active:scale-95 rounded-xl font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-indigo-500/20 transition-all duration-200 cursor-pointer text-white hover:shadow-neon-cyan"
+          onClick={() => router.back()}
+        >
+          <i className="fas fa-arrow-left mr-2"></i> Volver
         </button>
       </nav>
 
-      {/* CONTENEDOR DE CONTENIDO DEL MÓDULO */}
-      <div className="content">
+      {/* CONTENEDOR DE CONTENIDO DEL MÃ“DULO */}
+      <div className="max-w-6xl mx-auto px-6 py-10 z-10 relative">
         
         {/* ENCABEZADO DE REPORTE */}
-        <header className="report-header">
-          <h1 className="report-title">INVECEM - Perfil de Usuario</h1>
-          <p className="subtitle-header">Consulta de datos de planta y actualización de credenciales</p>
+        <header className="mb-8 border-l-6 border-cyan-500 pl-5">
+          <h1 className="text-3xl font-black tracking-tight text-indigo-950 uppercase">
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-600 via-indigo-600 to-purple-650">INVECEM</span> - Perfil de Usuario
+          </h1>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">
+            Consulta de datos de planta y actualizaciÃ³n de credenciales
+          </p>
         </header>
 
         {/* TARJETA EN SHADOW RELIEF / GLASSMORPHISM */}
-        <div className="perfil-card shadow-relief">
+        <div className="bg-white/80 backdrop-blur-xl border border-slate-200/60 rounded-3xl p-6 md:p-8 shadow-2xl shadow-slate-250/20 text-slate-800 relative shadow-neon-cyan">
+          {/* Tech Corner Details */}
+          <div className="absolute top-3 left-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+          <div className="absolute top-3 right-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+          <div className="absolute bottom-3 left-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+          <div className="absolute bottom-3 right-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
           
-          <div className="perfil-grid-content">
+          <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1px_1fr] gap-8 md:gap-12 items-start">
             
-            {/* SECCIÓN IZQUIERDA: INFORMACIÓN EXTENDIDA (MÁS DATOS) */}
-            <section className="user-info">
+            {/* SECCIÃ“N IZQUIERDA: INFORMACIÃ“N EXTENDIDA */}
+            <section className="space-y-8">
               
-              <div className="info-section-group">
-                <h4 className="info-group-title">Información Personal</h4>
+              <div className="space-y-4">
+                <h4 className="text-xs font-black uppercase text-cyan-600 tracking-wider border-b border-dashed border-cyan-500/20 pb-2">
+                  <i className="fas fa-id-card mr-2"></i> InformaciÃ³n Personal
+                </h4>
                 
-                <div className="info-item">
-                  <label>Nombres y Apellidos</label>
-                  <p>{userData.nombres || "No registrado"}</p>
+                <div className="space-y-1">
+                  <label className="text-xxs font-extrabold text-slate-450 uppercase tracking-widest block">Nombres y Apellidos</label>
+                  <p className="text-sm font-extrabold text-slate-800 uppercase">{userData.nombres || "No registrado"}</p>
                 </div>
 
-                <div className="info-row-twin">
-                  <div className="info-item">
-                    <label>Cédula de Identidad</label>
-                    <p>{userData.cedula || "No registrado"}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xxs font-extrabold text-slate-450 uppercase tracking-widest block">CÃ©dula de Identidad</label>
+                    <p className="text-sm font-extrabold text-slate-800 uppercase">{userData.cedula || "No registrado"}</p>
                   </div>
-                  <div className="info-item">
-                    <label>Teléfono</label>
-                    <p className="normal-case">{userData.telefono || "No registrado"}</p>
+                  <div className="space-y-1">
+                    <label className="text-xxs font-extrabold text-slate-450 uppercase tracking-widest block">TelÃ©fono</label>
+                    <p className="text-sm font-extrabold text-slate-800">{userData.telefono || "No registrado"}</p>
                   </div>
                 </div>
 
-                <div className="info-row-twin">
-                  <div className="info-item">
-                    <label>Correo Institucional</label>
-                    <p className="email-text">{userData.correo || "No registrado"}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xxs font-extrabold text-slate-450 uppercase tracking-widest block">Correo Institucional</label>
+                    <p className="text-sm font-extrabold text-indigo-600 break-all">{userData.correo || "No registrado"}</p>
                   </div>
-                  <div className="info-item">
-                    <label>Fecha Nacimiento</label>
-                    <p>{userData.fechaNac || "No registrado"}</p>
+                  <div className="space-y-1">
+                    <label className="text-xxs font-extrabold text-slate-450 uppercase tracking-widest block">Fecha Nacimiento</label>
+                    <p className="text-sm font-extrabold text-slate-800 uppercase">{userData.fechaNac || "No registrado"}</p>
                   </div>
                 </div>
               </div>
 
               {/* GRUPO DE FICHA LABORAL */}
-              <div className="info-section-group">
-                <h4 className="info-group-title">Ficha Laboral de Planta</h4>
+              <div className="space-y-4">
+                <h4 className="text-xs font-black uppercase text-purple-600 tracking-wider border-b border-dashed border-purple-500/20 pb-2">
+                  <i className="fas fa-industry mr-2"></i> Ficha Laboral de Planta
+                </h4>
                 
-                <div className="info-row-twin">
-                  <div className="info-item">
-                    <label>N° de Ficha</label>
-                    <p className="ficha-tag">{userData.ficha || "No registrado"}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xxs font-extrabold text-slate-455 uppercase tracking-widest block">NÂ° de Ficha</label>
+                    <p className="text-base font-black text-cyan-600 font-mono">{userData.ficha || "No registrado"}</p>
                   </div>
-                  <div className="info-item">
-                    <label>Rol de Sistema</label>
+                  <div className="space-y-1">
+                    <label className="text-xxs font-extrabold text-slate-455 uppercase tracking-widest block">Rol de Sistema</label>
                     <div>
-                      <span className="role-text">{userData.rol || "No registrado"}</span>
+                      <span className="px-3 py-1 bg-purple-500/10 border border-purple-500/20 text-purple-650 rounded-lg font-bold text-xs tracking-wider uppercase inline-block font-mono">
+                        {userData.rol || "No registrado"}
+                      </span>
                     </div>
                   </div>
                 </div>
 
-                <div className="info-row-twin">
-                  <div className="info-item">
-                    <label>Cargo</label>
-                    <p>{userData.cargo || "No registrado"}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xxs font-extrabold text-slate-455 uppercase tracking-widest block">Cargo</label>
+                    <p className="text-sm font-extrabold text-slate-800 uppercase">{userData.cargo || "No registrado"}</p>
                   </div>
-                  <div className="info-item">
-                    <label>Departamento</label>
-                    <p>{userData.departamento || "No registrado"}</p>
+                  <div className="space-y-1">
+                    <label className="text-xxs font-extrabold text-slate-455 uppercase tracking-widest block">Departamento</label>
+                    <p className="text-sm font-extrabold text-slate-800 uppercase">{userData.departamento || "No registrado"}</p>
                   </div>
                 </div>
 
-                <div className="info-item">
-                  <label>Fecha de Ingreso a la Empresa</label>
-                  <p>{userData.fechaIngreso || "No registrado"}</p>
+                <div className="space-y-1">
+                  <label className="text-xxs font-extrabold text-slate-455 uppercase tracking-widest block">Fecha de Ingreso</label>
+                  <p className="text-sm font-extrabold text-slate-800 uppercase">{userData.fechaIngreso || "No registrado"}</p>
                 </div>
               </div>
 
             </section>
 
             {/* DIVIDER VERTICAL */}
-            <div className="vertical-divider"></div>
+            <div className="hidden lg:block bg-slate-200 w-[1px] h-full min-h-[400px]"></div>
 
-            {/* SECCIÓN DERECHA: FORMULARIO */}
-            <form onSubmit={handleCambiarClave} className="clave-form">
-              <h3 className="section-title">Seguridad y Contraseña</h3>
-              <p className="subtitle">Actualiza tu clave de acceso al sistema INVECEM</p>
+            {/* SECCIÃ“N DERECHA: FORMULARIO */}
+            <form onSubmit={handleCambiarClave} className="space-y-6">
+              <div>
+                <h3 className="text-xs font-black uppercase text-indigo-600 tracking-wider border-b border-dashed border-indigo-500/20 pb-2 flex items-center gap-2">
+                  <i className="fas fa-lock"></i> Seguridad y ContraseÃ±a
+                </h3>
+                <p className="text-slate-500 text-xs mt-1.5 font-medium">Actualiza tu clave de acceso al sistema INVECEM</p>
+              </div>
 
-              <div className="input-group">
-                <label>Contraseña Actual</label>
-                <div className="input-password-container">
+              <div className="space-y-2">
+                <label className="text-xxs font-bold uppercase tracking-wider text-slate-600 block">ContraseÃ±a Actual</label>
+                <div className="relative flex w-full">
                   <input 
                     type={verClaveActual ? "text" : "password"} 
                     value={claveActual}
                     onChange={(e) => setClaveActual(e.target.value)}
                     required 
+                    className="w-full px-4 py-3 pr-12 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 font-semibold"
                   />
                   <button 
                     type="button" 
-                    className="btn-toggle-password"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-450 hover:text-indigo-550 transition-colors cursor-pointer"
                     onClick={() => setVerClaveActual(!verClaveActual)}
-                    title={verClaveActual ? "Ocultar contraseña" : "Mostrar contraseña"}
                   >
                     <EyeIcon visible={verClaveActual} />
                   </button>
                 </div>
               </div>
 
-              <div className="input-group">
-                <label>Nueva Contraseña</label>
-                <div className="input-password-container">
+              <div className="space-y-2">
+                <label className="text-xxs font-bold uppercase tracking-wider text-slate-600 block">Nueva ContraseÃ±a</label>
+                <div className="relative flex w-full">
                   <input 
                     type={verNuevaClave ? "text" : "password"} 
                     value={nuevaClave}
                     onChange={(e) => setNuevaClave(e.target.value)}
                     required 
+                    className="w-full px-4 py-3 pr-12 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 font-semibold"
                   />
                   <button 
                     type="button" 
-                    className="btn-toggle-password"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-455 hover:text-indigo-550 transition-colors cursor-pointer"
                     onClick={() => setVerNuevaClave(!verNuevaClave)}
-                    title={verNuevaClave ? "Ocultar contraseña" : "Mostrar contraseña"}
                   >
                     <EyeIcon visible={verNuevaClave} />
                   </button>
@@ -263,287 +291,58 @@ export default function PerfilUsuario() {
               </div>
 
               {/* LISTA VISUAL REQUISITOS */}
-              <div className="validaciones">
-                <p className={validaciones.longitud ? "ok" : ""}>• Mínimo 8 caracteres</p>
-                <p className={validaciones.mayuscula ? "ok" : ""}>• Al menos una mayúscula</p>
-                <p className={validaciones.minuscula ? "ok" : ""}>• Al menos una minúscula</p>
-                <p className={validaciones.numero ? "ok" : ""}>• Al menos un número</p>
+              <div className="bg-slate-50 p-4 border border-slate-200/80 rounded-xl space-y-1.5">
+                <p className={`text-xxs font-bold uppercase tracking-wider flex items-center gap-2 ${validaciones.longitud ? "text-emerald-600" : "text-slate-450"}`}>
+                  <i className={`fas ${validaciones.longitud ? 'fa-check-circle' : 'fa-circle-notch'}`}></i> MÃ­nimo 8 caracteres
+                </p>
+                <p className={`text-xxs font-bold uppercase tracking-wider flex items-center gap-2 ${validaciones.mayuscula ? "text-emerald-600" : "text-slate-450"}`}>
+                  <i className={`fas ${validaciones.mayuscula ? 'fa-check-circle' : 'fa-circle-notch'}`}></i> Al menos una mayÃºscula
+                </p>
+                <p className={`text-xxs font-bold uppercase tracking-wider flex items-center gap-2 ${validaciones.minuscula ? "text-emerald-600" : "text-slate-450"}`}>
+                  <i className={`fas ${validaciones.minuscula ? 'fa-check-circle' : 'fa-circle-notch'}`}></i> Al menos una minÃºscula
+                </p>
+                <p className={`text-xxs font-bold uppercase tracking-wider flex items-center gap-2 ${validaciones.numero ? "text-emerald-600" : "text-slate-450"}`}>
+                  <i className={`fas ${validaciones.numero ? 'fa-check-circle' : 'fa-circle-notch'}`}></i> Al menos un nÃºmero
+                </p>
               </div>
 
-              <div className="input-group">
-                <label>Confirmar Nueva Contraseña</label>
-                <div className="input-password-container">
+              <div className="space-y-2">
+                <label className="text-xxs font-bold uppercase tracking-wider text-slate-600 block">Confirmar Nueva ContraseÃ±a</label>
+                <div className="relative flex w-full">
                   <input 
                     type={verConfirmarClave ? "text" : "password"} 
                     value={confirmarClave}
                     onChange={(e) => setConfirmarClave(e.target.value)}
                     required 
+                    className="w-full px-4 py-3 pr-12 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 font-semibold"
                   />
                   <button 
                     type="button" 
-                    className="btn-toggle-password"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-455 hover:text-indigo-550 transition-colors cursor-pointer"
                     onClick={() => setVerConfirmarClave(!verConfirmarClave)}
-                    title={verConfirmarClave ? "Ocultar contraseña" : "Mostrar contraseña"}
                   >
                     <EyeIcon visible={verConfirmarClave} />
                   </button>
                 </div>
               </div>
 
-              <p className={validaciones.coincide ? "ok" : "validation-pending"}>
-                • Las contraseñas coinciden
+              <p className={`text-xxs font-bold uppercase tracking-wider flex items-center gap-2 ${validaciones.coincide ? "text-emerald-600" : "text-slate-450"}`}>
+                <i className={`fas ${validaciones.coincide ? 'fa-check-circle' : 'fa-circle-notch'}`}></i> Las contraseÃ±as coinciden
               </p>
 
-              <button type="submit" className="btn-confirmar" disabled={cargando}>
-                {cargando ? "Procesando..." : "Actualizar Contraseña"}
+              <button 
+                type="submit" 
+                className="w-full py-4 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 active:scale-95 rounded-xl font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-indigo-500/20 transition-all duration-200 transform cursor-pointer text-white hover:shadow-neon-purple" 
+                disabled={cargando}
+              >
+                {cargando ? "Procesando..." : "Actualizar ContraseÃ±a"}
               </button>
             </form>
           </div>
 
         </div>
       </div>
-
-      <style jsx>{`
-  /* --- ESTILOS GENERALES DEL LAYOUT UNIFICADO --- */
-  .layout { 
-    background-color: #f0f4f8;
-    background-image: radial-gradient(#d1d5db 0.8px, transparent 0.8px);
-    background-size: 24px 24px;
-    min-height: 100vh; 
-    font-family: 'Inter', system-ui, -apple-system, sans-serif; 
-    color: #0f172a;
-    position: relative;
-  }
-
-  /* --- BARRA DE NAVEGACIÓN SUPERIOR --- */
-  .top-nav { 
-    background: #0f172a; 
-    color: white; 
-    padding: 12px 25px; 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
-    border-bottom: 4px solid #e30613; 
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  }
-  .logo { font-weight: 900; font-size: 20px; letter-spacing: -1px; }
-  .red-text { color: #e30613; }
-  
-  .btn-panel { 
-    background: #e30613; 
-    color: white; 
-    border: none; 
-    padding: 8px 16px; 
-    border-radius: 8px; 
-    cursor: pointer; 
-    font-size: 11px; 
-    font-weight: 800; 
-    text-transform: uppercase;
-    transition: 0.3s;
-  }
-  .btn-panel:hover { background: #b8050f; transform: translateY(-2px); }
-
-  /* --- CONTENEDOR DE CONTENIDO DE LA APP --- */
-  .content { padding: 30px; max-width: 1250px; margin: 0 auto; position: relative; z-index: 1; }
-
-  /* --- ENCABEZADO ESTILO MÓDULO CONTROL DE ACCESO --- */
-  .report-header {
-    margin-bottom: 35px;
-    border-left: 6px solid #0f172a;
-    padding-left: 20px;
-  }
-  .report-title {
-    font-size: 38px;
-    font-weight: 900;
-    color: #0f172a;
-    margin: 0;
-    letter-spacing: -2px;
-    line-height: 1;
-    text-transform: uppercase;
-  }
-  .subtitle-header {
-    font-size: 14px;
-    font-weight: 700;
-    color: #64748b;
-    margin-top: 5px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 0;
-  }
-
-  /* --- TARJETA ESTILO GLASSMORPHISM (SHADOW RELIEF) --- */
-  .shadow-relief { 
-    background: rgba(255, 255, 255, 0.94); 
-    backdrop-filter: blur(10px);
-    border-radius: 24px; 
-    padding: 35px; 
-    border: 1px solid rgba(255, 255, 255, 0.7);
-    box-shadow: 0 20px 40px -12px rgba(15, 23, 42, 0.12);
-    position: relative;
-    overflow: hidden;
-  }
-
-  /* Indicadores de Títulos de Sección */
-  .section-title { 
-    margin: 0 0 10px 0; 
-    font-size: 14px; 
-    text-transform: uppercase; 
-    font-weight: 900; 
-    color: #0f172a;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .section-title::before {
-    content: ""; width: 8px; height: 8px; background: #e30613; border-radius: 2px;
-  }
-
-  /* --- GRID DE CONTENIDO INTERNO (DOS COLUMNAS) --- */
-  .perfil-grid-content {
-    display: grid;
-    grid-template-columns: 1.2fr 2px 1fr; /* Más espacio para los datos extendidos */
-    gap: 40px;
-    align-items: start;
-  }
-
-  /* --- ORGANIZACIÓN DE SUBSECCIONES DE DATOS --- */
-  .user-info { display: flex; flex-direction: column; gap: 25px; }
-  
-  .info-section-group {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-  }
-
-  .info-group-title {
-    font-size: 11px;
-    font-weight: 900;
-    color: #e30613;
-    text-transform: uppercase;
-    margin: 0 0 5px 0;
-    letter-spacing: 0.5px;
-    border-bottom: 1px dashed #fee2e2;
-    padding-bottom: 4px;
-  }
-
-  /* Filas de dos columnas internas para datos más cortos */
-  .info-row-twin {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 15px;
-  }
-  
-  .info-item label { 
-    display: block; 
-    font-size: 10px; 
-    font-weight: 800; 
-    color: #64748b; 
-    text-transform: uppercase; 
-    margin-bottom: 4px; 
-    padding-left: 2px;
-  }
-  .info-item p { 
-    margin: 0; 
-    color: #0f172a; 
-    font-weight: 800; 
-    font-size: 0.95rem; 
-    text-transform: uppercase;
-  }
-  .info-item .email-text { text-transform: none; color: #334155; font-size: 0.9rem; }
-  .info-item .normal-case { text-transform: none; }
-  .ficha-tag { color: #e30613; font-weight: 900; } 
-  
-  .role-text { 
-    background: #0f172a; 
-    padding: 3px 10px; 
-    border-radius: 6px; 
-    font-size: 0.75rem; 
-    font-weight: 800;
-    color: white;
-    display: inline-block;
-    text-transform: uppercase;
-  }
-
-  /* DIVIDER VERTICAL */
-  .vertical-divider {
-    background: #f1f5f9;
-    height: 100%;
-    min-height: 450px;
-  }
-
-  /* SECCIÓN DERECHA (FORMULARIO) */
-  .clave-form { display: flex; flex-direction: column; }
-  .subtitle { font-size: 0.75rem; color: #64748b; margin-top: 4px; margin-bottom: 20px; font-weight: 500; }
-  
-  .input-group { margin-bottom: 15px; display: flex; flex-direction: column; gap: 6px; }
-  .input-group label { font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; margin-bottom: 6px; display: block; padding-left: 4px; }
-  
-  .input-password-container { position: relative; display: flex; width: 100%; }
-  .input-password-container input { width: 100%; padding-right: 45px; }
-
-  .btn-toggle-password {
-    position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
-    background: none; border: none; cursor: pointer; padding: 0;
-    display: flex; align-items: center; justify-content: center; user-select: none;
-    color: #64748b; transition: color 0.2s;
-  }
-  .btn-toggle-password:hover { color: #e30613; }
-
-  :global(.icon-svg) { width: 20px; height: 20px; }
-  
-  input { 
-    width: 100%; padding: 12px; 
-    border: 2px solid #f1f5f9; 
-    border-radius: 12px; 
-    font-size: 14px; 
-    font-weight: 600; 
-    background: #f8fafc; 
-    transition: all 0.2s ease;
-    outline: none;
-  }
-  input:focus { 
-    border-color: #e30613; 
-    background: white; 
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(227, 6, 19, 0.08);
-  }
-
-  /* VALIDACIONES */
-  .validaciones { background: #f8fafc; padding: 12px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #f1f5f9; }
-  .validaciones p { font-size: 0.75rem; color: #94a3b8; margin: 4px 0; font-weight: 600; }
-  .validation-pending { font-size: 0.75rem; color: #94a3b8; margin: 4px 0; font-weight: 600; }
-  .ok { color: #10b981 !important; }
-
-  /* BOTÓN CONFIRMAR */
-  .btn-confirmar { 
-    width: 100%; 
-    background: #e30613; 
-    color: white; 
-    border: none; 
-    padding: 15px; 
-    border-radius: 12px; 
-    font-weight: 800; 
-    cursor: pointer; 
-    text-transform: uppercase; 
-    margin-top: 10px; 
-    font-size: 12px;
-    box-shadow: 0 8px 16px rgba(227, 6, 19, 0.2);
-    transition: 0.3s;
-  }
-  .btn-confirmar:hover { transform: translateY(-3px); box-shadow: 0 12px 20px rgba(227, 6, 19, 0.3); }
-  .btn-confirmar:disabled { background: #cbd5e1; box-shadow: none; cursor: not-allowed; transform: none; }
-
-  .loading { padding: 40px; text-align: center; font-weight: 900; color: #e30613; font-size: 1rem; }
-
-  /* RESPONSIVIDAD */
-  @media (max-width: 950px) {
-    .perfil-grid-content { grid-template-columns: 1fr; gap: 30px; }
-    .vertical-divider { display: none; }
-  }
-  @media (max-width: 480px) {
-    .info-row-twin { grid-template-columns: 1fr; gap: 14px; }
-  }
-`}</style>
     </div>
   );
 }
+

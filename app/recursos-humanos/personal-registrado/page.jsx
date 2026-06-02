@@ -2,15 +2,15 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { db } from "../../lib/firebase"; 
+import { db } from "../../lib/firebase";
 import Cookies from "js-cookie";
-import { 
-  collection, 
-  onSnapshot, 
-  query, 
-  orderBy, 
-  doc, 
-  deleteDoc, 
+import {
+  collection,
+  onSnapshot,
+  query,
+  orderBy,
+  doc,
+  deleteDoc,
   updateDoc,
   arrayUnion,
   arrayRemove
@@ -18,7 +18,7 @@ import {
 
 const ESTADOS_NOMINALES = [
   "Activo (En funciones)",
-  "Reposo Médico",
+  "Reposo MÃ©dico",
   "Vacaciones",
   "Inactivo"
 ];
@@ -26,14 +26,14 @@ const ESTADOS_NOMINALES = [
 export default function PersonalRegistrado() {
   const router = useRouter();
   const [usuarios, setUsuarios] = useState([]);
-  const [asistenciasHoy, setAsistenciasHoy] = useState([]); 
+  const [asistenciasHoy, setAsistenciasHoy] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState("");
   const [isClient, setIsClient] = useState(false);
   const [filtroTipo, setFiltroTipo] = useState("TODOS");
 
   const [claveMaestra, setClaveMaestra] = useState("");
-  const [confirmarVieja, setConfirmarVieja] = useState(""); 
+  const [confirmarVieja, setConfirmarVieja] = useState("");
   const [nuevaClave, setNuevaClave] = useState("");
   const [editandoClave, setEditandoClave] = useState(false);
 
@@ -53,20 +53,19 @@ export default function PersonalRegistrado() {
 
   const limpiarID = (val) => val ? val.toString().trim().toLowerCase() : "";
 
-  // Lógica para verificar si la fecha de retorno ya pasó
+  // LÃ³gica para verificar si la fecha de retorno ya pasÃ³
   const verificarRetornoAutomatico = async (usuario) => {
     if (!usuario.fechaFin || usuario.estatus === "Activo (En funciones)") return;
 
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
-    
-    // Asumiendo formato YYYY-MM-DD del input type="date"
+
     const [year, month, day] = usuario.fechaFin.split("-").map(Number);
     const fechaFin = new Date(year, month - 1, day);
 
     if (hoy > fechaFin) {
       try {
-        await updateDoc(doc(db, "personal", usuario.id), { 
+        await updateDoc(doc(db, "personal", usuario.id), {
           estatus: "Activo (En funciones)",
           estado: "Activo",
           fechaSalida: null,
@@ -81,7 +80,7 @@ export default function PersonalRegistrado() {
 
   useEffect(() => {
     setIsClient(true);
-    
+
     const d = new Date();
     const hoyLimpio = `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
 
@@ -91,7 +90,6 @@ export default function PersonalRegistrado() {
       setUsuarios(listaUsuarios);
       setLoading(false);
 
-      // --- Verificación automática de retorno ---
       listaUsuarios.forEach(user => {
         if (user.estatus !== "Activo (En funciones)") {
           verificarRetornoAutomatico(user);
@@ -104,7 +102,7 @@ export default function PersonalRegistrado() {
       const marcadosHoy = [];
       snapshot.docs.forEach(doc => {
         const data = doc.data();
-        const fechaDoc = normalizarFecha(data.fecha); 
+        const fechaDoc = normalizarFecha(data.fecha);
         if (fechaDoc === hoyLimpio) {
           if (data.cedula) marcadosHoy.push(limpiarID(data.cedula));
           if (data.ficha) marcadosHoy.push(limpiarID(data.ficha));
@@ -141,7 +139,7 @@ export default function PersonalRegistrado() {
   };
 
   const guardarIncidencia = async (tipo, descripcion) => {
-    if (!descripcion) return alert("⚠️ Por favor, escriba el detalle.");
+    if (!descripcion) return alert("âš ï¸ Por favor, escriba el detalle.");
     try {
       const userRef = doc(db, "personal", usuarioExpediente.id);
       const nuevaIncidencia = { id: Date.now(), tipo: tipo, descripcion: descripcion, fecha: new Date().toLocaleString('es-ES'), registradoPor: Cookies.get("user_session") || "Admin RRHH" };
@@ -158,15 +156,15 @@ export default function PersonalRegistrado() {
     if (!yaRegistrada && !verificarPresenciaHoy(usuario) && verificarSiDebeMarcarFalta(usuario)) {
       try {
         const userRef = doc(db, "personal", usuario.id);
-        const nuevaFalta = { id: Date.now(), tipo: "FALTA", descripcion: `Inasistencia ${hoyStr} - AUSENCIA TOTAL JORNADA`, fecha: new Date().toLocaleString('es-ES'), registradoPor: "SISTEMA AUTOMÁTICO" };
+        const nuevaFalta = { id: Date.now(), tipo: "FALTA", descripcion: `Inasistencia ${hoyStr} - AUSENCIA TOTAL JORNADA`, fecha: new Date().toLocaleString('es-ES'), registradoPor: "SISTEMA AUTOMÃTICO" };
         await updateDoc(userRef, { historialIncidencias: arrayUnion(nuevaFalta) });
         setUsuarioExpediente(prev => ({ ...prev, historialIncidencias: prev.historialIncidencias ? [...prev.historialIncidencias, nuevaFalta] : [nuevaFalta] }));
-      } catch (error) { console.error("Error en registro automático:", error); }
+      } catch (error) { console.error("Error en registro automÃ¡tico:", error); }
     }
   };
 
   const eliminarIncidencia = async (item) => {
-    if (!window.confirm("¿Estás seguro de eliminar este registro del historial?")) return;
+    if (!window.confirm("Â¿EstÃ¡s seguro de eliminar este registro del historial?")) return;
     try {
       const userRef = doc(db, "personal", usuarioExpediente.id);
       await updateDoc(userRef, { historialIncidencias: arrayRemove(item) });
@@ -175,32 +173,32 @@ export default function PersonalRegistrado() {
   };
 
   const actualizarClaveMaestra = async () => {
-    if (!confirmarVieja || !nuevaClave) { alert("⚠️ Debes completar ambos campos."); return; }
-    if (confirmarVieja !== claveMaestra) { alert("❌ La clave actual es incorrecta."); return; }
+    if (!confirmarVieja || !nuevaClave) { alert("âš ï¸ Debes completar ambos campos."); return; }
+    if (confirmarVieja !== claveMaestra) { alert("âŒ La clave actual es incorrecta."); return; }
     try {
       await updateDoc(doc(db, "configuracion", "seguridad"), { claveExpedientes: nuevaClave });
-      alert("🔐 Clave Maestra actualizada.");
+      alert("ðŸ” Clave Maestra actualizada.");
       setNuevaClave(""); setConfirmarVieja(""); setEditandoClave(false);
     } catch (error) { alert(error.message); }
   };
 
   const manejarAccesoExpediente = (user) => {
-    const pin = prompt("🔐 SEGURIDAD INVECEM: Ingrese clave de Recursos Humanos:");
+    const pin = prompt("ðŸ” SEGURIDAD INVECEM: Ingrese clave de Recursos Humanos:");
     if (pin === claveMaestra) {
       setUsuarioExpediente(user);
       setShowExpediente(true);
       if (!verificarPresenciaHoy(user)) registrarInasistenciaAutomatica(user);
-    } else if (pin !== null) { alert("❌ Clave incorrecta."); }
+    } else if (pin !== null) { alert("âŒ Clave incorrecta."); }
   };
 
   const handleEliminar = async (id, nombre) => {
-    if (window.confirm(`¿Estás seguro de eliminar a ${nombre}?`)) {
+    if (window.confirm(`Â¿EstÃ¡s seguro de eliminar a ${nombre}?`)) {
       try { await deleteDoc(doc(db, "personal", id)); } catch (error) { alert(error.message); }
     }
   };
 
   const handleCambioEstatus = (user, nuevoEstatus) => {
-    if (nuevoEstatus === "Vacaciones" || nuevoEstatus === "Reposo Médico") {
+    if (nuevoEstatus === "Vacaciones" || nuevoEstatus === "Reposo MÃ©dico") {
       setUsuarioParaEstado(user);
       setTipoSeleccionado(nuevoEstatus);
       setFechas({ inicio: "", fin: "" });
@@ -213,22 +211,22 @@ export default function PersonalRegistrado() {
   const cambiarEstatusFirebase = async (id, nuevoEstatus, inicio, fin) => {
     try {
       const esActivo = nuevoEstatus.includes("Activo");
-      await updateDoc(doc(db, "personal", id), { 
-        estatus: nuevoEstatus, 
+      await updateDoc(doc(db, "personal", id), {
+        estatus: nuevoEstatus,
         estado: esActivo ? "Activo" : nuevoEstatus,
         fechaSalida: esActivo ? null : (inicio || null),
         fechaRegreso: esActivo ? null : (fin || null),
         fechaFin: esActivo ? null : (fin || null)
       });
-    } catch (error) { 
-      console.error(error); 
+    } catch (error) {
+      console.error(error);
       alert("Error al actualizar el estatus.");
     }
   };
 
-  const confirmarAusenciaMódulo = async () => {
+  const confirmarAusenciaModulo = async () => {
     if (!fechas.inicio || !fechas.fin) {
-      alert("⚠️ Debe rellenar la fecha de inicio y de regreso.");
+      alert("Asistencias¸  Debe rellenar la fecha de inicio y de regreso.");
       return;
     }
     await cambiarEstatusFirebase(usuarioParaEstado.id, tipoSeleccionado, fechas.inicio, fechas.fin);
@@ -253,86 +251,95 @@ export default function PersonalRegistrado() {
       const { default: autoTable } = await import("jspdf-autotable");
       const docPdf = new jsPDF('l', 'mm', 'a4');
       docPdf.setFontSize(18);
-      docPdf.setTextColor(0, 139, 139); 
+      docPdf.setTextColor(0, 51, 102);
       docPdf.text(`REPORTE DE PERSONAL - INVECEM`, 14, 20);
       docPdf.setFontSize(10);
       docPdf.setTextColor(100);
-      docPdf.text(`Fecha de emisión: ${new Date().toLocaleDateString()}`, 14, 28);
+      docPdf.text(`Fecha de emisiÃ³n: ${new Date().toLocaleDateString()}`, 14, 28);
       const tableRows = usuariosFiltrados.map(u => [
         u.ficha || "---", u.cedula || "N/A", `${u.nombres} ${u.apellidos}`.toUpperCase(), u.tipoPersonal || "INVECEM", u.cargo || "N/A", u.area || "N/A", u.estatus || "Activo"
       ]);
       autoTable(docPdf, {
-        head: [['Ficha', 'Cédula', 'Nombre Completo', 'ID', 'Cargo', 'Área', 'Estado']],
+        head: [['Ficha', 'CÃ©dula', 'Nombre Completo', 'Tipo', 'Cargo', 'Ãrea', 'Estado']],
         body: tableRows,
         startY: 35,
-        headStyles: { fillColor: [0, 139, 139], fontStyle: 'bold' },
+        headStyles: { fillColor: [0, 51, 102], fontStyle: 'bold' },
         styles: { fontSize: 8, cellPadding: 3 },
         alternateRowStyles: { fillColor: [245, 247, 250] }
       });
       docPdf.save(`Reporte_Personal_${filtroTipo}.pdf`);
-    } catch (error) { alert("Error al generar PDF."); }
+    } catch { alert("Error al generar PDF."); }
   };
 
   if (!isClient) return null;
 
   return (
-    <div className="main-wrapper">
-       <header className="invecem-header">
-        <div className="logo-box">
-          SYSTEM-CONTROL<span className="red-text"> INVECEM</span>
-        </div>
-        <button className="btn-return" onClick={() => router.push("/recursos-humanos")}>VOLVER </button>
-      </header>
+    <div className="min-h-screen bg-slate-50 text-slate-800 relative overflow-hidden font-sans pb-10 cyber-grid">
+      {/* Background glowing decorations */}
+      <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-tr from-cyan-400 to-indigo-500 rounded-full blur-3xl opacity-15 animate-pulse-glow"></div>
+      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-gradient-to-tr from-purple-500 to-pink-500 rounded-full blur-3xl opacity-10 animate-pulse-glow delay-1000"></div>
 
-      <div className="content-container">
+      {/* BARRA DE NAVEGACIÃ“N CORPORATIVA */}
+      <nav className="top-nav print:hidden bg-white/60 backdrop-blur-xl border-b border-slate-200/80 px-6 py-4 flex justify-between items-center z-20 relative">
+        <div className="flex items-center gap-2.5"><div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg,#06b6d4,#3b82f6)" }}><i className="fas fa-building-columns text-white" style={{ fontSize: "11px" }}></i></div><span className="text-base font-black tracking-tight text-slate-900 uppercase">INVECEM</span></div>
+        <button
+          className="px-4 py-2 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 active:scale-95 rounded-xl font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-indigo-500/20 transition-all duration-200 cursor-pointer text-white hover:shadow-neon-cyan"
+          onClick={() => router.push("/recursos-humanos")}
+        >
+          <i className="fas fa-arrow-left mr-2"></i> Volver
+        </button>
+      </nav>
 
-        {/* MODAL DE SELECCIÓN DE FECHAS */}
+      {/* CONTENEDOR CENTRAL */}
+      <div className="max-w-7xl mx-auto px-6 py-10 z-10 relative">
+
+        {/* MODAL DE SELECCIÃ“N DE FECHAS */}
         {showModal && usuarioParaEstado && (
-          <div className="modal-overlay">
-            <div className="modal-content shadow-relief" style={{ width: '450px', border: '3px solid #e30613' }}>
-              <h2 className="title" style={{ fontSize: '24px', marginBottom: '10px', textTransform: 'uppercase' }}>
-                Registrar {tipoSeleccionado}
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+            <div className="bg-white/95 backdrop-blur-xl border border-slate-200/80 rounded-3xl p-6 md:p-8 w-full max-w-md shadow-2xl space-y-6 relative shadow-neon-cyan/20">
+              {/* Tech Corners */}
+              <div className="absolute top-2 left-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+              <div className="absolute top-2 right-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+
+              <h2 className="text-xl font-black uppercase text-indigo-950 tracking-tight flex items-center gap-2">
+                <i className="fas fa-calendar-plus text-cyan-600"></i> Registrar {tipoSeleccionado}
               </h2>
-              <p style={{ fontSize: '13px', color: '#64748b', fontWeight: '700', marginBottom: '20px' }}>
-                Trabajador: <span style={{ color: '#0f172a' }}>{usuarioParaEstado.nombres} {usuarioParaEstado.apellidos}</span>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest pb-4 border-b border-slate-100 font-mono">
+                EMPLEADO: <span className="text-cyan-600 font-extrabold">{usuarioParaEstado.nombres} {usuarioParaEstado.apellidos}</span>
               </p>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                <div>
-                  <label className="exp-label" style={{ marginBottom: '6px', display: 'block' }}>Fecha de Inicio:</label>
-                  <input 
-                    type="date" 
-                    className="search-input" 
-                    style={{ width: '100%', padding: '10px' }} 
+
+              <div className="space-y-4">
+                <div className="flex flex-col gap-2">
+                  <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">FECHA_INICIO</label>
+                  <input
+                    type="date"
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm font-semibold cursor-pointer"
                     value={fechas.inicio}
                     onChange={(e) => setFechas({ ...fechas, inicio: e.target.value })}
                   />
                 </div>
-                
-                <div>
-                  <label className="exp-label" style={{ marginBottom: '6px', display: 'block' }}>Fecha de Retorno / Fin:</label>
-                  <input 
-                    type="date" 
-                    className="search-input" 
-                    style={{ width: '100%', padding: '10px' }} 
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">FECHA_RETORNO</label>
+                  <input
+                    type="date"
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm font-semibold cursor-pointer"
                     value={fechas.fin}
                     onChange={(e) => setFechas({ ...fechas, fin: e.target.value })}
                   />
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', marginTop: '30px', justifyContent: 'flex-end' }}>
-                <button 
-                  className="btn-delete" 
-                  style={{ background: '#64748b', boxShadow: '0 3px 0px #475569' }} 
+              <div className="flex gap-3 justify-end pt-4">
+                <button
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-650 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer"
                   onClick={() => { setShowModal(false); setUsuarioParaEstado(null); }}
                 >
                   Cancelar
                 </button>
-                <button 
-                  className="btn-print" 
-                  style={{ padding: '8px 20px' }} 
-                  onClick={confirmarAusenciaMódulo}
+                <button
+                  className="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-indigo-500 hover:from-cyan-400 hover:to-indigo-400 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-indigo-500/20 transition-all duration-200 cursor-pointer hover:shadow-neon-cyan"
+                  onClick={confirmarAusenciaModulo}
                 >
                   Confirmar Registro
                 </button>
@@ -341,274 +348,419 @@ export default function PersonalRegistrado() {
           </div>
         )}
 
-        {/* MODAL EXPEDIENTE */}
+        {/* MODAL EXPEDIENTE (HISTORIAL) */}
         {showExpediente && usuarioExpediente && (
-          <div className="modal-overlay">
-            <div className="modal-content shadow-relief border-turquesa-full" style={{ width: '950px', maxWidth: '95vw' }}>
-              <div className="modal-header-exp">
-                  <h2 className="modal-title">Expediente de Personal</h2>
-                  <span className="badge-id">Ficha: {usuarioExpediente.ficha}</span>
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+            <div className="bg-white/95 backdrop-blur-xl border border-slate-200/80 rounded-3xl p-6 md:p-8 w-full max-w-5xl shadow-2xl flex flex-col max-h-[90vh] text-slate-800 relative shadow-neon-cyan/20">
+              {/* Tech Corners */}
+              <div className="absolute top-3 left-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+              <div className="absolute top-3 right-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+
+              {/* Header Modal */}
+              <div className="flex justify-between items-center pb-4 border-b border-slate-200/60 mb-6">
+                <div>
+                  <h2 className="text-xl font-black uppercase text-indigo-950 tracking-tight flex items-center gap-2">
+                    <i className="fas fa-folder-open text-cyan-600"></i> Expediente del Personal
+                  </h2>
+                  <p className="text-3xs font-bold text-slate-500 uppercase tracking-widest mt-0.5 font-mono">SYS_REGISTRAR // HISTORIAL_INCIDENCIAS</p>
+                </div>
+                <span className="px-3 py-1 bg-slate-50 border border-slate-200 text-cyan-600 rounded-xl text-xxs font-black tracking-wider uppercase font-mono">
+                  FICHA: {usuarioExpediente.ficha || "---"}
+                </span>
               </div>
-              
-              <div className="expediente-body" style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '25px' }}>
-                <div className="registro-seccion">
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
-                    <div className="exp-section"><p className="exp-label">Empleado</p><p className="exp-value">{usuarioExpediente.nombres} {usuarioExpediente.apellidos}</p></div>
-                    <div className="exp-section"><p className="exp-label">Cédula</p><p className="exp-value">{usuarioExpediente.cedula}</p></div>
-                    <div className="exp-section"><p className="exp-label">Cargo</p><p className="exp-value">{usuarioExpediente.cargo}</p></div>
-                    <div className="exp-section">
-                      <p className="exp-label">Horario / Turno</p>
-                      <p className="exp-value" style={{color: '#0369a1'}}>
-                        {usuarioExpediente.horaEntrada && usuarioExpediente.horaSalida 
-                          ? `${usuarioExpediente.horaEntrada} a ${usuarioExpediente.horaSalida}` 
+
+              {/* Body Modal */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-y-auto pr-1">
+
+                {/* Columna Izquierda: Detalles e Ingreso de Notas */}
+                <div className="space-y-6">
+
+                  {/* Datos Maestros Grid */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xxs font-bold text-slate-500 uppercase tracking-wider font-mono">EMPLEADO</p>
+                      <p className="text-xs font-black text-indigo-950 uppercase mt-0.5">{usuarioExpediente.nombres} {usuarioExpediente.apellidos}</p>
+                    </div>
+                    <div>
+                      <p className="text-xxs font-bold text-slate-500 uppercase tracking-wider font-mono">CÃ‰DULA</p>
+                      <p className="text-xs font-extrabold text-slate-600 uppercase mt-0.5 font-mono">{usuarioExpediente.cedula}</p>
+                    </div>
+                    <div>
+                      <p className="text-xxs font-bold text-slate-500 uppercase tracking-wider font-mono">CARGO</p>
+                      <p className="text-xs font-extrabold text-cyan-705 uppercase mt-0.5">{usuarioExpediente.cargo || "Sin cargo"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xxs font-bold text-slate-500 uppercase tracking-wider font-mono">HORARIO_TURNO</p>
+                      <p className="text-xs font-black text-slate-700 uppercase mt-0.5">
+                        {usuarioExpediente.horaEntrada && usuarioExpediente.horaSalida
+                          ? `${usuarioExpediente.horaEntrada} a ${usuarioExpediente.horaSalida}`
                           : (usuarioExpediente.regimenLaboral || "No asignado")}
                       </p>
                     </div>
-                    <div className="exp-section"><p className="exp-label">Fecha de Ingreso</p><p className="exp-value">{usuarioExpediente.fechaIngreso || "No registrada"}</p></div>
-                    <div className="exp-section"><p className="exp-label">Estatus Actual</p><p className="exp-value" style={{color: '#008b8b'}}>{usuarioExpediente.estatus}</p></div>
+                    <div>
+                      <p className="text-xxs font-bold text-slate-500 uppercase tracking-wider font-mono">FECHA_INGRESO</p>
+                      <p className="text-xs font-extrabold text-slate-500 mt-0.5 font-mono">{usuarioExpediente.fechaIngreso || "No registrada"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xxs font-bold text-slate-500 uppercase tracking-wider font-mono">STATUS_ACTUAL</p>
+                      <p className="text-xs font-black text-emerald-600 uppercase mt-0.5">{usuarioExpediente.estatus}</p>
+                    </div>
                   </div>
 
-                  <hr style={{ border: 'none', borderTop: '1px solid #e2e8f0', margin: '20px 0' }} />
-
-                  <div>
-                    <p className="exp-label">Registrar Amonestación / Observación</p>
-                    <textarea 
-                      className="search-input" 
-                      style={{ width: '100%', height: '80px', margin: '10px 0', border: '1px solid #008b8b' }}
-                      placeholder="Escriba aquí los detalles..."
+                  {/* Input AmonestaciÃ³n */}
+                  <div className="space-y-3">
+                    <label className="text-xxs font-black uppercase text-red-600 tracking-wider flex items-center gap-1.5 font-mono">
+                      <i className="fas fa-exclamation-triangle"></i> SYS_OBSERVACION // AMONESTACIÃ“N
+                    </label>
+                    <textarea
+                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:shadow-neon-cyan/40 text-sm font-semibold h-24 resize-none"
+                      placeholder="Escriba aquÃ­ los detalles y motivos especÃ­ficos..."
                       value={notaAmonestacion}
                       onChange={(e) => setNotaAmonestacion(e.target.value)}
                     />
-                    <button className="btn-print" style={{ width: '100%' }} onClick={() => guardarIncidencia("AMONESTACIÓN", notaAmonestacion)}>
+                    <button
+                      className="w-full py-3.5 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-650 hover:from-cyan-400 hover:to-purple-500 text-white font-extrabold uppercase text-xs tracking-wider rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-neon-cyan transition-all duration-200 cursor-pointer"
+                      onClick={() => guardarIncidencia("AMONESTACIÃ“N", notaAmonestacion)}
+                    >
                       Guardar en Historial
                     </button>
                   </div>
 
-                  <div className="exp-info-box" style={{ marginTop: '20px', background: '#fff7ed', padding: '15px', borderRadius: '10px', border: '1px solid #fdba74' }}>
-                    <p className="exp-label" style={{ color: '#c2410c' }}>Control de Asistencia (Estado Hoy)</p>
-                    
+                  {/* Estatus Hoy box */}
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl">
+                    <p className="text-xxs font-black text-slate-500 uppercase tracking-widest mb-3">Asistencia de Hoy</p>
+
                     {verificarPresenciaHoy(usuarioExpediente) ? (
-                      <div style={{ marginTop: '10px', textAlign: 'center', padding: '10px', background: 'white', borderRadius: '8px' }}>
-                        <p style={{ fontSize: '13px', color: '#16a34a', fontWeight: 'bold' }}>✅ Presente: Registro confirmado en sistema.</p>
+                      <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-center shadow-sm">
+                        <p className="text-xs font-black text-emerald-600 uppercase tracking-wider">
+                          <i className="fas fa-check-circle mr-1.5"></i> Presente: Registro confirmado en sistema.
+                        </p>
                       </div>
                     ) : (
                       verificarSiDebeMarcarFalta(usuarioExpediente) ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
-                          <p style={{fontSize: '12px', fontWeight: 'bold', color: '#e30613'}}>⚠️ INASISTENCIA: No se detectó presencia hoy.</p>
-                          <div style={{ display: 'flex', gap: '10px' }}>
-                            <button className="btn-historial" style={{flex: 1, border: '1px solid #008b8b', background: '#008b8b', color: 'white'}} onClick={() => guardarIncidencia("FALTA", `Inasistencia ${new Date().toLocaleDateString()} - JUSTIFICADA`)}>Justificar</button>
-                            <button className="btn-delete" style={{flex: 1, background: '#e30613', color: 'white'}} onClick={() => guardarIncidencia("FALTA", `Inasistencia ${new Date().toLocaleDateString()} - INJUSTIFICADA`)}>Injustificada</button>
+                        <div className="space-y-3">
+                          <p className="text-xs font-black text-red-650 uppercase tracking-wider text-center bg-red-50 border border-red-200 p-2 rounded-xl">
+                            <i className="fas fa-times-circle mr-1.5"></i> Inasistencia: No se detectÃ³ presencia hoy.
+                          </p>
+                          <div className="flex gap-2">
+                            <button
+                              className="flex-1 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xxs font-black tracking-wider uppercase rounded-xl transition-all cursor-pointer shadow-sm hover:shadow-neon-cyan"
+                              onClick={() => guardarIncidencia("FALTA", `Inasistencia ${new Date().toLocaleDateString()} - JUSTIFICADA`)}
+                            >
+                              Justificar
+                            </button>
+                            <button
+                              className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white text-xxs font-black tracking-wider uppercase rounded-xl transition-all cursor-pointer shadow-sm hover:shadow-neon-red"
+                              onClick={() => guardarIncidencia("FALTA", `Inasistencia ${new Date().toLocaleDateString()} - INJUSTIFICADA`)}
+                            >
+                              Injustificada
+                            </button>
                           </div>
                         </div>
                       ) : (
-                        <div style={{ marginTop: '10px', textAlign: 'center', padding: '10px', background: '#f0f9ff', borderRadius: '8px' }}>
-                          <p style={{ fontSize: '12px', color: '#0369a1' }}>
-                            ⏳ Jornada en curso: Esperando registro del trabajador.
+                        <div className="bg-cyan-50 border border-cyan-205 p-3 rounded-xl text-center">
+                          <p className="text-xs font-bold text-cyan-650 uppercase tracking-wider">
+                            <i className="fas fa-hourglass-half mr-1.5"></i> Jornada en curso: Esperando registro.
                           </p>
                         </div>
                       )
                     )}
                   </div>
+
                 </div>
 
-                <div className="historial-lista" style={{ background: '#f8fafc', padding: '15px', borderRadius: '12px', maxHeight: '550px', overflowY: 'auto', border: '1px solid #e2e8f0' }}>
-                  <p className="exp-label" style={{ marginBottom: '10px' }}>Línea de Tiempo del Trabajador</p>
-                  {usuarioExpediente.historialIncidencias?.length > 0 ? (
-                    usuarioExpediente.historialIncidencias.slice().reverse().map((item, index) => {
-                      const esJustificada = item.descripcion.includes('JUSTIFICADA');
-                      const colorBorde = esJustificada ? '#008b8b' : (item.tipo === 'FALTA' ? '#e30613' : '#008b8b');
-                      
-                      return (
-                        <div key={item.id || index} style={{ position: 'relative', background: 'white', padding: '12px', borderRadius: '8px', marginBottom: '12px', borderLeft: `5px solid ${colorBorde}`, boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-                          <button 
-                            onClick={() => eliminarIncidencia(item)}
-                            style={{ position: 'absolute', right: '10px', top: '10px', border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}
+                {/* Columna Derecha: Timeline del Expediente */}
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col h-[400px] lg:h-auto">
+                  <p className="text-xxs font-black text-slate-500 uppercase tracking-widest mb-4">Historial de Registros</p>
+
+                  <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                    {usuarioExpediente.historialIncidencias?.length > 0 ? (
+                      usuarioExpediente.historialIncidencias.slice().reverse().map((item, index) => {
+                        const esJustificada = item.descripcion.includes('JUSTIFICADA');
+                        const isFalta = item.tipo === 'FALTA';
+
+                        return (
+                          <div
+                            key={item.id || index}
+                            className={`p-3.5 bg-white border border-slate-200 rounded-xl relative border-l-4 ${esJustificada ? "border-l-cyan-500" : (isFalta ? "border-l-red-500" : "border-l-purple-500")}`}
                           >
-                            ×
-                          </button>
-                          <div style={{display: 'flex', justifyContent: 'space-between', paddingRight: '20px'}}>
-                            <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#64748b' }}>{item.fecha}</span>
-                            <span style={{ fontSize: '9px', color: colorBorde, fontWeight: '900' }}>{item.tipo}</span>
+                            <button
+                              onClick={() => eliminarIncidencia(item)}
+                              className="absolute right-3 top-3 text-slate-400 hover:text-red-500 transition-colors text-xs font-extrabold cursor-pointer"
+                              title="Eliminar registro"
+                            >
+                              <i className="fas fa-times"></i>
+                            </button>
+
+                            <div className="flex justify-between items-center mb-1">
+                              <span className="text-3xs font-black text-slate-450 font-mono">{item.fecha}</span>
+                              <span className={`text-4xs font-black tracking-widest uppercase px-1.5 py-0.5 rounded font-mono ${esJustificada ? "bg-cyan-50 text-cyan-600 border border-cyan-200" : (isFalta ? "bg-red-50 text-red-650 border border-red-200" : "bg-purple-50 text-purple-600 border border-purple-200")}`}>
+                                {item.tipo}
+                              </span>
+                            </div>
+
+                            <p className="text-xs font-semibold text-slate-700 mt-2">{item.descripcion}</p>
+                            <p className="text-4xs text-slate-500 text-right mt-1.5 italic font-bold font-mono">OPERATOR: {item.registradoPor}</p>
                           </div>
-                          <p style={{ fontSize: '13px', margin: '5px 0', color: '#334155' }}>{item.descripcion}</p>
-                          <p style={{ fontSize: '9px', textAlign: 'right', color: '#94a3b8', fontStyle: 'italic' }}>Reg: {item.registradoPor}</p>
-                        </div>
-                      )
-                    })
-                  ) : (
-                    <div style={{ textAlign: 'center', marginTop: '50px' }}><p style={{ fontSize: '12px', color: '#94a3b8' }}>Este expediente no posee registros aún.</p></div>
-                  )}
+                        );
+                      })
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                        <i className="fas fa-folder-open text-3xl mb-2"></i>
+                        <p className="text-xxs font-bold uppercase tracking-wider font-sans">Sin incidencias en el historial</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
+
               </div>
 
-              <div className="modal-footer">
-                <button className="btn-confirm" onClick={() => setShowExpediente(false)}>Finalizar Consulta</button>
+              {/* Footer Modal */}
+              <div className="border-t border-slate-200/60 pt-4 mt-6 flex justify-end">
+                <button
+                  className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-650 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer"
+                  onClick={() => setShowExpediente(false)}
+                >
+                  Finalizar Consulta
+                </button>
               </div>
+
             </div>
           </div>
         )}
 
-        {/* VISTA PRINCIPAL */}
-        <div className="header-section no-print" style={{marginTop: '20px'}}>
-          <div className="title-wrapper" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px' }}>
-            <div>
-              <h1 className="title">Personal Registrado</h1>
-              <div className="total-badge">Registros encontrados: {usuariosFiltrados.length}</div>
+        {/* ENCABEZADO PRINCIPAL DE LA VISTA */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 pb-6 border-b border-slate-200/60 no-print">
+          <div>
+            <h1 className="text-3xl font-black tracking-tight text-indigo-950 uppercase flex items-center gap-3">
+              <i className="fas fa-users text-cyan-500"></i> Personal Registrado
+            </h1>
+            <div className="mt-2 inline-flex px-3 py-1 bg-cyan-500/10 border border-cyan-500/25 text-cyan-600 rounded-xl text-xxs font-black tracking-wider uppercase">
+              Total: {usuariosFiltrados.length}
             </div>
-            
-            <div className="seguridad-box shadow-relief no-print" style={{ padding: '10px' }}>
-               {!editandoClave ? (
-                  <button onClick={() => setEditandoClave(true)} style={{cursor: 'pointer'}}>
-                    🔐 Gestión Clave de Expedientes
+          </div>
+
+          {/* GestiÃ³n Clave de Expedientes */}
+          <div className="p-4 bg-white/80 backdrop-blur-md border border-slate-200 rounded-2xl w-full md:w-80 shadow-md">
+            {!editandoClave ? (
+              <button
+                onClick={() => setEditandoClave(true)}
+                className="w-full text-left text-xxs font-black uppercase text-slate-500 hover:text-indigo-950 transition-colors flex items-center gap-2 cursor-pointer font-mono"
+              >
+                <i className="fas fa-key text-cyan-500"></i> KEY_MANAGEMENT // EXPEDIENTES
+              </button>
+            ) : (
+              <div className="space-y-2.5">
+                <input
+                  type="password"
+                  placeholder="Clave ACTUAL..."
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-cyan-500"
+                  onChange={(e) => setConfirmarVieja(e.target.value)}
+                />
+                <input
+                  type="password"
+                  placeholder="Nueva Clave..."
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-cyan-500"
+                  onChange={(e) => setNuevaClave(e.target.value)}
+                />
+                <div className="flex gap-2">
+                  <button
+                    className="flex-1 py-1.5 bg-gradient-to-r from-cyan-500 to-indigo-500 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer hover:shadow-neon-cyan"
+                    onClick={actualizarClaveMaestra}
+                  >
+                    Confirmar
                   </button>
-               ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <input type="password" placeholder="Clave ACTUAL..." className="clave-input full-width" onChange={(e) => setConfirmarVieja(e.target.value)} />
-                    <input type="password" placeholder="Nueva Clave..." className="clave-input full-width" onChange={(e) => setNuevaClave(e.target.value)} />
-                    <div style={{ display: 'flex', gap: '5px' }}>
-                      <button className="btn-save-clave" style={{ flex: 1 }} onClick={actualizarClaveMaestra}>Confirmar</button>
-                      <button className="btn-cancel-clave" onClick={() => setEditandoClave(false)}>X</button>
-                    </div>
-                  </div>
-               )}
-            </div>
+                  <button
+                    className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-lg text-[10px] font-black cursor-pointer"
+                    onClick={() => setEditandoClave(false)}
+                  >
+                    X
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="filters-bar no-print">
-          <div className="btn-group">
+        {/* BARRA DE FILTRADO Y ACCIONES RÃPIDAS */}
+        <div className="p-4 bg-white/80 backdrop-blur-xl border border-slate-200/60 rounded-3xl flex flex-col xl:flex-row justify-between items-center gap-4 mb-6 shadow-xl shadow-slate-200/10 no-print relative">
+          {/* Tech Corners */}
+          <div className="absolute top-2 left-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+          <div className="absolute top-2 right-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+
+          {/* Tabs por Tipo */}
+          <div className="flex flex-wrap gap-1.5 w-full xl:w-auto">
             {["TODOS", "INVECEM", "INCES", "PASANTES"].map(f => (
-              <button key={f} className={`btn-toggle ${filtroTipo === f ? "active" : ""}`} onClick={() => setFiltroTipo(f)}>{f}</button>
+              <button
+                key={f}
+                className={`px-4 py-2 rounded-xl text-xxs font-black uppercase tracking-wider border transition-all duration-200 cursor-pointer ${filtroTipo === f ? "bg-gradient-to-r from-cyan-500 to-indigo-505 border-transparent text-white shadow-md shadow-indigo-500/20" : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"}`}
+                onClick={() => setFiltroTipo(f)}
+              >
+                {f}
+              </button>
             ))}
           </div>
-          <input type="text" placeholder="Buscar por nombre, ficha o cédula..." className="search-input" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
-          <div className="actions-buttons" style={{ display: 'flex', gap: '10px' }}>
-              <button 
-                className="btn-record-new" 
-                onClick={() => router.push("/recursos-humanos/personal-registrado/registrar-nuevo-personal")}
-              >
-                ➕ Registrar Nuevo Personal
-              </button>
-              <button className="btn-pdf" onClick={generarPDF}>Descargar PDF</button>
-              <button className="btn-print" onClick={() => window.print()}>Imprimir</button>
+
+          {/* Buscador */}
+          <div className="relative w-full xl:flex-1">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
+              <i className="fas fa-search"></i>
+            </span>
+            <input
+              type="text"
+              placeholder="Buscar por Nombre, CÃ©dula, Ficha..."
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs font-semibold"
+            />
           </div>
+
+          {/* Acciones principales */}
+          <div className="flex flex-wrap gap-2 w-full xl:w-auto justify-end">
+            <button
+              className="px-4 py-3 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 active:scale-95 text-white font-extrabold uppercase text-xs tracking-wider rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-neon-cyan transition-all duration-200 cursor-pointer flex items-center gap-1.5"
+              onClick={() => router.push("/recursos-humanos/personal-registrado/registrar-nuevo-personal")}
+            >
+              <i className="fas fa-plus"></i> Registrar Nuevo
+            </button>
+
+            <button
+              className="px-4 py-3 bg-white hover:bg-slate-50 border border-slate-200 text-slate-650 hover:text-indigo-950 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5"
+              onClick={generarPDF}
+            >
+              <i className="fas fa-file-pdf"></i> Descargar PDF
+            </button>
+
+            <button
+              className="px-4 py-3 bg-white hover:bg-slate-50 border border-slate-200 text-slate-655 hover:text-indigo-950 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5"
+              onClick={() => window.print()}
+            >
+              <i className="fas fa-print"></i> Imprimir
+            </button>
+          </div>
+
         </div>
 
-        <div className="table-card shadow-relief">
+        {/* TABLA PRINCIPAL */}
+        <div className="bg-white/80 backdrop-blur-xl border border-slate-200/60 rounded-3xl overflow-hidden shadow-2xl shadow-slate-200/10 p-4 md:p-6 relative shadow-neon-cyan/5">
+          {/* Tech Corners */}
+          <div className="absolute top-3 left-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+          <div className="absolute top-3 right-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+
           {loading ? (
-            <div className="loader">Sincronizando...</div>
+            <div className="py-12 text-center text-xs font-black uppercase tracking-widest text-red-500 animate-pulse font-sans">
+              <i className="fas fa-spinner fa-spin mr-2"></i> Conectando con la base de datos... Cargando registros...
+            </div>
           ) : (
-            <div className="table-wrapper">
-              <table>
+            <div className="overflow-x-auto w-full no-scrollbar">
+              <table className="w-full border-collapse">
                 <thead>
-                  <tr>
-                    <th>Ficha</th><th>Cédula</th><th>Nombre y Apellido</th><th>ID</th><th>Cargo</th><th>Estatus</th><th className="text-center no-print">Acciones</th>
+                  <tr className="border-b border-slate-200/60">
+                    <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center w-24 font-mono">FICHA</th>
+                    <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">CÃ‰DULA</th>
+                    <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-left font-mono">NOMBRES Y APELLIDOS</th>
+                    <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">TIPO</th>
+                    <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-left font-mono">CARGO / PUESTO</th>
+                    <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">ESTATUS OPERACIONAL</th>
+                    <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center no-print font-mono">ACCIONES EXPEDIENTE</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {usuariosFiltrados.map((user) => (
-                    <tr key={user.id}>
-                      <td className="font-bold">{user.ficha || "---"}</td>
-                      <td>{user.cedula}</td>
-                      <td className="name-text">{user.nombres} {user.apellidos}</td>
-                      <td><span className="badge-id">{user.tipoPersonal || "INVECEM"}</span></td>
-                      <td className="cargo-text">{user.cargo}</td>
-                      <td>
-                        <select className={`status-select ${user.estatus?.toLowerCase().includes('activo') ? 'border-turquesa' : 'border-rojo'}`} value={user.estatus || "Activo (En funciones)"} onChange={(e) => handleCambioEstatus(user, e.target.value)}>
-                          {ESTADOS_NOMINALES.map(e => <option key={e} value={e}>{e}</option>)}
-                        </select>
-                      </td>
-                      <td className="actions-cell no-print">
-                        <button className="btn-historial" onClick={() => manejarAccesoExpediente(user)}>Historial</button>
-                        <button className="btn-edit" onClick={() => irAEditar(user.id)}>Editar</button>
-                        <button className="btn-delete" onClick={() => handleEliminar(user.id, user.nombres)}>Eliminar</button>
+                  {usuariosFiltrados.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" className="py-8 text-center text-slate-450 font-bold italic text-sm font-sans">
+                        No se encontraron colaboradores registrados.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    usuariosFiltrados.map((user) => (
+                      <tr key={user.id} className="hover:bg-slate-50/50 border-b border-slate-100/60 transition-colors">
+
+                        {/* Ficha */}
+                        <td className="py-4 px-3 text-center font-black text-cyan-600 text-sm font-mono">
+                          {user.ficha || "---"}
+                        </td>
+
+                        {/* CÃ©dula */}
+                        <td className="py-4 px-3 text-center font-bold text-slate-600 text-sm font-mono">
+                          {user.cedula}
+                        </td>
+
+                        {/* Nombre y Apellido */}
+                        <td className="py-4 px-3 text-left font-extrabold text-indigo-950 text-sm uppercase">
+                          {user.nombres} {user.apellidos}
+                        </td>
+
+                        {/* ID (Tipo de personal) */}
+                        <td className="py-4 px-3 text-center">
+                          <span className="px-2 py-0.5 bg-slate-50 border border-slate-200 text-slate-500 rounded-lg text-[9px] font-black tracking-widest uppercase font-mono">
+                            {user.tipoPersonal || "INVECEM"}
+                          </span>
+                        </td>
+
+                        {/* Cargo */}
+                        <td className="py-4 px-3 text-left font-extrabold text-cyan-705 text-xs uppercase">
+                          {user.cargo || "Sin cargo asignado"}
+                        </td>
+
+                        {/* Estatus Dropdown */}
+                        <td className="py-4 px-3 text-center">
+                          <div className="relative inline-block w-48">
+                            <select
+                              className={`w-full px-3 py-1.5 bg-white border rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer focus:outline-none transition-all ${user.estatus?.toLowerCase().includes('activo') ? 'border-emerald-500/40 text-emerald-600' : 'border-red-500/40 text-red-600'}`}
+                              value={user.estatus || "Activo (En funciones)"}
+                              onChange={(e) => handleCambioEstatus(user, e.target.value)}
+                            >
+                              {ESTADOS_NOMINALES.map(e => (
+                                <option key={e} value={e} className="bg-white text-slate-700">
+                                  {e}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </td>
+
+                        {/* Acciones */}
+                        <td className="py-4 px-3 text-center no-print">
+                          <div className="flex gap-2 justify-center items-center">
+
+                            <button
+                              className="bg-white hover:bg-slate-100 border border-slate-200 text-slate-500 hover:text-indigo-950 p-2 rounded-xl text-xxs font-black uppercase tracking-wider transition-all duration-150 cursor-pointer h-8 px-3 flex items-center justify-center gap-1 shadow-sm"
+                              onClick={() => manejarAccesoExpediente(user)}
+                              title="Ver expediente e incidencias"
+                            >
+                              <i className="fas fa-file-medical-alt text-cyan-600"></i> Historial
+                            </button>
+
+                            <button
+                              className="bg-white hover:bg-slate-100 border border-slate-200 text-slate-500 hover:text-indigo-950 p-2 rounded-xl text-xxs font-black uppercase tracking-wider transition-all duration-150 cursor-pointer w-8 h-8 flex items-center justify-center shadow-sm"
+                              onClick={() => irAEditar(user.id)}
+                              title="Editar datos"
+                            >
+                              <i className="fas fa-edit"></i>
+                            </button>
+
+                            <button
+                              className="bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-500 hover:text-red-600 p-2 rounded-xl text-xxs font-black uppercase tracking-wider transition-all duration-150 cursor-pointer w-8 h-8 flex items-center justify-center shadow-sm"
+                              onClick={() => handleEliminar(user.id, user.nombres)}
+                              title="Eliminar colaborador"
+                            >
+                              <i className="fas fa-trash-alt text-red-500"></i>
+                            </button>
+
+                          </div>
+                        </td>
+
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
           )}
         </div>
       </div>
-    
-           <style jsx>{`
-        /* 1. Fondo completo (sin padding) */
-        .main-wrapper { 
-          min-height: 100vh; 
-          background-color: #f0f4f8; 
-          background-image: radial-gradient(#d1d5db 0.8px, transparent 0.8px); 
-          background-size: 24px 24px; 
-          font-family: 'Inter', sans-serif; 
-        }
-
-        /* 2. Contenedor del contenido (con padding) */
-        .content-container { 
-          padding: 40px 20px; 
-          max-width: 1450px; 
-          margin: 0 auto; 
-        }
-        
-        /* 3. Cabecera (al 100% de ancho) */
-        .invecem-header { 
-          background: #0f172a; 
-          color: white; 
-          padding: 12px 25px; 
-          display: flex; 
-          justify-content: space-between; 
-          align-items: center; 
-          border-bottom: 4px solid #e30613; 
-          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-          width: 100%;
-        }
-        
-        .logo-box { font-weight: 900; font-size: 20px; letter-spacing: -1px; }
-        .red-text { color: #e30613; }
-        
-        .btn-return { 
-          background: #e30613; 
-          color: white; 
-          border: none; 
-          padding: 8px 16px; 
-          border-radius: 8px; 
-          cursor: pointer; 
-          font-size: 11px; 
-          font-weight: 800; 
-          text-transform: uppercase;
-          transition: 0.3s;
-        }
-        .btn-return:hover { background: #b8050f; transform: translateY(-2px); }
-
-        .header-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-left: 8px solid #e30613; padding-left: 20px; }
-        .seguridad-box { background: white; padding: 15px; border-radius: 12px; border: 2px solid #0f172a; width: 280px; box-shadow: 6px 6px 0px rgba(15, 23, 42, 0.1); }
-        .clave-input { padding: 10px; border: 2px solid #f1f5f9; border-radius: 8px; font-size: 12px; width: 100%; margin-bottom: 8px; outline: none; }
-        .title { color: #0f172a; font-size: 38px; font-weight: 900; letter-spacing: -1.5px; margin: 0; }
-        .total-badge { font-weight: 900; color: white; background: #0f172a; padding: 8px 18px; border-radius: 12px; font-size: 13px; display: inline-block; margin-top: 10px; }
-        .filters-bar { display: flex; gap: 15px; margin-bottom: 25px; align-items: center; background: white; padding: 15px; border-radius: 18px; border: 1px solid #e2e8f0; }
-        .btn-record-new { background: #22c55e; color: white; border: none; padding: 12px 24px; border-radius: 10px; font-weight: 800; cursor: pointer; font-size: 13px; box-shadow: 0 4px 0px #16a34a; }
-        .btn-print, .btn-pdf { background: #e30613; color: white; border: none; padding: 12px 24px; border-radius: 10px; font-weight: 800; cursor: pointer; font-size: 13px; box-shadow: 0 4px 0px #b8050f; }
-        .btn-pdf { background: #e30613; color: white; border: none; padding: 12px 24px; border-radius: 10px; font-weight: 800; cursor: pointer; font-size: 13px; box-shadow: 0 4px 0px #b8050f; }
-        .btn-group { display: flex; background: #f1f5f9; padding: 5px; border-radius: 12px; }
-        .btn-toggle { border: none; padding: 10px 22px; border-radius: 10px; cursor: pointer; font-size: 11px; font-weight: 900; color: #64748b; text-transform: uppercase; }
-        .btn-toggle.active { background: #0f172a; color: white; }
-        .search-input { flex-grow: 1; padding: 14px; border: 2px solid #f1f5f9; border-radius: 12px; outline: none; font-weight: 600; }
-        .table-card { background: white; border-radius: 24px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 10px 10px 0px #0f172a; }
-        table { width: 100%; border-collapse: collapse; }
-        th { background: #f8fafc; padding: 20px 15px; text-align: left; color: #94a3b8; font-size: 11px; text-transform: uppercase; border-bottom: 3px solid #e30613; font-weight: 900; }
-        td { padding: 18px 15px; border-bottom: 1px solid #f1f5f9; font-size: 14px; color: #1e293b; }
-        .name-text { font-weight: 800; text-transform: uppercase; color: #0f172a; }
-        .cargo-text { font-weight: 800; color: #e30613; font-size: 12px; }
-        .status-select { padding: 10px 12px; border-radius: 10px; font-size: 11px; font-weight: 800; cursor: pointer; border: 1px solid #e2e8f0; border-left: 6px solid #e30613; background: white; }
-        .actions-cell { display: flex; gap: 8px; align-items: center; }
-        .btn-historial { background: #e30613; color: white; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 900; cursor: pointer; font-size: 10px; }
-        .btn-edit { background: #3b82f6; color: white; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 900; cursor: pointer; font-size: 10px; }
-        .btn-delete { background: #0f172a; color: white; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 900; cursor: pointer; font-size: 10px; }
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.9); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(5px); }
-        .modal-content { background: white; padding: 40px; border-radius: 24px; border: 2px solid #e30613; }
-        .shadow-relief { box-shadow: 10px 10px 0px #0f172a; }
-        .exp-label { font-size: 11px; font-weight: 900; color: #94a3b8; text-transform: uppercase; }
-        @media print { .no-print { display: none !important; } .main-wrapper { background: white; padding: 0; } .table-card { box-shadow: none; border: 1px solid #000; } }
-      `}</style>
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -25,7 +25,6 @@ export default function AsistenciaContratas() {
   useEffect(() => {
     setMounted(true);
     
-    // Configurar fecha actual
     const ahora = new Date();
     const opciones = { day: 'numeric', month: 'long', year: 'numeric' };
     setFechaHoyStr(ahora.toLocaleDateString('es-ES', opciones).toUpperCase());
@@ -44,7 +43,6 @@ export default function AsistenciaContratas() {
     const inicioHoy = new Date();
     inicioHoy.setHours(0, 0, 0, 0);
 
-    // Filtramos por tipoPersonal para asegurar que solo vemos contratistas si usas una sola tabla de asistencias
     const q = query(
       collection(db, "asistencias"),
       where("fechaHora", ">=", inicioHoy),
@@ -56,11 +54,9 @@ export default function AsistenciaContratas() {
       const lista = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setAsistencias(lista);
 
-      // Extraer empresas únicas para el filtro
       const empresasSet = new Set(lista.map(a => a.nombreContrata || "Sin Empresa"));
       setEmpresasDisponibles(Array.from(empresasSet).sort());
 
-      // Contar quiénes están adentro (marcaron entrada pero no salida)
       const adentro = lista.filter(a => a.entrada && !a.salida).length;
       setResumen(prev => ({ ...prev, presentes: adentro }));
     });
@@ -68,7 +64,7 @@ export default function AsistenciaContratas() {
     return () => unsubscribe();
   }, []);
 
-  const listaFiltrada = asistencias.filter(a => {
+  const jsonFiltrada = asistencias.filter(a => {
     const texto = filtro.toLowerCase();
     const cumpleTexto = (a.nombreCompleto?.toLowerCase() || "").includes(texto) ||
                         (a.cedula?.toLowerCase() || "").includes(texto);
@@ -79,137 +75,189 @@ export default function AsistenciaContratas() {
   if (!mounted) return null;
 
   return (
-    <div className="container">
-      <div className="top-nav no-print">
-        <button className="btn-back" onClick={() => router.push("/proteccion-fisica")}>← Volver al Panel</button>
-        <div className="status-live">● Monitoreo en Vivo</div>
-      </div>
+    <div className="min-h-screen bg-slate-50 text-slate-800 relative overflow-hidden font-sans pb-10 cyber-grid">
+      {/* Background glowing decorations */}
+      <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-tr from-cyan-400 to-indigo-500 rounded-full blur-3xl opacity-15 animate-pulse-glow"></div>
+      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-gradient-to-tr from-purple-500 to-pink-500 rounded-full blur-3xl opacity-10 animate-pulse-glow delay-1000"></div>
 
-      <header className="main-header">
-        <div className="header-left">
-          <h1 className="main-title">INVECEM | Control de Acceso</h1>
-          <p className="subtitle">REPORTE DIARIO DE PERSONAL EXTERNO (CONTRATAS)</p>
-        </div>
-        <div className="date-box">{fechaHoyStr}</div>
-      </header>
-
-      <section className="resumen-grid no-print">
-        <div className="card card-presentes">
-          <small>PERSONAL EN PLANTA</small>
-          <h2>{resumen.presentes}</h2>
-        </div>
-        <div className="card card-total">
-          <small>TOTAL REGISTRADOS</small>
-          <h2>{resumen.totalNomina}</h2>
-        </div>
-      </section>
-
-      <div className="table-container shadow-relief">
-        <div className="table-actions no-print">
-          <div className="filters-group">
-            <input 
-              type="text" 
-              placeholder="Buscar por nombre o cédula..." 
-              className="search-input" 
-              onChange={(e) => setFiltro(e.target.value)} 
-            />
-            <select 
-              className="empresa-select" 
-              value={filtroEmpresa} 
-              onChange={(e) => setFiltroEmpresa(e.target.value)}
-            >
-              <option value="TODAS">TODAS LAS EMPRESAS</option>
-              {empresasDisponibles.map(emp => <option key={emp} value={emp}>{emp}</option>)}
-            </select>
+      {/* BARRA DE NAVEGACIÃ“N */}
+      <nav className="top-nav print:hidden bg-white/60 backdrop-blur-xl border-b border-slate-200/80 px-6 py-4 flex justify-between items-center z-20 relative">
+        <div className="flex items-center gap-2.5"><div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:"linear-gradient(135deg,#06b6d4,#3b82f6)"}}><i className="fas fa-building-columns text-white" style={{fontSize:"11px"}}></i></div><span className="text-base font-black tracking-tight text-slate-900 uppercase">INVECEM</span></div>
+        <div className="flex gap-2">
+          <div className="px-3 py-1.5 bg-cyan-500/10 border border-cyan-500/25 rounded-lg text-xxs font-black tracking-wider uppercase text-cyan-600 animate-pulse flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 bg-cyan-500 rounded-full"></span> Monitoreo en Vivo
           </div>
-          <button onClick={() => window.print()} className="btn-print">Generar PDF / Imprimir</button>
+          <button 
+            className="px-4 py-2 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 active:scale-95 rounded-xl font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-indigo-500/20 transition-all duration-200 cursor-pointer text-white hover:shadow-neon-cyan"
+            onClick={() => router.push("/proteccion-fisica")}
+          >
+            <i className="fas fa-arrow-left mr-2"></i> Volver
+          </button>
+        </div>
+      </nav>
+
+      {/* CONTENEDOR CENTRAL */}
+      <div className="max-w-7xl mx-auto px-6 py-10 z-10 relative">
+        
+        {/* ENCABEZADO DE REPORTE */}
+        <header className="mb-8 border-l-6 border-cyan-500 pl-5 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-black tracking-tight text-indigo-950 uppercase">
+              Control de Acceso
+            </h1>
+            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">
+              Reporte diario de personal externo y contratas
+            </p>
+          </div>
+          <div className="px-4 py-2 bg-white/80 border border-slate-200 rounded-xl text-xs font-black text-cyan-600 uppercase self-start sm:self-auto shadow-md font-mono">
+            {fechaHoyStr}
+          </div>
+        </header>
+
+        {/* METRICS RESUMEN */}
+        <section className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8 print:hidden">
+          
+          <div className="p-6 bg-white/80 backdrop-blur-xl border border-slate-200/60 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 shadow-xl flex items-center justify-between shadow-neon-cyan/5">
+            {/* Tech Corners */}
+            <div className="absolute top-2 left-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+            <div className="absolute top-2 right-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+            <div>
+              <span className="text-xxs font-black text-slate-500 uppercase tracking-widest block mb-1">Personal en Planta</span>
+              <p className="text-4xl font-black text-indigo-950">{resumen.presentes}</p>
+            </div>
+            <div className="text-cyan-500/10 text-5xl group-hover:text-cyan-500/25 transition-colors">
+              <i className="fas fa-sign-in-alt"></i>
+            </div>
+          </div>
+
+          <div className="p-6 bg-white/80 backdrop-blur-xl border border-slate-200/60 rounded-3xl relative overflow-hidden group hover:border-slate-300 transition-all duration-300 shadow-xl flex items-center justify-between shadow-neon-purple/5">
+            {/* Tech Corners */}
+            <div className="absolute top-2 left-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+            <div className="absolute top-2 right-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+            <div>
+              <span className="text-xxs font-black text-slate-500 uppercase tracking-widest block mb-1">Total Registrados</span>
+              <p className="text-4xl font-black text-cyan-600">{resumen.totalNomina}</p>
+            </div>
+            <div className="text-indigo-500/10 text-5xl group-hover:text-indigo-500/25 transition-colors">
+              <i className="fas fa-id-card"></i>
+            </div>
+          </div>
+
+        </section>
+
+        {/* TABLA ACCIONES */}
+        <div className="bg-white/80 backdrop-blur-xl border border-slate-200/60 rounded-3xl overflow-hidden shadow-2xl p-4 md:p-6 space-y-6 relative shadow-neon-cyan/5">
+          {/* Tech Corners */}
+          <div className="absolute top-3 left-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+          <div className="absolute top-3 right-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+          <div className="absolute bottom-3 left-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+          <div className="absolute bottom-3 right-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+          
+          <div className="p-4 bg-white/90 border border-slate-200 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-4 print:hidden shadow-sm">
+            <div className="relative w-full md:flex-1">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
+                <i className="fas fa-search"></i>
+              </span>
+              <input 
+                type="text" 
+                placeholder="Buscar por Nombre o CÃ©dula..." 
+                onChange={(e) => setFiltro(e.target.value)}
+                className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs font-semibold"
+              />
+            </div>
+            
+            <div className="flex w-full md:w-auto gap-3">
+              <select 
+                value={filtroEmpresa} 
+                onChange={(e) => setFiltroEmpresa(e.target.value)}
+                className="w-full md:w-56 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs font-semibold cursor-pointer uppercase"
+              >
+                <option value="TODAS">TODAS LAS EMPRESAS</option>
+                {empresasDisponibles.map(emp => (
+                  <option key={emp} value={emp}>{emp}</option>
+                ))}
+              </select>
+
+              <button 
+                onClick={() => window.print()}
+                className="px-5 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 hover:text-indigo-950 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer active:scale-95 whitespace-nowrap"
+              >
+                <i className="fas fa-print"></i> PDF / Imprimir
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto w-full no-scrollbar">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200/60">
+                  <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">IDENTIFICACIÃ“N</th>
+                  <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-left font-mono">PERSONAL EXTERNO</th>
+                  <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">EMPRESA / CONTRATA</th>
+                  <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-left font-mono">ÃREA DE TRABAJO</th> 
+                  <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">ENTRADA</th>
+                  <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">SALIDA</th>
+                  <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">ESTADO</th>
+                </tr>
+              </thead>
+              <tbody>
+                {jsonFiltrada.length > 0 ? (
+                  jsonFiltrada.map((reg) => (
+                    <tr key={reg.id} className="border-b border-slate-100/60 hover:bg-slate-50/50 transition-colors">
+                      <td className="py-4 px-3 text-center font-bold text-slate-600 text-sm font-mono">
+                        {reg.cedula}
+                      </td>
+                      <td className="py-4 px-3 text-left font-extrabold text-indigo-950 text-sm uppercase">
+                        {reg.nombreCompleto}
+                      </td>
+                      <td className="py-4 px-3 text-center">
+                        <span className="px-2.5 py-1 bg-cyan-50 border border-cyan-200 text-cyan-600 rounded-lg text-xxs font-bold uppercase tracking-wider font-mono">
+                          {reg.nombreContrata}
+                        </span>
+                      </td>
+                      <td className="py-4 px-3 text-left text-xs font-semibold text-slate-500">
+                        {reg.area || "No especificada"}
+                      </td>
+                      <td className="py-4 px-3 text-center font-bold text-slate-700 text-sm font-mono">
+                        {reg.entrada ? (
+                          <span className="flex items-center justify-center gap-1">
+                            <i className="fas fa-sign-in-alt text-emerald-600 text-xxs"></i> {reg.entrada}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">--:--</span>
+                        )}
+                      </td>
+                      <td className="py-4 px-3 text-center font-bold text-slate-700 text-sm font-mono">
+                        {reg.salida ? (
+                          <span className="flex items-center justify-center gap-1">
+                            <i className="fas fa-sign-out-alt text-red-500 text-xxs"></i> {reg.salida}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">--:--</span>
+                        )}
+                      </td>
+                      <td className="py-4 px-3 text-center">
+                        <span className={`px-2.5 py-0.5 rounded-lg text-xxs font-black tracking-wider uppercase inline-block border ${!reg.salida ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                          â— {!reg.salida ? "EN PLANTA" : "RETIRADO"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="7" className="py-8 text-center text-slate-400 font-bold italic text-sm font-mono">
+                      Sin registros para hoy
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
         </div>
 
-        <table className="asistencia-table">
-          <thead>
-            <tr>
-              <th>IDENTIFICACIÓN</th>
-              <th>PERSONAL EXTERNO</th>
-              <th>EMPRESA / CONTRATA</th>
-              <th>ÁREA DE TRABAJO</th> 
-              <th>ENTRADA</th>
-              <th>SALIDA</th>
-              <th>ESTADO</th>
-            </tr>
-          </thead>
-          <tbody>
-            {listaFiltrada.length > 0 ? (
-              listaFiltrada.map((reg) => (
-                <tr key={reg.id}>
-                  <td className="cedula-cell">{reg.cedula}</td>
-                  <td className="nombre-cell">{reg.nombreCompleto}</td>
-                  <td><span className="badge-empresa">{reg.nombreContrata}</span></td>
-                  <td className="area-text">{reg.area || "No especificada"}</td>
-                  <td className="hora-cell">{reg.entrada || "--:--"}</td>
-                  <td className="hora-cell">{reg.salida || "--:--"}</td>
-                  <td>
-                    <span className={`badge-status ${!reg.salida ? 'en-planta' : 'fuera'}`}>
-                      {!reg.salida ? "EN PLANTA" : "RETIRADO"}
-                    </span>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr><td colSpan="7" className="empty-state">No se registran movimientos el día de hoy.</td></tr>
-            )}
-          </tbody>
-        </table>
       </div>
-
-      <style jsx>{`
-        .container { padding: 20px; max-width: 1300px; margin: 0 auto; font-family: sans-serif; }
-        .top-nav { display: flex; justify-content: space-between; margin-bottom: 20px; }
-        .btn-back { background: none; border: none; color: #64748b; cursor: pointer; font-weight: bold; }
-        .status-live { color: #22c55e; font-size: 12px; font-weight: 800; animation: blink 2s infinite; }
-        
-        .main-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 3px solid #e30613; padding-bottom: 15px; }
-        .main-title { color: #0f172a; font-size: 24px; font-weight: 900; margin: 0; }
-        .subtitle { color: #008b8b; font-size: 13px; margin: 5px 0 0; font-weight: 800; }
-        .date-box { background: #0f172a; color: white; padding: 10px 20px; border-radius: 8px; font-weight: bold; }
-
-        .resumen-grid { display: flex; gap: 20px; margin-bottom: 25px; }
-        .card { background: white; padding: 15px 30px; border-radius: 12px; border-left: 6px solid; box-shadow: 0 4px 6px rgba(0,0,0,0.05); flex: 1; }
-        .card h2 { font-size: 35px; margin: 0; font-weight: 900; }
-        .card-presentes { border-left-color: #008b8b; color: #008b8b; }
-        .card-total { border-left-color: #0f172a; }
-
-        .table-container { background: white; padding: 20px; border-radius: 15px; }
-        .shadow-relief { border: 1px solid #e2e8f0; box-shadow: 10px 10px 0px #0f172a; }
-        
-        .table-actions { display: flex; gap: 15px; margin-bottom: 20px; }
-        .filters-group { display: flex; gap: 10px; flex: 1; }
-        .search-input, .empresa-select { padding: 12px; border: 2px solid #f1f5f9; border-radius: 10px; outline: none; }
-        .btn-print { background: #e30613; color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: bold; cursor: pointer; }
-
-        .asistencia-table { width: 100%; border-collapse: collapse; }
-        .asistencia-table th { text-align: left; padding: 15px; font-size: 11px; color: #64748b; text-transform: uppercase; border-bottom: 2px solid #f1f5f9; }
-        .asistencia-table td { padding: 15px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
-        
-        .cedula-cell { font-weight: 800; color: #0f172a; }
-        .nombre-cell { font-weight: 700; text-transform: uppercase; }
-        .badge-empresa { background: #f1f5f9; padding: 5px 10px; border-radius: 6px; font-weight: 700; font-size: 12px; border: 1px solid #cbd5e1; }
-        .area-text { color: #008b8b; font-weight: 700; }
-        .hora-cell { font-family: monospace; font-weight: 900; color: #e30613; font-size: 16px; }
-        
-        .badge-status { padding: 6px 12px; border-radius: 6px; font-size: 10px; font-weight: 900; }
-        .en-planta { background: #ccf2f2; color: #008b8b; }
-        .fuera { background: #f1f5f9; color: #94a3b8; }
-        
-        .empty-state { text-align: center; padding: 50px; color: #94a3b8; font-weight: 600; }
-
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
-
-        @media print {
-          .no-print { display: none !important; }
-          .shadow-relief { box-shadow: none; border: 1px solid #000; }
-          .container { max-width: 100%; padding: 0; }
-        }
-      `}</style>
     </div>
   );
 }
+

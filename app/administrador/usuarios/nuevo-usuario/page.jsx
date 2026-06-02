@@ -37,22 +37,22 @@ export default function NuevoUsuario() {
       const cedulaForm = formData.cedula.trim();
       const fichaForm = formData.ficha.trim();
 
-      // 1. VALIDACIÓN DE CÉDULA ÚNICA
+      // 1. VALIDACIÃ“N DE CÃ‰DULA ÃšNICA
       const qCedula = query(usuariosRef, where("cedula", "==", cedulaForm));
       const querySnapshotCedula = await getDocs(qCedula);
       
       if (!querySnapshotCedula.empty) {
         setCargando(false);
-        return alert("⚠️ Error: Ya existe un colaborador registrado con esa Cédula de Identidad.");
+        return alert("âš ï¸ Error: Ya existe un colaborador registrado con esa CÃ©dula de Identidad.");
       }
 
-      // 2. VALIDACIÓN DE N° DE FICHA ÚNICA
+      // 2. VALIDACIÃ“N DE NÂ° DE FICHA ÃšNICA
       const qFicha = query(usuariosRef, where("ficha", "==", fichaForm));
       const querySnapshotFicha = await getDocs(qFicha);
       
       if (!querySnapshotFicha.empty) {
         setCargando(false);
-        return alert("⚠️ Error: El Número de Ficha ya está asignado a otro trabajador de planta.");
+        return alert("âš ï¸ Error: El NÃºmero de Ficha ya estÃ¡ asignado a otro trabajador de planta.");
       }
 
       // 3. Crear usuario en Firebase Auth
@@ -60,9 +60,10 @@ export default function NuevoUsuario() {
       const uid = userCredential.user.uid;
 
       // 4. Preparar datos para Firestore
-      const { clave, ...datosParaGuardar } = formData;
+      const datosParaGuardar = { ...formData };
+      delete datosParaGuardar.clave;
 
-      // 5. Guardar en la colección de usuarios
+      // 5. Guardar en la colecciÃ³n de usuarios
       await setDoc(doc(db, "usuarios", uid), {
         uid,
         ...datosParaGuardar,
@@ -70,12 +71,12 @@ export default function NuevoUsuario() {
         fechaRegistro: new Date().toISOString()
       });
 
-      alert("✅ Personal registrado exitosamente");
+      alert("âœ… Personal registrado exitosamente");
       router.push("/administrador/usuarios"); 
     } catch (error) {
       console.error("Error:", error);
       if (error.code === 'auth/email-already-in-use') {
-        alert("Error: Este correo ya está registrado en el sistema.");
+        alert("Error: Este correo ya estÃ¡ registrado en el sistema.");
       } else {
         alert("Error al registrar: " + error.message);
       }
@@ -85,279 +86,143 @@ export default function NuevoUsuario() {
   };
 
   return (
-    <div className="layout">
-      
-      {/* BARRA DE NAVEGACIÓN CORPORATIVA */}
-      <nav className="top-nav">
-        <div className="logo">
-          SYSTEM-CONTROL <span className="red-text"> INVECEM </span>
-        </div>
-        <button className="btn-panel" onClick={() => router.push("/administrador/usuarios")}>
-          ← VOLVER
+    <div className="min-h-screen bg-slate-50 text-slate-800 relative overflow-hidden font-sans pb-10 cyber-grid">
+      {/* Background glowing decorations */}
+      <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-tr from-cyan-400 to-indigo-500 rounded-full blur-3xl opacity-15 animate-pulse-glow"></div>
+      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-gradient-to-tr from-purple-500 to-pink-500 rounded-full blur-3xl opacity-10 animate-pulse-glow delay-1000"></div>
+
+      {/* BARRA DE NAVEGACIÃ“N CORPORATIVA */}
+      <nav className="top-nav no-print bg-white/60 backdrop-blur-xl border-b border-slate-200/80 px-6 py-4 flex justify-between items-center z-20 relative">
+        <div className="flex items-center gap-2.5"><div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:"linear-gradient(135deg,#06b6d4,#3b82f6)"}}><i className="fas fa-building-columns text-white" style={{fontSize:"11px"}}></i></div><span className="text-base font-black tracking-tight text-slate-900 uppercase">INVECEM</span></div>
+        <button 
+          className="px-4 py-2 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 active:scale-95 rounded-xl font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-indigo-500/20 transition-all duration-200 cursor-pointer text-white hover:shadow-neon-cyan"
+          onClick={() => router.push("/administrador/usuarios")}
+        >
+          <i className="fas fa-arrow-left mr-2"></i> Volver
         </button>
       </nav>
 
       {/* CONTENEDOR CENTRAL */}
-      <div className="content">
+      <div className="max-w-4xl mx-auto px-6 py-10 z-10 relative">
         
         {/* ENCABEZADO DE REPORTE */}
-        <header className="report-header">
-          <h1 className="report-title">REGISTROS DE USUARIOS</h1>
-          <p className="subtitle-header">Módulo de Ingreso </p>
+        <header className="mb-8 border-l-6 border-cyan-500 pl-5">
+          <h1 className="text-3xl font-black tracking-tight text-indigo-950 uppercase">
+            REGISTROS DE USUARIOS
+          </h1>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">
+            MÃ³dulo de Ingreso de nuevos colaboradores
+          </p>
         </header>
 
-        {/* TARJETA CON SOMBRA SÓLIDA INDUSTRIAL */}
-        <form onSubmit={handleGuardar} className="sislexi-card shadow-relief">
+        {/* FORMULARIO */}
+        <form onSubmit={handleGuardar} className="bg-white/80 backdrop-blur-xl border border-slate-200/60 rounded-3xl p-6 md:p-8 shadow-2xl shadow-slate-200/20 space-y-8 text-slate-800 relative shadow-neon-cyan">
+          {/* Tech Corners */}
+          <div className="absolute top-3 left-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+          <div className="absolute top-3 right-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+          <div className="absolute bottom-3 left-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+          <div className="absolute bottom-3 right-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
           
-          {/* SECCIÓN 1: CREDENCIALES */}
-          <section className="form-section">
-            <h3 className="section-title">Credenciales de Acceso</h3>
-            <div className="row">
-              <div className="field">
-                <label>CORREO INSTITUCIONAL</label>
-                <input name="correo" type="email" placeholder="ejemplo@invecem.com" onChange={handleChange} required />
+          {/* SECCIÃ“N 1: CREDENCIALES */}
+          <section className="space-y-6">
+            <h3 className="text-xs font-black uppercase text-cyan-600 tracking-wider border-b border-dashed border-cyan-500/20 pb-2 flex items-center gap-2">
+              <i className="fas fa-lock"></i> Credenciales de Acceso
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="flex flex-col gap-2">
+                <label className="text-xxs font-bold uppercase tracking-wider text-slate-500">CORREO INSTITUCIONAL</label>
+                <input name="correo" type="email" placeholder="ejemplo@invecem.com" onChange={handleChange} required className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 text-sm font-semibold shadow-sm" />
               </div>
-              <div className="field">
-                <label>CONTRASEÑA TEMPORAL</label>
-                <input name="clave" type="password" placeholder="********" onChange={handleChange} required />
-              </div>
-            </div>
-          </section>
-
-          {/* SECCIÓN 2: INFO PERSONAL */}
-          <section className="form-section">
-            <h3 className="section-title">Información Personal</h3>
-            <div className="row">
-              <div className="field">
-                <label>NOMBRES Y APELLIDOS</label>
-                <input name="nombres" type="text" placeholder="Ej: Juan Pérez" onChange={handleChange} required />
-              </div>
-              <div className="field">
-                <label>CÉDULA DE IDENTIDAD</label>
-                <input name="cedula" type="text" placeholder="Ej: V-12345678" onChange={handleChange} required />
-              </div>
-            </div>
-            <div className="row">
-              <div className="field">
-                <label>TELÉFONO</label>
-                <input name="telefono" type="text" placeholder="Ej: 04121234567" onChange={handleChange} />
-              </div>
-              <div className="field">
-                <label>FECHA NACIMIENTO</label>
-                <input name="fechaNac" type="date" onChange={handleChange} />
+              <div className="flex flex-col gap-2">
+                <label className="text-xxs font-bold uppercase tracking-wider text-slate-500">CONTRASEÃ‘A TEMPORAL</label>
+                <input name="clave" type="password" placeholder="********" onChange={handleChange} required className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 text-sm font-semibold shadow-sm" />
               </div>
             </div>
           </section>
 
-          {/* SECCIÓN 3: FICHA LABORAL */}
-          <section className="form-section">
-            <h3 className="section-title">Ficha Laboral de Planta</h3>
-            <div className="row">
-              <div className="field">
-                <label>N° DE FICHA</label>
-                <input name="ficha" type="text" placeholder="Ej: 554433" onChange={handleChange} required />
+          {/* SECCIÃ“N 2: INFO PERSONAL */}
+          <section className="space-y-6">
+            <h3 className="text-xs font-black uppercase text-purple-600 tracking-wider border-b border-dashed border-purple-500/20 pb-2 flex items-center gap-2">
+              <i className="fas fa-user-circle"></i> InformaciÃ³n Personal
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="flex flex-col gap-2">
+                <label className="text-xxs font-bold uppercase tracking-wider text-slate-500">NOMBRES Y APELLIDOS</label>
+                <input name="nombres" type="text" placeholder="Ej: Juan PÃ©rez" onChange={handleChange} required className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 text-sm font-semibold shadow-sm" />
               </div>
-              <div className="field">
-                <label>ROL DE SISTEMA</label>
-                <select name="rol" onChange={handleChange} value={formData.rol}>
+              <div className="flex flex-col gap-2">
+                <label className="text-xxs font-bold uppercase tracking-wider text-slate-500">CÃ‰DULA DE IDENTIDAD</label>
+                <input name="cedula" type="text" placeholder="Ej: V-12345678" onChange={handleChange} required className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 text-sm font-semibold shadow-sm" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="flex flex-col gap-2">
+                <label className="text-xxs font-bold uppercase tracking-wider text-slate-500">TELÃ‰FONO</label>
+                <input name="telefono" type="text" placeholder="Ej: 04121234567" onChange={handleChange} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 text-sm font-semibold shadow-sm" />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-xxs font-bold uppercase tracking-wider text-slate-500">FECHA NACIMIENTO</label>
+                <input name="fechaNac" type="date" onChange={handleChange} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 text-sm font-semibold cursor-pointer shadow-sm" />
+              </div>
+            </div>
+          </section>
+
+          {/* SECCIÃ“N 3: FICHA LABORAL */}
+          <section className="space-y-6">
+            <h3 className="text-xs font-black uppercase text-indigo-600 tracking-wider border-b border-dashed border-indigo-500/20 pb-2 flex items-center gap-2">
+              <i className="fas fa-briefcase"></i> Ficha Laboral de Planta
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="flex flex-col gap-2">
+                <label className="text-xxs font-bold uppercase tracking-wider text-slate-500">NÂ° DE FICHA</label>
+                <input name="ficha" type="text" placeholder="Ej: 554433" onChange={handleChange} required className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 text-sm font-semibold shadow-sm font-mono" />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-xxs font-bold uppercase tracking-wider text-slate-500">ROL DE SISTEMA</label>
+                <select name="rol" onChange={handleChange} value={formData.rol} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 text-sm font-semibold cursor-pointer shadow-sm">
                   <option value="Inspector">Inspector</option>
                   <option value="Administrador">Administrador</option>
                   <option value="Recursos Humanos">Recursos Humanos</option>
-                  <option value="Proteccion Fisica">Protección Física</option>
+                  <option value="Proteccion Fisica">ProtecciÃ³n FÃ­sica</option>
                 </select>
               </div>
             </div>
-            <div className="row">
-              <div className="field">
-                <label>CARGO</label>
-                <input name="cargo" type="text" placeholder="Ej: Analista de Seguridad" onChange={handleChange} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="flex flex-col gap-2">
+                <label className="text-xxs font-bold uppercase tracking-wider text-slate-500">CARGO</label>
+                <input name="cargo" type="text" placeholder="Ej: Cargo" onChange={handleChange} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 text-sm font-semibold shadow-sm" />
               </div>
-              <div className="field">
-                <label>DEPARTAMENTO</label>
-                <input name="departamento" type="text" placeholder="Ej: Operaciones" onChange={handleChange} />
+              <div className="flex flex-col gap-2">
+                <label className="text-xxs font-bold uppercase tracking-wider text-slate-500">DEPARTAMENTO</label>
+                <input name="departamento" type="text" placeholder="Ej: Operaciones" onChange={handleChange} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 text-sm font-semibold shadow-sm" />
               </div>
             </div>
             
             {/* CAMPO: FECHA DE INGRESO */}
-            <div className="row">
-              <div className="field">
-                <label>FECHA DE INGRESO A LA EMPRESA</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="flex flex-col gap-2">
+                <label className="text-xxs font-bold uppercase tracking-wider text-slate-500">FECHA DE INGRESO A LA EMPRESA</label>
                 <input 
                   name="fechaIngreso" 
                   type="date" 
                   onChange={handleChange} 
                   required 
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 text-sm font-semibold cursor-pointer shadow-sm"
                 />
               </div>
             </div>
           </section>
 
-          <button type="submit" className="btn-submit" disabled={cargando}>
+          <button 
+            type="submit" 
+            className="w-full py-4 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 active:scale-95 text-white font-extrabold uppercase text-xs tracking-widest rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-neon-purple transition-all duration-200 transform cursor-pointer flex items-center justify-center gap-2"
+            disabled={cargando}
+          >
             {cargando ? "Registrando..." : "Registrar en el Sistema"}
           </button>
         </form>
       </div>
-
-      <style jsx>{`
-        /* --- ESTILOS GENERALES DEL LAYOUT UNIFICADO --- */
-        .layout { 
-          background-color: #f0f4f8;
-          background-image: radial-gradient(#d1d5db 0.8px, transparent 0.8px);
-          background-size: 24px 24px;
-          min-height: 100vh; 
-          font-family: 'Inter', system-ui, -apple-system, sans-serif; 
-          color: #0f172a;
-          position: relative;
-        }
-
-        /* --- BARRA DE NAVEGACIÓN SUPERIOR --- */
-        .top-nav { 
-          background: #0f172a; 
-          color: white; 
-          padding: 12px 25px; 
-          display: flex; 
-          justify-content: space-between; 
-          align-items: center; 
-          border-bottom: 4px solid #e30613; 
-          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        .logo { font-weight: 900; font-size: 20px; letter-spacing: -1px; }
-        .red-text { color: #e30613; }
-        
-        .btn-panel { 
-          background: #e30613; 
-          color: white; 
-          border: none; 
-          padding: 8px 16px; 
-          border-radius: 8px; 
-          cursor: pointer; 
-          font-size: 11px; 
-          font-weight: 800; 
-          text-transform: uppercase;
-          transition: 0.3s;
-        }
-        .btn-panel:hover { background: #b8050f; transform: translateY(-2px); }
-
-        /* --- CONTENEDOR DE CONTENIDO --- */
-        .content { padding: 30px; max-width: 850px; margin: 0 auto; position: relative; z-index: 1; }
-
-        /* --- ENCABEZADO ESTILO INMÓVIL --- */
-        .report-header {
-          margin-bottom: 35px;
-          border-left: 6px solid #0f172a;
-          padding-left: 20px;
-        }
-        .report-title {
-          font-size: 38px;
-          font-weight: 900;
-          color: #0f172a;
-          margin: 0;
-          letter-spacing: -2px;
-          line-height: 1;
-          text-transform: uppercase;
-        }
-        .subtitle-header {
-          font-size: 14px;
-          font-weight: 700;
-          color: #64748b;
-          margin-top: 5px;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          margin-bottom: 0;
-        }
-
-        /* --- TARJETA PRINCIPAL (SHADOW RELIEF) --- */
-        .sislexi-card { 
-          background: white; 
-          padding: 35px; 
-          border-radius: 24px; 
-          border: 1px solid #e2e8f0;
-          border-top: 8px solid #e30613; 
-          box-shadow: 12px 12px 0px #0f172a; 
-        }
-
-        /* --- TÍTULOS DE SECCIÓN INTERNOS --- */
-        .section-title { 
-          color: #e30613; 
-          font-size: 11px; 
-          font-weight: 900;
-          text-transform: uppercase; 
-          border-bottom: 2px solid #f1f5f9; 
-          padding-bottom: 5px; 
-          margin: 30px 0 15px; 
-          letter-spacing: 0.5px;
-        }
-
-        /* --- DISEÑO DE FILAS Y CAMPOS --- */
-        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 15px; }
-        .field { display: flex; flex-direction: column; gap: 6px; }
-        
-        label { 
-          font-size: 10px; 
-          font-weight: 800; 
-          color: #0f172a; 
-          text-transform: uppercase; 
-        }
-
-        input, select { 
-          padding: 12px; 
-          border: 2px solid #f1f5f9; 
-          border-radius: 10px; 
-          font-size: 0.85rem;
-          font-weight: 600;
-          color: #1e293b;
-          outline: none;
-          transition: 0.3s;
-          background: #f8fafc;
-        }
-        
-        input:focus, select:focus { 
-          border-color: #e30613; 
-          background: white;
-          box-shadow: 0 4px 12px rgba(227, 6, 19, 0.05);
-        }
-
-        /* --- BOTÓN DE ENVÍO 3D --- */
-        .btn-submit { 
-          width: 100%; 
-          background: #e30613; 
-          color: white; 
-          padding: 16px; 
-          border: none; 
-          border-radius: 12px; 
-          font-weight: 900; 
-          font-size: 13px;
-          text-transform: uppercase;
-          cursor: pointer; 
-          margin-top: 30px; 
-          transition: 0.2s;
-          box-shadow: 0 4px 0px #b8050f;
-        }
-        
-        .btn-submit:hover { 
-          transform: translateY(2px); 
-          box-shadow: 0 2px 0px #8a040b; 
-        }
-
-        .btn-submit:active {
-          transform: translateY(4px);
-          box-shadow: none;
-        }
-        .btn-submit:disabled {
-          background: #cbd5e1;
-          box-shadow: none;
-          cursor: not-allowed;
-          transform: none;
-        }
-
-        /* --- RESPONSIVO --- */
-        @media (max-width: 600px) {
-          .row { grid-template-columns: 1fr; gap: 15px; }
-          .sislexi-card { padding: 20px; box-shadow: 8px 8px 0px #0f172a; }
-          .content { padding: 15px; }
-          .report-title { font-size: 26px; }
-        }
-      `}</style>
     </div>
   );
 }
+

@@ -1,38 +1,37 @@
-import { Geist, Geist_Mono } from "next/font/google";
+﻿import { Inter } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800", "900"],
+  variable: "--font-inter",
+  display: "swap",
 });
 
 export const metadata = {
-  title: "Invecem - Gestión de Asistencia",
-  description: "Sistema interno de control de personal",
+  title: "INVECEM â€” Sistema de GestiÃ³n de Planta",
+  description: "Panel de control corporativo para gestiÃ³n de asistencia, personal y contratas de INVECEM.",
 };
 
-// Esto es vital para el responsive en celulares
 export const viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1, // Evita que el usuario haga zoom por error y rompa el diseño
+  maximumScale: 1,
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html
-      lang="es"
-      className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-    >
-      <body className="m-0 p-0 min-h-screen bg-gray-50 text-gray-900 overflow-x-hidden selection:bg-blue-100">
-        {/* El div 'flex flex-col' asegura que si tienes un Navbar arriba, 
-            el contenido de abajo ocupe el resto y permita el scroll natural.
-        */}
+    <html lang="es" className={`${inter.variable} antialiased`}>
+      <head>
+        <link
+          rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+          integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+          crossOrigin="anonymous"
+          referrerPolicy="no-referrer"
+        />
+      </head>
+      <body className="m-0 p-0 min-h-screen overflow-x-hidden selection:bg-cyan-500/20 selection:text-cyan-900" style={{ fontFamily: "'Inter', sans-serif" }}>
         <div className="flex flex-col min-h-screen">
           <main className="flex-grow w-full">
             {children}

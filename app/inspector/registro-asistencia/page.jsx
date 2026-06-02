@@ -13,7 +13,7 @@ export default function RegistroAsistencia() {
   const inputRef = useRef(null);
 
   const [identificador, setIdentificador] = useState("");
-  const [filtro, setFiltro] = useState("");
+  const filtro = "";
   const [asistenciasHoy, setAsistenciasHoy] = useState([]);
   const [cargando, setCargando] = useState(false);
   const [fechaHoy, setFechaHoy] = useState("");
@@ -38,12 +38,13 @@ export default function RegistroAsistencia() {
     setFechaHoy(new Date().toLocaleDateString('es-ES', opciones).toUpperCase());
 
     const limiteAyer = new Date();
-    limiteAyer.setDate(limiteAyer.getDate() - 1);
-    limiteAyer.setHours(0, 0, 0, 0);
+    const limiteDia = new Date(limiteAyer);
+    limiteDia.setDate(limiteDia.getDate() - 1);
+    limiteDia.setHours(0, 0, 0, 0);
 
     const q = query(
       collection(db, "asistencias"),
-      where("fechaHora", ">=", limiteAyer),
+      where("fechaHora", ">=", limiteDia),
       orderBy("fechaHora", "desc")
     );
 
@@ -96,7 +97,7 @@ export default function RegistroAsistencia() {
         fechaHora: serverTimestamp(),
         observacionAcceso: `INGRESO AUTORIZADO POR BENEFICIOS: Personal en ${trabajador.estatus.toUpperCase()}`
       });
-      alert("✅ Acceso por entrega de beneficio registrado correctamente.");
+      alert("âœ… Acceso por entrega de beneficio registrado correctamente.");
     } catch (error) {
       console.error("Error al registrar entrada por beneficio:", error);
     } finally {
@@ -151,7 +152,7 @@ export default function RegistroAsistencia() {
           (a.cedula === trabajador.cedula || (trabajador.ficha && a.ficha === trabajador.ficha)) && !a.salida
         );
 
-        if (!existe && (trabajador.estatus === "Vacaciones" || trabajador.estatus === "Reposo Médico")) {
+        if (!existe && (trabajador.estatus === "Vacaciones" || trabajador.estatus === "Reposo MÃ©dico")) {
           setTrabajadorEspecial(trabajador);
           setMostrarModalBeneficio(true);
           setCargando(false);
@@ -197,301 +198,244 @@ export default function RegistroAsistencia() {
   }, [identificador, procesarRegistro]);
 
   return (
-    <div className="main-wrapper">
-      {/* NUEVA CABECERA INDUSTRIAL */}
-       <header className="invecem-header">
-        <div className="logo-box">
-          SYSTEM-CONTROL<span className="red-text"> INVECEM</span>
-        </div>
-        <button className="btn-return" onClick={() => router.push("/inspector")}>VOLVER </button>
-      </header>
+    <div className="min-h-screen bg-slate-50 text-slate-800 relative overflow-hidden font-sans pb-10 cyber-grid">
+      {/* Background glowing decorations */}
+      <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-tr from-cyan-400 to-indigo-500 rounded-full blur-3xl opacity-15 animate-pulse-glow"></div>
+      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-gradient-to-tr from-purple-500 to-pink-500 rounded-full blur-3xl opacity-10 animate-pulse-glow delay-1000"></div>
 
-      <div className="container" style={{ marginTop: '20px' }}>
+      {/* BARRA DE NAVEGACIÃ“N */}
+      <nav className="top-nav print:hidden bg-white/60 backdrop-blur-xl border-b border-slate-200/80 px-6 py-4 flex justify-between items-center z-20 relative">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:'linear-gradient(135deg,#06b6d4,#3b82f6)'}}>
+            <i className="fas fa-building-columns text-white" style={{fontSize:'11px'}} />
+          </div>
+          <span className="text-base font-black tracking-tight text-slate-900 uppercase">INVECEM</span>
+        </div>
+        <button 
+          className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 active:scale-95 rounded-xl font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-cyan-500/20 transition-all duration-200 cursor-pointer text-white"
+          onClick={() => router.push("/inspector")}
+        >
+          <i className="fas fa-arrow-left mr-2"></i> Volver
+        </button>
+      </nav>
+
+      {/* CONTENEDOR CENTRAL */}
+      <div className="max-w-6xl mx-auto px-6 py-10 z-10 relative">
         
-        <div className="no-print nav-row">
-          <div style={{width: '100px'}}></div> {/* Espaciador */}
-          <div className="nav-actions">
-            <button onClick={handleLimpiarBase} className="btn-clean">🧹 Limpiar Base</button>
-            <button onClick={() => window.print()} className="btn-action btn-white">🖨️ Imprimir</button>
-            <button onClick={() => window.print()} className="btn-action btn-red">📄 Descargar PDF</button>
+        {/* DEV ACTIONS AND TOOLS */}
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mb-6 print:hidden">
+          <div className="flex gap-2">
+            <span className="px-3 py-1.5 bg-cyan-50 border border-cyan-200 text-cyan-600 text-xxs font-black tracking-widest uppercase rounded-lg animate-pulse flex items-center gap-1.5 shadow-sm">
+              <span className="w-1.5 h-1.5 bg-cyan-500 rounded-full"></span> Lector Conectado
+            </span>
+          </div>
+          
+          <div className="flex gap-2">
+            <button 
+              onClick={handleLimpiarBase}
+              className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-500 hover:text-indigo-950 rounded-lg text-xxs font-bold uppercase transition-all cursor-pointer shadow-sm"
+            >
+              ðŸ§¹ Limpiar Base
+            </button>
+            <button 
+              onClick={() => window.print()}
+              className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-555 hover:text-indigo-950 rounded-lg text-xxs font-bold uppercase transition-all cursor-pointer shadow-sm"
+            >
+              ðŸ–¨ï¸ Imprimir
+            </button>
           </div>
         </div>
 
-        <div className="glass-card shadow-3d">
-          <div className="accent-bar"></div>
+        {/* TARJETA ESCÃNER PRINCIPAL */}
+        <div className="bg-white/80 backdrop-blur-xl border border-slate-200/60 rounded-3xl p-6 md:p-8 shadow-2xl space-y-8 relative shadow-neon-cyan/5">
+          {/* Tech Corners */}
+          <div className="absolute top-3 left-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+          <div className="absolute top-3 right-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+          <div className="absolute bottom-3 left-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+          <div className="absolute bottom-3 right-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
 
-          <header className="card-header">
-            <div className="title-group">
-              <h1>Asistencia de Personal</h1>
-              <p className="badge-plant">INVECEM • Control de Acceso</p>
+          {/* HEADER TARJETA */}
+          <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200/60 pb-6">
+            <div>
+              <h1 className="text-3xl font-black tracking-tight text-indigo-950 uppercase flex items-center gap-2">
+                <i className="fas fa-barcode text-cyan-600"></i> Registro de Asistencia
+              </h1>
+              <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">
+                Lectura de ficha tÃ©cnica y cÃ©dula para ingreso a planta
+              </p>
             </div>
-            <div className="date-banner">{fechaHoy}</div>
+            <div className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black text-cyan-600 uppercase tracking-wider font-mono shadow-sm">
+              {fechaHoy}
+            </div>
           </header>
 
-          <section className="scanner-section no-print">
-            <div className="scanner-layout">
-              <div className="info">
-                <label>IDENTIFICACIÓN</label>
-                <p>Escriba la ficha para registro automático</p>
+          {/* ESCÃNER TERMINAL */}
+          <section className="p-6 bg-slate-50 border border-slate-200 rounded-2xl print:hidden relative overflow-hidden group">
+            
+            {/* LÃ¡mpara de scanner animado */}
+            <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-500 to-transparent animate-float"></div>
+
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="space-y-1 text-center md:text-left">
+                <label className="text-xxs font-black text-cyan-600 uppercase tracking-widest flex items-center gap-1.5 justify-center md:justify-start font-mono">
+                  <span className="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-ping"></span> TERMINAL_ESCANEADO
+                </label>
+                <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Ingrese o escanee la ficha del trabajador</p>
               </div>
-              <input
-                ref={inputRef}
-                type="text"
-                value={identificador}
-                onChange={(e) => setIdentificador(e.target.value)}
-                placeholder={mostrarModalBeneficio ? "RESTRICCIÓN ACTIVA" : "ESPERANDO..."}
-                className="input-scan"
-                autoComplete="off"
-                disabled={mostrarModalBeneficio}
-              />
+
+              <div className="w-full md:w-80">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={identificador}
+                  onChange={(e) => setIdentificador(e.target.value)}
+                  placeholder={mostrarModalBeneficio ? "BLOQUEADO" : "AGUARDANDO CÃ“DIGO..."}
+                  className="w-full px-5 py-4 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:shadow-neon-cyan/40 focus:border-transparent transition-all duration-200 text-base font-black tracking-widest text-center uppercase shadow-sm"
+                  autoComplete="off"
+                  disabled={mostrarModalBeneficio}
+                />
+              </div>
             </div>
           </section>
 
-          <div className="table-wrapper">
-            <table className="asistencia-table">
+          {/* TABLA TELEMETRÃA */}
+          <div className="overflow-x-auto w-full no-scrollbar">
+            <table className="w-full border-collapse">
               <thead>
-                <tr>
-                  <th>FICHA</th>
-                  <th>COLABORADOR</th>
-                  <th>ÁREA / DPTO</th>
-                  <th>ENTRADA</th>
-                  <th>SALIDA</th>
-                  <th>ESTATUS</th>
+                <tr className="border-b border-slate-200/60">
+                  <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center w-24 font-mono">FICHA</th>
+                  <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-left font-mono">COLABORADOR</th>
+                  <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-left font-mono">ÃREA / DPTO</th>
+                  <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">ENTRADA</th>
+                  <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">SALIDA</th>
+                  <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">ESTATUS</th>
                 </tr>
               </thead>
               <tbody>
                 {asistenciasHoy
                   .filter(a => (a.nombreCompleto || "").toLowerCase().includes(filtro.toLowerCase()))
-                  .map(reg => (
-                    <tr key={reg.id}>
-                      <td className="ficha-col">{reg.ficha}</td>
-                      <td className="name-col">
-                        <strong>{reg.nombreCompleto}</strong>
-                        <small>{reg.cargo}</small>
-                      </td>
-                      <td className="area-col">{reg.area}</td>
-                      <td className="time-text">{reg.entrada}</td>
-                      <td className="time-text">{reg.salida || "--:--"}</td>
-                      <td>
-                        <div className="status-container">
-                          <span className={`status-pill ${(reg.estatus || "").toLowerCase()}`}>
-                            {reg.estatus}
+                  .map(reg => {
+                    const isRetraso = reg.estatus === "RETRASO";
+                    const isBeneficio = reg.estatus === "BENEFICIO";
+                    return (
+                      <tr key={reg.id} className="border-b border-slate-100/60 hover:bg-slate-50/50 transition-colors">
+                        <td className="py-4 px-3 text-center font-black text-cyan-600 text-sm font-mono">
+                          {reg.ficha}
+                        </td>
+                        <td className="py-4 px-3 text-left">
+                          <strong className="text-sm font-extrabold text-indigo-950 uppercase block">{reg.nombreCompleto}</strong>
+                          <span className="text-xxs font-bold text-slate-500 uppercase tracking-wider block mt-0.5 font-mono">{reg.cargo}</span>
+                        </td>
+                         <td className="py-4 px-3 text-left text-xs font-semibold text-slate-500">
+                          {reg.area}
+                        </td>
+                        <td className="py-4 px-3 text-center font-bold text-slate-700 text-sm font-mono">
+                          <span className="flex items-center justify-center gap-1">
+                            <i className="fas fa-sign-in-alt text-emerald-600 text-xxs"></i> {reg.entrada}
                           </span>
-                          {reg.salida && <span className="label-finalizado">FINALIZADO</span>}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="py-4 px-3 text-center font-bold text-slate-700 text-sm font-mono">
+                          {reg.salida ? (
+                            <span className="flex items-center justify-center gap-1">
+                              <i className="fas fa-sign-out-alt text-red-500 text-xxs"></i> {reg.salida}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400">--:--</span>
+                          )}
+                        </td>
+                        <td className="py-4 px-3 text-center">
+                          <div className="flex flex-col items-center gap-1">
+                            <span className={`px-2.5 py-0.5 rounded-lg text-xxs font-black tracking-wider uppercase border inline-block ${isRetraso ? "bg-red-50 text-red-650 border-red-200 animate-pulse" : isBeneficio ? "bg-cyan-50 text-cyan-600 border-cyan-205" : "bg-emerald-50 text-emerald-600 border-emerald-200"}`}>
+                              {reg.estatus}
+                            </span>
+                            {reg.salida && (
+                              <span className="px-1.5 py-0.5 bg-slate-55/10 border border-slate-200 text-slate-500 rounded text-[9px] font-black tracking-widest uppercase font-mono">
+                                FINALIZADO
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>
+
         </div>
       </div>
 
+      {/* INDUSTRIAL RESTRICTION MODAL */}
       {mostrarModalBeneficio && (
-        <div className="industrial-modal-overlay">
-          <div className="industrial-modal-card">
-            <div className="industrial-alert-header">
-              <div className="warning-shield">⚠️</div>
-              <h2>RESTRICCIÓN DE ACCESO LABORAL</h2>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white/95 backdrop-blur-xl border border-red-500/60 rounded-3xl p-6 md:p-8 w-full max-w-lg shadow-2xl space-y-6 relative shadow-neon-red/10">
+            {/* Tech Corners */}
+            <div className="absolute top-2 left-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+            <div className="absolute top-2 right-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+
+            {/* Alert Header */}
+            <div className="flex items-center gap-4 pb-4 border-b border-red-200/60">
+              <div className="w-12 h-12 bg-red-50 border border-red-200 rounded-2xl flex items-center justify-center text-red-600 text-2xl animate-pulse">
+                <i className="fas fa-exclamation-triangle animate-bounce"></i>
+              </div>
+              <div>
+                <h2 className="text-xl font-black uppercase text-indigo-950 tracking-tight">RestricciÃ³n de Acceso</h2>
+                <p className="text-3xs font-black text-red-600 uppercase tracking-widest mt-0.5">Acceso Bloqueado por Sistema</p>
+              </div>
             </div>
             
-            <div className="industrial-modal-body">
-              <p className="industrial-notice">
-                El sistema detectó un bloqueo administrativo activo en la ficha de este trabajador. No tiene permitido el acceso para cumplir jornadas laborales ordinarias.
+            {/* Modal Body */}
+            <div className="space-y-4">
+              <p className="text-xs font-semibold text-slate-600 leading-relaxed bg-slate-50 p-4 border border-slate-200 rounded-xl">
+                El sistema detectÃ³ un bloqueo administrativo activo en la ficha de este trabajador. No tiene permitido el acceso para cumplir jornadas laborales ordinarias.
               </p>
 
-              <div className="industrial-info-box">
-                <div className="info-box-row">
-                  <span>COLABORADOR:</span>
-                  <strong>{trabajadorEspecial?.nombres} {trabajadorEspecial?.apellidos}</strong>
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500 font-bold uppercase tracking-wider text-xxs font-mono">EMPLEADO</span>
+                  <strong className="text-indigo-950 uppercase">{trabajadorEspecial?.nombres} {trabajadorEspecial?.apellidos}</strong>
                 </div>
-                <div className="info-box-row">
-                  <span>CÉDULA / FICHA:</span>
-                  <strong className="text-red">{trabajadorEspecial?.cedula} / {trabajadorEspecial?.ficha || "S/F"}</strong>
+                
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500 font-bold uppercase tracking-wider text-xxs font-mono">CEDULA_FICHA</span>
+                  <strong className="text-red-600 font-black font-mono">{trabajadorEspecial?.cedula} / {trabajadorEspecial?.ficha || "S/F"}</strong>
                 </div>
-                <div className="info-box-row">
-                  <span>ESTATUS LEGAL:</span>
-                  <span className="industrial-status-badge">{trabajadorEspecial?.estatus?.toUpperCase()}</span>
+
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-500 font-bold uppercase tracking-wider text-xxs font-mono">ESTATUS_NOMINAL</span>
+                  <span className="px-2 py-0.5 bg-red-50 text-red-600 border border-red-200 rounded text-xxs font-black uppercase tracking-wider font-mono">
+                    {trabajadorEspecial?.estatus?.toUpperCase()}
+                  </span>
                 </div>
               </div>
 
-              <p className="industrial-question">
-                ¿El motivo del ingreso es únicamente para el <strong>RETIRO DE BENEFICIOS MENSUALES</strong> (Bolsa de Comida / Higiene)?
+              <p className="text-xs font-black text-indigo-955 uppercase text-center py-2 border-t border-b border-slate-200/60 font-mono">
+                Â¿EL ACCESO ES EXCLUSIVAMENTE PARA RETIRAR BENEFICIOS?
               </p>
             </div>
 
-            <div className="industrial-modal-footer">
+            {/* Modal Actions */}
+            <div className="flex gap-3 justify-end pt-2">
               <button 
                 type="button" 
-                className="btn-industrial-deny" 
+                className="px-5 py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-red-600/25 transition-all duration-200 cursor-pointer"
                 onClick={() => { setMostrarModalBeneficio(false); setTrabajadorEspecial(null); }}
               >
-                ❌ DENEGAR ENTRADA
+                âŒ Denegar Entrada
               </button>
+              
               <button 
                 type="button" 
-                className="btn-industrial-allow" 
+                className="px-5 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-450 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-emerald-600/25 transition-all duration-200 cursor-pointer" 
                 onClick={() => ejecutarEntradaExcepcional(trabajadorEspecial)}
               >
-                📦 PERMITIR ENTRADA (RETIRO)
+                ðŸ“¦ Permitir Entrada (Retiro)
               </button>
             </div>
           </div>
         </div>
       )}
 
-      <style jsx>{`
-        .invecem-header { 
-          background: #0f172a; 
-          color: white; 
-          padding: 12px 25px; 
-          display: flex; 
-          justify-content: space-between; 
-          align-items: center; 
-          border-bottom: 4px solid #e30613; 
-          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        .logo-box { font-weight: 900; font-size: 20px; letter-spacing: -1px; }
-        .red-text { color: #e30613; }
-        
-        .btn-return { 
-          background: #e30613; 
-          color: white; 
-          border: none; 
-          padding: 8px 16px; 
-          border-radius: 8px; 
-          cursor: pointer; 
-          font-size: 11px; 
-          font-weight: 800; 
-          text-transform: uppercase;
-          transition: 0.3s;
-        }
-        .btn-return:hover { background: #b8050f; transform: translateY(-2px); }
-        .main-wrapper { 
-          background-color: #f1f5f9; 
-          background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
-          background-size: 20px 20px;
-          min-height: 100vh; padding-bottom: 40px; font-family: 'Inter', sans-serif; 
-        }
-        .container { max-width: 1200px; margin: 0 auto; }
-        
-        .nav-row { display: flex; justify-content: space-between; margin-bottom: 25px; align-items: center; }
-        .nav-actions { display: flex; gap: 12px; }
-        
-        .btn-clean { background: white; color: #e30613; border: 2px solid #e30613; padding: 10px 20px; border-radius: 10px; font-weight: 800; cursor: pointer; }
-        .btn-action { padding: 12px 25px; border-radius: 10px; font-weight: 800; cursor: pointer; border: none; font-size: 14px; }
-        .btn-white { background: white; color: #0f172a; border: 1px solid #e2e8f0; }
-        .btn-red { background: #e30613; color: white; }
-
-        .glass-card { background: white; border-radius: 20px; overflow: hidden; }
-        .shadow-3d { box-shadow: 0 10px 30px rgba(0,0,0,0.05), 10px 10px 0px #cbd5e1; }
-        .accent-bar { height: 6px; background: #e30613; }
-
-        .card-header { padding: 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; }
-        .title-group h1 { font-size: 32px; font-weight: 900; color: #0f172a; margin: 0; }
-        .badge-plant { background: #f1f5f9; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 800; color: #475569; margin-top: 5px; display: inline-block; }
-        .date-banner { background: #0f172a; color: white; padding: 15px 25px; border-radius: 12px; font-weight: 800; }
-
-        .scanner-section { padding: 30px 40px; }
-        .scanner-layout { background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 15px; padding: 25px; display: flex; justify-content: space-between; align-items: center; }
-        .info label { display: block; font-size: 11px; font-weight: 900; color: #94a3b8; }
-        .info p { margin: 0; font-size: 14px; font-weight: 700; color: #0f172a; }
-        .input-scan { width: 40%; padding: 15px; border: 3px solid #0f172a; border-radius: 12px; font-size: 22px; font-weight: 900; color: #e30613; text-align: center; }
-
-        .asistencia-table { width: 100%; border-collapse: collapse; }
-        .asistencia-table th { text-align: left; padding: 20px 40px; font-size: 11px; color: #94a3b8; font-weight: 800; text-transform: uppercase; border-bottom: 2px solid #f1f5f9; }
-        .asistencia-table td { padding: 20px 40px; border-bottom: 1px solid #f8fafc; font-size: 14px; }
-        
-        .ficha-col { font-weight: 900; color: #e30613; }
-        .name-col strong { display: block; color: #0f172a; }
-        .name-col small { color: #64748b; font-size: 11px; }
-        .area-col { font-weight: 700; color: #475569; }
-        .time-text { font-family: monospace; font-weight: 800; font-size: 16px; }
-
-        .status-container { display: flex; flex-direction: column; gap: 4px; }
-        .status-pill { padding: 6px 12px; border-radius: 8px; font-size: 10px; font-weight: 900; text-transform: uppercase; width: fit-content; text-align: center; }
-        .puntual { background: #dcfce7; color: #166534; }
-        .retraso { background: #fee2e2; color: #991b1b; }
-        .beneficio { background: #e0f2fe; color: #0369a1; }
-        .label-finalizado { font-size: 9px; font-weight: 800; color: #94a3b8; margin-left: 2px; }
-
-        .industrial-modal-overlay {
-          position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-          background: rgba(15, 23, 42, 0.85); display: flex; justify-content: center;
-          align-items: center; z-index: 9999; padding: 20px; backdrop-filter: blur(4px);
-        }
-        .industrial-modal-card {
-          background: #ffffff; width: 100%; max-width: 600px; border-radius: 16px;
-          overflow: hidden; border: 3px solid #0f172a; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-          animation: modalAppear 0.25s ease-out;
-        }
-        .industrial-alert-header {
-          background: #0f172a; padding: 20px; display: flex; align-items: center; gap: 15px;
-          border-bottom: 4px solid #e30613;
-        }
-        .warning-shield {
-          font-size: 28px; background: #e30613; padding: 4px 10px; border-radius: 8px;
-          animation: pulseIcon 1s infinite alternate;
-        }
-        .industrial-alert-header h2 {
-          color: #ffffff; font-size: 18px; font-weight: 900; margin: 0; letter-spacing: 0.5px;
-        }
-        .industrial-modal-body { padding: 30px; background: #ffffff; }
-        .industrial-notice {
-          color: #475569; font-size: 13px; font-weight: 600; line-height: 1.5; margin: 0 0 20px 0;
-        }
-        .industrial-info-box {
-          background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 10px;
-          padding: 18px; display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;
-        }
-        .info-box-row {
-          display: flex; justify-content: space-between; font-size: 13px; align-items: center;
-        }
-        .info-box-row span { font-weight: 800; color: #64748b; font-size: 11px; }
-        .info-box-row strong { font-weight: 900; color: #0f172a; }
-        .info-box-row .text-red { color: #e30613; }
-        .industrial-status-badge {
-          background: #fee2e2; color: #e30613; padding: 4px 12px; border-radius: 6px;
-          font-weight: 900; font-size: 11px; border: 1px solid #fca5a5;
-        }
-        .industrial-question {
-          font-size: 14px; color: #0f172a; font-weight: 700; text-align: center;
-          margin: 15px 0 0 0; line-height: 1.5;
-        }
-        .industrial-modal-footer {
-          background: #f1f5f9; padding: 20px 30px; display: flex; gap: 15px;
-          border-top: 1px solid #e2e8f0;
-        }
-        .btn-industrial-deny {
-          flex: 1; background: #ffffff; color: #e30613; border: 2px solid #e30613;
-          padding: 14px; border-radius: 10px; font-weight: 800; font-size: 12px;
-          cursor: pointer; transition: 0.2s;
-        }
-        .btn-industrial-deny:hover { background: #fee2e2; }
-        .btn-industrial-allow {
-          flex: 1; background: #0f172a; color: #ffffff; border: none;
-          padding: 14px; border-radius: 10px; font-weight: 800; font-size: 12px;
-          cursor: pointer; transition: 0.2s; border-bottom: 4px solid #000000;
-        }
-        .btn-industrial-allow:hover { background: #1e293b; transform: translateY(1px); }
-
-        @keyframes modalAppear {
-          from { transform: scale(0.95); opacity: 0; }
-          to { transform: scale(1); opacity: 1; }
-        }
-        @keyframes pulseIcon {
-          from { transform: scale(1); }
-          to { transform: scale(1.1); }
-        }
-
-        @media print {
-          .no-print { display: none !important; }
-          .main-wrapper { padding: 0; background: white; }
-          .glass-card { box-shadow: none; border: none; }
-          .asistencia-table td, .asistencia-table th { border: 1px solid #eee; }
-        }
-      `}</style>
     </div>
   );
 }

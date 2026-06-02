@@ -14,8 +14,7 @@ export default function RecordFuncionalAsistencia() {
   const [vista, setVista] = useState("semanal");
   const [fechaReferencia, setFechaReferencia] = useState(new Date());
 
-  const hoy = new Date();
-  const nombresDiasCortos = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+  const nombresDiasCortos = ["Dom", "Lun", "Mar", "MiÃ©", "Jue", "Vie", "SÃ¡b"];
 
   useEffect(() => {
     const unsubPersonal = onSnapshot(collection(db, "personal"), (snap) => {
@@ -27,12 +26,10 @@ export default function RecordFuncionalAsistencia() {
     return () => { unsubPersonal(); unsubAsist(); };
   }, []);
 
-  // --- LÓGICA DE FILTRADO CORREGIDA ---
   const listaFiltrada = personal.filter(p => {
     const coincideTexto = p.nombres?.toLowerCase().includes(filtro.toLowerCase()) || 
                           p.ficha?.toLowerCase().includes(filtro.toLowerCase());
 
-    // Usamos la misma lógica del módulo de asistencia que ya te funciona:
     const coincideTipo = (filtroTipo === "TODOS") || 
                          (filtroTipo === "INVECEM" && p.tipoPersonal === "INVECEM") || 
                          (filtroTipo === "INCES" && p.tipoPersonal?.includes("INCES")) || 
@@ -40,7 +37,6 @@ export default function RecordFuncionalAsistencia() {
     
     return coincideTexto && coincideTipo;
   });
-  // ------------------------------------
 
   const obtenerTituloFecha = () => {
     const ref = (fechaReferencia instanceof Date && !isNaN(fechaReferencia.getTime())) ? fechaReferencia : new Date();
@@ -108,116 +104,206 @@ export default function RecordFuncionalAsistencia() {
     return { clase: "status-ausente", extra: 0, label: "FALTA" };
   };
 
+  const badgeStyles = {
+    "status-presente": "bg-cyan-50 text-cyan-600 border-cyan-200",
+    "status-descanso": "bg-slate-100 text-slate-500 border-slate-200/60",
+    "status-ausente": "bg-red-50 text-red-600 border-red-200"
+  };
+
   return (
-    <div className="layout">
-      <nav className="top-nav">
-        <div className="logo">SYSTEM-CONTROL <span className="red-text">INVECEM</span></div>
-        <button className="btn-return" onClick={() => router.back()}>VOLVER</button>
+    <div className="min-h-screen bg-slate-50 text-slate-800 relative overflow-hidden font-sans pb-10 cyber-grid">
+      {/* Background glowing decorations */}
+      <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-tr from-cyan-400 to-indigo-500 rounded-full blur-3xl opacity-15 animate-pulse-glow"></div>
+      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-gradient-to-tr from-purple-500 to-pink-500 rounded-full blur-3xl opacity-10 animate-pulse-glow delay-1000"></div>
+
+      {/* BARRA DE NAVEGACIÃ“N CORPORATIVA */}
+      <nav className="top-nav bg-white/60 backdrop-blur-xl border-b border-slate-200/80 px-6 py-4 flex justify-between items-center z-20 relative">
+        <div className="flex items-center gap-2.5"><div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:"linear-gradient(135deg,#06b6d4,#3b82f6)"}}><i className="fas fa-building-columns text-white" style={{fontSize:"11px"}}></i></div><span className="text-base font-black tracking-tight text-slate-900 uppercase">INVECEM</span></div>
+        <button 
+          className="px-4 py-2 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 active:scale-95 rounded-xl font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-indigo-500/20 transition-all duration-200 cursor-pointer text-white hover:shadow-neon-cyan"
+          onClick={() => router.back()}
+        >
+          <i className="fas fa-arrow-left mr-2"></i> Volver
+        </button>
       </nav>
 
-      <div className="content">
-        <header className="report-header">
-          <h1 className="report-title">Control de Asistencia</h1>
-          <div className="date-display">{obtenerTituloFecha()}</div>
+      {/* CONTENEDOR CENTRAL */}
+      <div className="max-w-7xl mx-auto px-6 py-10 z-10 relative">
+        
+        {/* ENCABEZADO DE REPORTE */}
+        <header className="mb-8 border-l-6 border-cyan-500 pl-5 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-black tracking-tight text-indigo-950 uppercase">
+              Control de Asistencia
+            </h1>
+            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">
+              RÃ©cord operacional y acumulaciÃ³n de horas de la nÃ³mina de planta
+            </p>
+          </div>
+          <div className="px-4 py-2 bg-white/80 backdrop-blur-md border border-slate-200 rounded-xl text-sm font-black text-cyan-600 uppercase self-start sm:self-auto shadow-md font-mono">
+            {obtenerTituloFecha()}
+          </div>
         </header>
 
-        <div className="action-bar shadow-relief">
-          <div className="search-container">
-            <input type="date" className="date-input" onChange={(e) => setFechaReferencia(e.target.value ? new Date(e.target.value + "T12:00:00") : new Date())} />
-            
-            <select className="type-select" onChange={(e) => setFiltroTipo(e.target.value)}>
-                <option value="TODOS">TODOS</option>
-                <option value="INVECEM">INVECEM</option>
-                <option value="INCES">ESTUDIANTES INCES</option>
-                <option value="PASANTES">PASANTES</option>
-            </select>
+        {/* ACCIONES Y FILTROS */}
+        <div className="p-4 bg-white/85 backdrop-blur-xl border border-slate-200/60 rounded-3xl flex flex-col gap-4 mb-8 shadow-xl shadow-slate-200/10 relative">
+          {/* Tech Corners */}
+          <div className="absolute top-2 left-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+          <div className="absolute top-2 right-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
 
-            <div className="tabs">
-              <button className={vista === 'semanal' ? 'active' : ''} onClick={() => setVista('semanal')}>SEMANAL</button>
-              <button className={vista === 'mensual' ? 'active' : ''} onClick={() => setVista('mensual')}>MENSUAL</button>
+          <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:w-auto">
+              {/* Selector de fecha */}
+              <div className="relative">
+                <input 
+                  type="date" 
+                  className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-cyan-500 cursor-pointer" 
+                  onChange={(e) => setFechaReferencia(e.target.value ? new Date(e.target.value + "T12:00:00") : new Date())} 
+                />
+              </div>
+
+              {/* Selector de tipo */}
+              <div>
+                <select 
+                  className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-cyan-500 cursor-pointer uppercase" 
+                  onChange={(e) => setFiltroTipo(e.target.value)}
+                >
+                  <option value="TODOS">TODOS LOS TIPOS</option>
+                  <option value="INVECEM">INVECEM</option>
+                  <option value="INCES">ESTUDIANTES INCES</option>
+                  <option value="PASANTES">PASANTES</option>
+                </select>
+              </div>
+
+              {/* Vista Semanal / Mensual */}
+              <div className="flex bg-slate-50 p-1 border border-slate-200 rounded-xl">
+                <button 
+                  className={`flex-1 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all duration-200 cursor-pointer ${vista === 'semanal' ? 'bg-gradient-to-r from-cyan-500 to-indigo-500 text-white shadow' : 'text-slate-400 hover:text-slate-900'}`} 
+                  onClick={() => setVista('semanal')}
+                >
+                  Semanal
+                </button>
+                <button 
+                  className={`flex-1 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all duration-200 cursor-pointer ${vista === 'mensual' ? 'bg-gradient-to-r from-cyan-500 to-indigo-500 text-white shadow' : 'text-slate-400 hover:text-slate-900'}`} 
+                  onClick={() => setVista('mensual')}
+                >
+                  Mensual
+                </button>
+              </div>
             </div>
-          </div>
-          <div className="search-container" style={{flex: 1}}>
-             <input type="text" placeholder="Buscar personal..." onChange={(e) => setFiltro(e.target.value)} />
+
+            {/* BÃºsqueda de personal */}
+            <div className="relative w-full lg:flex-1">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
+                <i className="fas fa-search"></i>
+              </span>
+              <input 
+                type="text" 
+                placeholder="Buscar por Nombre o NÂ° Ficha..." 
+                onChange={(e) => setFiltro(e.target.value)}
+                className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs font-semibold"
+              />
+            </div>
           </div>
         </div>
 
-        <div className="card shadow-relief">
-          <div className="table-wrapper">
-            <table className="user-table">
+        {/* TABLA DE GRID DE ASISTENCIA */}
+        <div className="bg-white/80 backdrop-blur-xl border border-slate-200/60 rounded-3xl overflow-hidden shadow-2xl p-4 md:p-6 shadow-slate-200/20 relative shadow-neon-cyan">
+          {/* Tech Corners */}
+          <div className="absolute top-3 left-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+          <div className="absolute top-3 right-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+          
+          <div className="overflow-x-auto w-full no-scrollbar max-h-[600px] overflow-y-auto">
+            <table className="w-full border-collapse text-slate-800">
               <thead>
-                <tr>
-                  <th style={{minWidth: '200px'}}>PERSONAL</th>
+                <tr className="border-b border-slate-200 sticky top-0 bg-white/95 backdrop-blur-md z-20">
+                  <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-left min-w-[200px] sticky left-0 bg-white z-30 border-r border-slate-200/60 font-mono">COLABORADOR</th>
                   {vista === 'semanal' 
-                    ? obtenerDiasSemana().map((d, i) => <th key={i}>{d.nombre}<br/>{d.dia}</th>)
-                    : obtenerDiasMes().map((d, i) => <th key={i} className="mini-th">{d.nombre}<br/>{d.dia}</th>)
+                    ? obtenerDiasSemana().map((d, i) => (
+                        <th key={i} className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-2 text-center min-w-[80px]">
+                          <span className="block text-slate-500 text-[10px] font-extrabold font-mono">{d.nombre}</span>
+                          <span className="text-sm font-black text-slate-800 font-mono">{d.dia}</span>
+                        </th>
+                      ))
+                    : obtenerDiasMes().map((d, i) => (
+                        <th key={i} className="text-slate-500 font-bold text-[9px] tracking-wider uppercase py-4 px-1 text-center min-w-[55px]">
+                          <span className="block text-slate-500 text-[8px] font-bold font-mono">{d.nombre}</span>
+                          <span className="text-xs font-extrabold text-slate-800 font-mono">{d.dia}</span>
+                        </th>
+                      ))
                   }
-                  <th>TOTAL</th>
+                  <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center min-w-[80px] border-l border-slate-200/60 font-mono">OVERTIME</th>
                 </tr>
               </thead>
               <tbody>
-                {listaFiltrada.map((p) => {
-                  let acumuladoExtra = 0;
-                  return (
-                    <tr key={p.id}>
-                      <td className="sticky-col">
-                        <div className="worker-name">{p.nombres} {p.apellidos}</div>
-                        <div className="worker-ficha">FICHA: {p.ficha}</div>
-                      </td>
-                      {vista === 'semanal' ? 
-                        obtenerDiasSemana().map((d, i) => {
+                {listaFiltrada.length === 0 ? (
+                  <tr>
+                    <td colSpan={vista === 'semanal' ? 9 : 40} className="py-8 text-center text-slate-400 font-bold italic text-sm font-mono">
+                      Sin registros encontrados
+                    </td>
+                  </tr>
+                ) : (
+                  listaFiltrada.map((p) => {
+                    let acumuladoExtra = 0;
+                    return (
+                      <tr key={p.id} className="hover:bg-slate-50/50 border-b border-slate-100/60 transition-colors">
+                        
+                        {/* Celda fija a la izquierda */}
+                        <td className="py-3 px-3 text-left sticky left-0 bg-white/95 backdrop-blur-md z-10 border-r border-slate-200/80">
+                          <div className="font-extrabold text-indigo-950 text-xs uppercase truncate max-w-[190px]">
+                            {p.nombres} {p.apellidos}
+                          </div>
+                          <div className="text-[9px] font-black text-cyan-600 uppercase mt-0.5 tracking-wider font-mono">
+                            FICHA: {p.ficha || "---"}
+                          </div>
+                        </td>
+
+                        {/* Celdas de asistencia */}
+                        {vista === 'semanal' ? 
+                          obtenerDiasSemana().map((d, i) => {
                             const info = obtenerDatosReales(p, d.dia, d.mes, d.anio);
                             acumuladoExtra += info.extra;
-                            return <td key={i}><div className={`status-badge ${info.clase}`}>{info.label}</div></td>;
-                        }) : 
-                        obtenerDiasMes().map((d, i) => {
+                            return (
+                              <td key={i} className="py-3 px-1 text-center">
+                                <span className={`px-2 py-1 text-[9px] font-black tracking-widest uppercase rounded border inline-block w-16 text-center ${badgeStyles[info.clase] || "bg-slate-100 text-slate-500"}`}>
+                                  {info.label}
+                                </span>
+                              </td>
+                            );
+                          }) : 
+                          obtenerDiasMes().map((d, i) => {
                             const info = obtenerDatosReales(p, d.dia, d.mes, d.anio);
                             acumuladoExtra += info.extra;
-                            return <td key={i}><div className={`status-badge ${info.clase}`}>{info.label}</div></td>;
-                        })
-                      }
-                      <td className="extra-total">{acumuladoExtra}h</td>
-                    </tr>
-                  );
-                })}
+                            return (
+                              <td key={i} className="py-3 px-1 text-center">
+                                <span 
+                                  className={`px-1.5 py-0.5 text-[8px] font-black tracking-tighter uppercase rounded border inline-block w-10 text-center ${badgeStyles[info.clase] || "bg-slate-100 text-slate-500"}`}
+                                  title={info.label}
+                                >
+                                  {info.label === "ASISTENCIA" ? "ASIST" : info.label === "DESCANSO" ? "DESC" : "FALT"}
+                                </span>
+                              </td>
+                            );
+                          })
+                        }
+
+                        {/* Celda de acumulaciÃ³n final */}
+                        <td className="py-3 px-3 text-center border-l border-slate-200/60">
+                          <span className={`px-2 py-0.5 rounded text-xxs font-black tracking-wider uppercase inline-block ${acumuladoExtra > 0 ? "bg-cyan-50 text-cyan-600 border border-cyan-200 shadow-md shadow-cyan-100/50" : "text-slate-400"}`}>
+                            {acumuladoExtra}h
+                          </span>
+                        </td>
+
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
         </div>
       </div>
-
-      <style jsx>{`
-        .layout { background-color: #f0f4f8; background-image: radial-gradient(#d1d5db 0.8px, transparent 0.8px); background-size: 24px 24px; min-height: 100vh; font-family: 'Inter', sans-serif; }
-        .top-nav { background: #0f172a; color: white; padding: 12px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid #e30613; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .logo { font-weight: 900; font-size: 20px; }
-        .red-text { color: #e30613; }
-        .btn-return { background: #e30613; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 11px; font-weight: 800; text-transform: uppercase; transition: 0.3s; }
-        .content { padding: 30px; max-width: 1200px; margin: 0 auto; }
-        .report-header { margin-bottom: 35px; border-left: 6px solid #0f172a; padding-left: 20px; }
-        .report-title { font-size: 38px; font-weight: 900; color: #0f172a; margin: 0; text-transform: uppercase; letter-spacing: -2px; }
-        .date-display { font-size: 20px; font-weight: 900; color: #e30613; text-transform: capitalize; margin-top: 5px; }
-        .action-bar { display: flex; gap: 15px; margin-bottom: 25px; padding: 20px; background: white; border-radius: 18px; align-items: center; }
-        .shadow-relief { border: 1px solid #e2e8f0; border-top: 8px solid #e30613; box-shadow: 12px 12px 0px #0f172a; }
-        .search-container input, .date-input, .type-select { padding: 12px; border: 2px solid #f1f5f9; border-radius: 12px; font-weight: 600; outline: none; }
-        .type-select { background: white; cursor: pointer; color: #0f172a; }
-        .tabs { background: #f1f5f9; padding: 4px; border-radius: 12px; display: flex; }
-        .tabs button { border: none; padding: 8px 20px; border-radius: 10px; font-weight: 800; cursor: pointer; background: transparent; color: #64748b; }
-        .tabs button.active { background: white; color: #e30613; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .card { background: white; border-radius: 24px; overflow: hidden; padding: 20px; }
-        .table-wrapper { overflow-x: auto; }
-        .user-table { width: 100%; border-collapse: collapse; }
-        .user-table th { padding: 15px; font-size: 11px; color: #64748b; border-bottom: 3px solid #e30613; text-align: center; }
-        .mini-th { font-size: 9px !important; }
-        .user-table td { padding: 10px; border-bottom: 1px solid #f1f5f9; text-align: center; }
-        .sticky-col { position: sticky; left: 0; background: white; text-align: left !important; min-width: 200px; border-right: 2px solid #f1f5f9; }
-        .worker-name { font-weight: 800; color: #0f172a; }
-        .worker-ficha { font-size: 10px; color: #e30613; font-weight: 900; }
-        .status-badge { padding: 4px 8px; border-radius: 6px; font-size: 9px; font-weight: 800; color: white; display: inline-block; white-space: nowrap; }
-        .status-presente { background: #22c55e; }
-        .status-ausente { background: #e11d48; } 
-        .status-descanso { background: #64748b; } 
-        .extra-total { font-weight: 900; color: #e30613; background: #fff1f2; }
-      `}</style>
     </div>
   );
 }
+

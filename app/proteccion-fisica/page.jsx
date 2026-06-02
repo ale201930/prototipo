@@ -1,23 +1,43 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Image from "next/image";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import { auth, db } from "../lib/firebase";
 import { signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import Link from "next/link";
+
+function SidebarItem({ icon, label, active, onClick, accent = "#06b6d4" }) {
+  return (
+    <li
+      onClick={onClick}
+      className="list-none flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all duration-200 select-none"
+      style={active ? {
+        background: `linear-gradient(90deg, rgba(6,182,212,0.15), rgba(59,130,246,0.08))`,
+        borderLeft: `3px solid ${accent}`,
+        color: '#ffffff',
+        fontWeight: 800,
+        paddingLeft: '13px',
+      } : { color: '#94a3b8', borderLeft: '3px solid transparent' }}
+      onMouseEnter={e => { if (!active) { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#e2e8f0'; e.currentTarget.style.transform = 'translateX(3px)'; } }}
+      onMouseLeave={e => { if (!active) { e.currentTarget.style.background = ''; e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.transform = ''; } }}
+    >
+      <i className={`fas ${icon} w-5 text-center`} style={{ color: active ? accent : 'inherit', fontSize: '0.95rem' }} />
+      <span className="text-sm font-semibold">{label}</span>
+    </li>
+  );
+}
+
+function SidebarSection({ label }) {
+  return <div className="px-4 pt-5 pb-1.5 text-[10px] font-black text-slate-500 uppercase tracking-widest select-none">{label}</div>;
+}
 
 export default function ProteccionFisica() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [nombreUsuario, setNombreUsuario] = useState("");
-
   const router = useRouter();
-  const pathname = usePathname();
 
-  // 🔥 CARGA DE DATOS DE USUARIO (IGUAL QUE LOS OTROS)
   useEffect(() => {
     const obtenerDatos = async () => {
       const user = auth.currentUser;
@@ -49,147 +69,129 @@ export default function ProteccionFisica() {
     }
   };
 
+  const initial = nombreUsuario?.charAt(0)?.toUpperCase() || "P";
+
   return (
-    <div className="admin-layout">
-      {/* BOTÓN MÓVIL */}
-      <button className="menu-btn" onClick={() => setMenuOpen(!menuOpen)}>
-        ☰
+    <div className="page-dashboard">
+
+      <button
+        className="md:hidden fixed top-4 left-4 z-50 w-11 h-11 flex items-center justify-center rounded-xl shadow-lg cursor-pointer"
+        style={{ background: '#161b27', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}
+        onClick={() => setMenuOpen(!menuOpen)}
+      >
+        <i className={`fas ${menuOpen ? 'fa-times' : 'fa-bars'} text-lg`} />
       </button>
 
-      {/* SIDEBAR NEGRO */}
-      <aside className={`sidebar ${menuOpen ? "open" : ""}`}>
-        <div className="sidebar-header">
-          <h2 className="title">INVECEM</h2>
-          <small>Protección Física</small>
+      {menuOpen && (
+        <div className="md:hidden fixed inset-0 z-30 bg-black/50 backdrop-blur-sm" onClick={() => setMenuOpen(false)} />
+      )}
+
+      {/* SIDEBAR */}
+      <aside
+        className={`fixed md:relative top-0 bottom-0 left-0 z-40 flex flex-col transition-transform duration-300 md:translate-x-0 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        style={{ width: 272, background: 'linear-gradient(180deg, #0d1117 0%, #161b27 100%)', borderRight: '1px solid rgba(255,255,255,0.06)' }}
+      >
+        <div className="p-6 flex flex-col items-center gap-2 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-1"
+            style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)', boxShadow: '0 4px 14px rgba(6,182,212,0.35)' }}>
+            <i className="fas fa-building-columns text-white text-xl" />
           </div>
+          <h2 className="text-lg font-black tracking-tight text-white uppercase">INVECEM</h2>
+          <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full"
+            style={{ background: 'rgba(34,211,238,0.12)', color: '#22d3ee', border: '1px solid rgba(34,211,238,0.2)' }}>
+            ProtecciÃ³n FÃ­sica
+          </span>
+        </div>
 
-        <nav className="nav-menu">
-          <li className={`nav-item ${pathname === "/proteccion-fisica" ? "active" : ""}`} onClick={() => router.push("/proteccion-fisica")}>
-            🏠 Inicio
-          </li>
+        <nav className="flex-grow px-3 py-4 overflow-y-auto space-y-0.5">
+          <SidebarItem icon="fa-home" label="Inicio" active={true} onClick={() => router.push("/proteccion-fisica")} />
+          <SidebarItem icon="fa-user-gear" label="Mi Perfil" onClick={() => router.push("/perfil")} />
 
-          <li className="nav-item perfil-item" onClick={() => router.push("/perfil")}>
-            ⚙️ Mi Perfil
-          </li>
-
-          <li className={`nav-item ${pathname === "/proteccion-fisica/registro-de-contratas" ? "active" : ""}`} onClick={() => router.push("/proteccion-fisica/registro-de-contratas")}>
-            📝 Registro de contratas
-          </li>
-
-          <li className={`nav-item ${pathname === "/proteccion-fisica/usuarios-de-contratas" ? "active" : ""}`} onClick={() => router.push("/proteccion-fisica/usuarios-de-contratas")}>
-            👥 Usuarios de contratas
-          </li>
-
-          <li className={`nav-item ${pathname === "/proteccion-fisica/asistencia-del-dia" ? "active" : ""}`} onClick={() => router.push("/proteccion-fisica/asistencia-del-dia")}>
-            📅 Asistencia del Día
-          </li>
+          <SidebarSection label="MÃ³dulos" />
+          <SidebarItem icon="fa-file-signature" label="Registro de Contratas" onClick={() => router.push("/proteccion-fisica/registro-de-contratas")} accent="#06b6d4" />
+          <SidebarItem icon="fa-user-tag" label="Usuarios de Contratas" onClick={() => router.push("/proteccion-fisica/usuarios-de-contratas")} accent="#3b82f6" />
+          <SidebarItem icon="fa-calendar-check" label="Asistencia del DÃ­a" onClick={() => router.push("/proteccion-fisica/asistencia-del-dia")} accent="#22d3ee" />
 
           {isAdmin && (
-            <li className="nav-item return-admin-btn" onClick={() => router.push("/administrador")}>
-              ⬅ Volver al Panel Admin
-            </li>
+            <>
+              <SidebarSection label="AdministraciÃ³n" />
+              <SidebarItem icon="fa-arrow-left" label="Volver al Panel Admin" onClick={() => router.push("/administrador")} accent="#f59e0b" />
+            </>
           )}
         </nav>
 
-        <div className="logout">
-          <button className="btn-logout" onClick={handleLogout}>
-            🚪 Cerrar Sesión
+        <div className="p-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl mb-3"
+            style={{ background: 'rgba(255,255,255,0.04)' }}>
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-sm font-black text-white"
+              style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)' }}>
+              {initial}
+            </div>
+            <div className="overflow-hidden">
+              <p className="text-white text-xs font-bold truncate">{nombreUsuario || "Usuario"}</p>
+              <p className="text-slate-500 text-[10px]">ProtecciÃ³n FÃ­sica</p>
+            </div>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="w-full py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider cursor-pointer transition-all duration-200 flex items-center justify-center gap-2"
+            style={{ background: 'rgba(244,63,94,0.08)', border: '1px solid rgba(244,63,94,0.2)', color: '#f87171' }}
+            onMouseEnter={e => { e.currentTarget.style.background='rgba(244,63,94,0.15)'; e.currentTarget.style.color='#fca5a5'; }}
+            onMouseLeave={e => { e.currentTarget.style.background='rgba(244,63,94,0.08)'; e.currentTarget.style.color='#f87171'; }}
+          >
+            <i className="fas fa-right-from-bracket" /> Cerrar SesiÃ³n
           </button>
         </div>
       </aside>
 
-      {/* ÁREA PRINCIPAL */}
-      <main className="main-view">
-        <div className="welcome-card">
-          <div className="userInfo">
-            <Image 
-              src="/img/logo.jpg" 
-              alt="Logo"
-              width={45}
-              height={45}
-              className="avatar"
-            />
+      {/* MAIN */}
+      <main className="page-main animate-fade-in">
+
+        <div className="welcome-card p-8 mb-8 text-white">
+          <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-6">
+            <div className="w-20 h-20 rounded-2xl flex items-center justify-center flex-shrink-0 animate-float"
+              style={{ background: 'linear-gradient(135deg, #22d3ee, #06b6d4)', boxShadow: '0 8px 24px rgba(34,211,238,0.4)' }}>
+              <i className="fas fa-shield-halved text-3xl text-white" />
+            </div>
             <div>
-              <h1>Bienvenido, {nombreUsuario || "Usuario"} 👋</h1>
-              <p>
-                Has ingresado al Panel del sistema INVECEM como{" "}
-                <strong>Protección Física</strong>
+              <p className="text-cyan-300 text-xs font-bold uppercase tracking-widest mb-1">Control de Acceso</p>
+              <h1 className="text-3xl font-black tracking-tight mb-2">
+                Bienvenido, <span style={{ color: '#22d3ee' }}>{nombreUsuario || "Usuario"}</span>
+              </h1>
+              <p className="text-slate-400 text-sm font-medium">
+                Controla el acceso de contratas y personal externo en la planta
               </p>
+            </div>
+            <div className="md:ml-auto flex items-center gap-2 px-4 py-2 rounded-xl"
+              style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)' }}>
+              <span className="live-dot" />
+              <span className="text-emerald-400 text-xs font-bold">Acceso Activo</span>
             </div>
           </div>
         </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            { icon: 'fa-file-signature', label: 'Registro de Contratas', sub: 'Registrar nuevas empresas y contratas', route: '/proteccion-fisica/registro-de-contratas', color: '#06b6d4', bg: 'rgba(6,182,212,0.08)' },
+            { icon: 'fa-user-tag', label: 'Usuarios de Contratas', sub: 'GestiÃ³n del personal externo registrado', route: '/proteccion-fisica/usuarios-de-contratas', color: '#3b82f6', bg: 'rgba(59,130,246,0.08)' },
+            { icon: 'fa-calendar-check', label: 'Asistencia del DÃ­a', sub: 'Control de acceso en tiempo real', route: '/proteccion-fisica/asistencia-del-dia', color: '#22d3ee', bg: 'rgba(34,211,238,0.08)' },
+          ].map(item => (
+            <button key={item.label} onClick={() => router.push(item.route)}
+              className="card p-6 text-left cursor-pointer group animate-slide-up"
+              style={{ border: `1px solid ${item.color}20` }}>
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 transition-transform duration-200 group-hover:scale-110"
+                style={{ background: item.bg, border: `1px solid ${item.color}25` }}>
+                <i className={`fas ${item.icon} text-xl`} style={{ color: item.color }} />
+              </div>
+              <p className="font-black text-slate-800 text-base">{item.label}</p>
+              <p className="text-slate-500 text-sm mt-1 font-medium">{item.sub}</p>
+              <div className="mt-4 flex items-center gap-1.5 text-sm font-bold transition-all duration-200 group-hover:gap-2.5" style={{ color: item.color }}>
+                Abrir mÃ³dulo <i className="fas fa-arrow-right text-xs" />
+              </div>
+            </button>
+          ))}
+        </div>
       </main>
-
-      <style jsx>{`
-        .admin-layout {
-          display: flex;
-          min-height: 100vh;
-          background: url("/img/ins.jpg") no-repeat center center fixed;
-          background-size: cover;
-          font-family: 'Segoe UI', sans-serif;
-        }
-
-        .sidebar {
-          width: 260px; 
-          background: #1a1a1a; 
-          color: white; 
-          display: flex; 
-          flex-direction: column; 
-          transition: 0.3s; 
-          flex-shrink: 0;
-          padding-top: 20px; 
-        }
-
-        .sidebar-header { text-align: center; padding: 20px 0; border-bottom: 1px solid #333; }
-        .title { color: #e30613; margin: 0; font-size: 1.8rem; font-weight: bold; }
-        
-        .user-badge {
-          margin: 15px 20px 0;
-          background: rgba(227, 6, 19, 0.1);
-          padding: 8px;
-          border-radius: 8px;
-          font-size: 0.85rem;
-          color: #eee;
-          border-left: 3px solid #e30613;
-        }
-
-        .nav-menu { list-style: none; padding: 20px 0; flex-grow: 1; }
-        .nav-item { margin: 5px 15px; padding: 12px 15px; border-radius: 10px; cursor: pointer; color: #aaa; transition: 0.3s; }
-        .nav-item:hover { background: #e30613; color: white; }
-        .active { background: #e30613; color: white; font-weight: bold; }
-        
-        .perfil-item { border: 1px dashed #e30613; margin-bottom: 15px; color: #fff; }
-
-        .logout { padding: 20px; }
-        .btn-logout { border: 1px solid #e30613; color: #e30613; background: transparent; width: 100%; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        .btn-logout:hover { background: #e30613; color: white; }
-
-        .main-view { flex: 1; padding: 40px; display: flex; flex-direction: column; align-items: flex-start; }
-
-        .welcome-card {
-          background: white;
-          padding: 20px 30px;
-          border-radius: 15px;
-          box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-          width: 100%;
-          max-width: 800px;
-          margin-top: 10px;
-        }
-
-        .welcome-card h1 { color: #e30613; margin: 0; font-size: 1.6rem; }
-        .welcome-card p { color: #444; margin: 5px 0 0 0; font-size: 0.95rem; }
-        .userInfo { display: flex; align-items: center; gap: 20px; }
-        .avatar { border-radius: 8px; border: 1px solid #ddd; }
-
-        .menu-btn { display: none; position: fixed; top: 15px; left: 15px; z-index: 1000; background: #1a1a1a; color: white; border: none; padding: 10px; border-radius: 8px; }
-
-        @media (max-width: 768px) {
-          .menu-btn { display: block; }
-          .sidebar { position: fixed; left: -100%; height: 100%; z-index: 999; }
-          .sidebar.open { left: 0; }
-          .main-view { padding: 20px; margin-top: 50px; }
-        }
-      `}</style>
     </div>
   );
 }

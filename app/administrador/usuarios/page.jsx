@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
-import Image from "next/image";
+
 import { useRouter } from "next/navigation";
 import { db } from "../../lib/firebase"; 
 import { 
@@ -36,7 +36,7 @@ export default function GestionUsuarios() {
     return () => unsubscribe();
   }, []);
 
-  // 2. FILTRADO PARA LA BARRA DE BÚSQUEDA
+  // 2. FILTRADO PARA LA BARRA DE BÃšSQUEDA
   const usuariosFiltrados = usuarios.filter(u => 
     u.nombres?.toLowerCase().includes(filtro.toLowerCase()) ||
     u.ficha?.includes(filtro) ||
@@ -45,7 +45,7 @@ export default function GestionUsuarios() {
   );
 
   const eliminarUsuario = async (id, nombreUser) => {
-    if (confirm(`¿Eliminar a ${nombreUser}?\nEsta acción borrará sus datos de la base de datos.`)) {
+    if (confirm(`Â¿Eliminar a ${nombreUser}?\nEsta acciÃ³n borrarÃ¡ sus datos de la base de datos.`)) {
       try {
         await deleteDoc(doc(db, "usuarios", id));
       } catch (error) {
@@ -64,110 +64,132 @@ export default function GestionUsuarios() {
   };
 
   return (
-    <div className="layout">
-      
-      {/* BARRA DE NAVEGACIÓN SUPERIOR UNIFICADA */}
-      <nav className="top-nav">
-        <div className="logo">
-          SYSTEM-CONTROL <span className="red-text">INVECEM</span>
-        </div>
-        <button className="btn-panel" onClick={() => router.push("/administrador")}>
-          ← VOLVER
+    <div className="min-h-screen bg-slate-50 text-slate-800 relative overflow-hidden font-sans pb-10 cyber-grid">
+      {/* Background glowing decorations */}
+      <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-tr from-cyan-400 to-indigo-500 rounded-full blur-3xl opacity-15 animate-pulse-glow"></div>
+      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-gradient-to-tr from-purple-500 to-pink-500 rounded-full blur-3xl opacity-10 animate-pulse-glow delay-1000"></div>
+
+      {/* BARRA DE NAVEGACIÃ“N SUPERIOR UNIFICADA */}
+      <nav className="top-nav no-print bg-white/60 backdrop-blur-xl border-b border-slate-200/80 px-6 py-4 flex justify-between items-center z-20 relative">
+        <div className="flex items-center gap-2.5"><div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:"linear-gradient(135deg,#06b6d4,#3b82f6)"}}><i className="fas fa-building-columns text-white" style={{fontSize:"11px"}}></i></div><span className="text-base font-black tracking-tight text-slate-900 uppercase">INVECEM</span></div>
+        <button 
+          className="px-4 py-2 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 active:scale-95 rounded-xl font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-indigo-500/20 transition-all duration-200 cursor-pointer text-white hover:shadow-neon-cyan"
+          onClick={() => router.push("/administrador")}
+        >
+          <i className="fas fa-arrow-left mr-2"></i> Volver
         </button>
       </nav>
 
       {/* CONTENEDOR DE CONTENIDO PRINCIPAL */}
-      <div className="content">
+      <div className="max-w-6xl mx-auto px-6 py-10 z-10 relative">
         
-        {/* ENCABEZADO DE REPORTE TÉCNICO */}
-        <header className="report-header">
-          <h1 className="report-title">Gestión de Usuarios</h1>
-          <p className="subtitle-header">Administración, control de estatus y asignación de roles para el personal de planta</p>
+        {/* ENCABEZADO DE REPORTE TÃ‰CNICO */}
+        <header className="mb-8 border-l-6 border-cyan-500 pl-5">
+          <h1 className="text-3xl font-black tracking-tight text-indigo-950 uppercase">
+            GestiÃ³n de Usuarios
+          </h1>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">
+            AdministraciÃ³n, control de estatus y asignaciÃ³n de roles para el personal de planta
+          </p>
         </header>
 
-        {/* BARRA DE ACCIONES (BÚSQUEDA Y REGISTRO) */}
-        <div className="action-bar shadow-relief">
-          <div className="search-container">
-            <span className="search-icon">🔍</span>
+        {/* BARRA DE ACCIONES (BÃšSQUEDA Y REGISTRO) */}
+        <div className="p-4 bg-white/80 backdrop-blur-xl border border-slate-200/60 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-4 mb-6 shadow-xl shadow-slate-200/20">
+          <div className="relative w-full md:flex-1">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-500">
+              <i className="fas fa-search"></i>
+            </span>
             <input 
               type="text" 
-              placeholder="Buscar por Nombre, Ficha, Cédula, Rol..." 
+              placeholder="Buscar por Nombre, Ficha, CÃ©dula, Rol..." 
               value={filtro}
               onChange={(e) => setFiltro(e.target.value)}
+              className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-200 text-sm font-semibold shadow-sm"
             />
           </div>
-          <button className="btn-registrar" onClick={() => router.push("/administrador/usuarios/nuevo-usuario")}>
-            + Registrar Nuevo
+          <button 
+            className="w-full md:w-auto px-6 py-3.5 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 active:scale-95 text-white font-extrabold uppercase text-xs tracking-wider rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-neon-purple transition-all duration-200 transform cursor-pointer flex items-center justify-center gap-2"
+            onClick={() => router.push("/administrador/usuarios/nuevo-usuario")}
+          >
+            <i className="fas fa-plus"></i> Registrar Nuevo
           </button>
         </div>
 
-        {/* TABLA PRINCIPAL EN TARJETA SHADOW-RELIEF */}
-        <div className="card shadow-relief mt-20">
-          <div className="table-wrapper">
-            <table className="user-table">
+        {/* TABLA PRINCIPAL */}
+        <div className="bg-white/85 backdrop-blur-lg border border-slate-200/60 rounded-3xl overflow-hidden shadow-2xl shadow-slate-200/20 p-4 md:p-6 relative shadow-neon-cyan">
+          {/* Tech Corners */}
+          <div className="absolute top-3 left-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+          <div className="absolute top-3 right-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+          <div className="absolute bottom-3 left-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+          <div className="absolute bottom-3 right-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+
+          <div className="overflow-x-auto w-full no-scrollbar">
+            <table className="w-full border-collapse">
               <thead>
-                <tr>
-                  <th>ESTATUS</th>
-                  <th>FICHA</th>
-                  <th>CÉDULA</th>
-                  <th>NOMBRES Y APELLIDOS</th>
-                  <th>CARGO / DEPARTAMENTO</th>
-                  <th>ROL</th>
-                  <th>ACCIONES</th>
+                <tr className="border-b border-slate-200">
+                  <th className="text-slate-500 font-mono text-[9px] font-black tracking-wider uppercase py-4 px-3 text-center">ESTATUS</th>
+                  <th className="text-slate-500 font-mono text-[9px] font-black tracking-wider uppercase py-4 px-3 text-center">FICHA</th>
+                  <th className="text-slate-500 font-mono text-[9px] font-black tracking-wider uppercase py-4 px-3 text-center">CÃ‰DULA</th>
+                  <th className="text-slate-500 font-mono text-[9px] font-black tracking-wider uppercase py-4 px-3 text-left">NOMBRES Y APELLIDOS</th>
+                  <th className="text-slate-500 font-mono text-[9px] font-black tracking-wider uppercase py-4 px-3 text-left">CARGO / DEPARTAMENTO</th>
+                  <th className="text-slate-500 font-mono text-[9px] font-black tracking-wider uppercase py-4 px-3 text-center">ROL</th>
+                  <th className="text-slate-500 font-mono text-[9px] font-black tracking-wider uppercase py-4 px-3 text-center">ACCIONES</th>
                 </tr>
               </thead>
               <tbody>
                 {usuariosFiltrados.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="empty-message">No se encontraron usuarios en los registros.</td>
+                    <td colSpan="7" className="py-8 text-center text-slate-500 font-bold italic text-sm">No se encontraron usuarios en los registros.</td>
                   </tr>
                 ) : (
                   usuariosFiltrados.map((user) => (
-                    <tr key={user.id}>
-                      <td>
-                        <span className={`status-pill ${user.estado === "Activo" ? "active" : "inactive"}`}>
-                          ● {user.estado || "Activo"}
+                    <tr key={user.id} className="hover:bg-slate-50/80 transition-colors border-b border-slate-100">
+                      <td className="py-4 px-3 text-center">
+                        <span className={`px-2.5 py-0.5 rounded-lg text-xxs font-black tracking-wider uppercase inline-block border ${user.estado === "Activo" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-600 border-red-200"}`}>
+                          â— {user.estado || "Activo"}
                         </span>
                       </td>
-                      <td className="bold-blue">{user.ficha || "N/A"}</td>
-                      <td className="bold-text">{user.cedula}</td>
-                      <td className="name-text">{user.nombres || user.usuario}</td>
-                      <td>
-                        <div className="cargo-main">{user.cargo || "Sin cargo"}</div>
-                        <div className="unidad-sub">{user.departamento || "Sin unidad"}</div>
+                      <td className="py-4 px-3 text-center font-black text-cyan-600 text-sm font-mono">{user.ficha || "---"}</td>
+                      <td className="py-4 px-3 text-center font-bold text-slate-600 text-sm">{user.cedula}</td>
+                      <td className="py-4 px-3 text-left font-extrabold text-slate-800 text-sm uppercase">{user.nombres || user.usuario}</td>
+                      <td className="py-4 px-3 text-left">
+                        <div className="font-extrabold text-indigo-600 text-xs uppercase">{user.cargo || "Sin cargo"}</div>
+                        <div className="font-bold text-slate-500 text-xxs uppercase tracking-wider mt-0.5">{user.departamento || "Sin unidad"}</div>
                       </td>
-                      <td>
-                        <span className="role-tag">{user.rol}</span>
+                      <td className="py-4 px-3 text-center">
+                        <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 text-slate-600 rounded-lg text-xxs font-bold uppercase tracking-wider font-mono">{user.rol}</span>
                       </td>
-                      <td className="actions-cell">
-                        <button 
-                          className="btn-icon view" 
-                          title="Ver Perfil"
-                          onClick={() => router.push(`/administrador/usuarios/ver?id=${user.id}`)}
-                        >
-                          👁️
-                        </button>
-                        <button 
-                          className="btn-icon edit" 
-                          title="Editar"
-                          onClick={() => router.push(`/administrador/usuarios/editar?id=${user.id}`)}
-                        >
-                          ✏️
-                        </button>
-                        <button 
-                          className="btn-icon block" 
-                          onClick={() => toggleEstado(user.id, user.estado)}
-                          title="Bloquear/Activar"
-                        >
-                          🚫
-                        </button>
-                        <button 
-                          className="btn-icon delete" 
-                          onClick={() => eliminarUsuario(user.id, user.nombres)}
-                          title="Eliminar"
-                        >
-                          🗑️
-                        </button>
+                      <td className="py-4 px-3 text-center">
+                        <div className="flex gap-2 justify-center items-center">
+                          <button 
+                            className="bg-white hover:bg-slate-100 border border-slate-200 text-slate-500 hover:text-slate-800 p-2 rounded-xl text-xs transition-all active:scale-90 cursor-pointer flex items-center justify-center w-8 h-8" 
+                            title="Ver Perfil"
+                            onClick={() => router.push(`/administrador/usuarios/ver?id=${user.id}`)}
+                          >
+                            <i className="fas fa-eye"></i>
+                          </button>
+                          <button 
+                            className="bg-white hover:bg-slate-100 border border-slate-200 text-slate-500 hover:text-slate-800 p-2 rounded-xl text-xs transition-all active:scale-90 cursor-pointer flex items-center justify-center w-8 h-8" 
+                            title="Editar"
+                            onClick={() => router.push(`/administrador/usuarios/editar?id=${user.id}`)}
+                          >
+                            <i className="fas fa-edit"></i>
+                          </button>
+                          <button 
+                            className="bg-white hover:bg-slate-100 border border-slate-200 text-slate-500 hover:text-slate-800 p-2 rounded-xl text-xs transition-all active:scale-90 cursor-pointer flex items-center justify-center w-8 h-8" 
+                            onClick={() => toggleEstado(user.id, user.estado)}
+                            title="Bloquear/Activar"
+                          >
+                            <i className="fas fa-ban"></i>
+                          </button>
+                          <button 
+                            className="bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-500 hover:text-red-600 p-2 rounded-xl text-xs transition-all active:scale-90 cursor-pointer flex items-center justify-center w-8 h-8" 
+                            onClick={() => eliminarUsuario(user.id, user.nombres)}
+                            title="Eliminar"
+                          >
+                            <i className="fas fa-trash-alt"></i>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -177,222 +199,7 @@ export default function GestionUsuarios() {
           </div>
         </div>
       </div>
-
-      <style jsx>{`
-        /* --- ESTILOS GENERALES DEL LAYOUT UNIFICADO --- */
-        .layout { 
-          background-color: #f0f4f8;
-          background-image: radial-gradient(#d1d5db 0.8px, transparent 0.8px);
-          background-size: 24px 24px;
-          min-height: 100vh; 
-          font-family: 'Inter', system-ui, -apple-system, sans-serif; 
-          color: #0f172a;
-        }
-
-        /* --- BARRA DE NAVEGACIÓN SUPERIOR --- */
-        .top-nav { 
-          background: #0f172a; 
-          color: white; 
-          padding: 12px 25px; 
-          display: flex; 
-          justify-content: space-between; 
-          align-items: center; 
-          border-bottom: 4px solid #e30613; 
-          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        .logo { font-weight: 900; font-size: 20px; letter-spacing: -1px; }
-        .red-text { color: #e30613; }
-        
-        .btn-panel { 
-          background: #e30613; 
-          color: white; 
-          border: none; 
-          padding: 8px 16px; 
-          border-radius: 8px; 
-          cursor: pointer; 
-          font-size: 11px; 
-          font-weight: 800; 
-          text-transform: uppercase;
-          transition: 0.3s;
-        }
-        .btn-panel:hover { background: #b8050f; transform: translateY(-2px); }
-
-        /* --- CONTENEDOR DE CONTENIDO --- */
-        .content { padding: 30px; max-width: 1200px; margin: 0 auto; }
-
-        /* --- ENCABEZADO DE REPORTE --- */
-        .report-header {
-          margin-bottom: 35px;
-          border-left: 6px solid #0f172a;
-          padding-left: 20px;
-        }
-        .report-title {
-          font-size: 38px;
-          font-weight: 900;
-          color: #0f172a;
-          margin: 0;
-          letter-spacing: -2px;
-          line-height: 1;
-          text-transform: uppercase;
-        }
-        .subtitle-header {
-          font-size: 14px;
-          font-weight: 700;
-          color: #64748b;
-          margin-top: 5px;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-        }
-
-        /* --- BARRA DE ACCIÓN INTERMEDIA --- */
-        .action-bar { 
-          display: flex; 
-          justify-content: space-between; 
-          gap: 15px; 
-          margin-bottom: 25px; 
-          padding: 20px; 
-          background: white;
-          border-radius: 18px;
-          align-items: center;
-        }
-
-        .search-container { position: relative; flex: 1; display: flex; align-items: center; }
-        .search-icon { position: absolute; left: 15px; color: #94a3b8; font-size: 14px; }
-        .search-container input { 
-          width: 100%; 
-          padding: 12px 12px 12px 45px; 
-          border: 2px solid #f1f5f9; 
-          border-radius: 12px; 
-          font-weight: 600;
-          font-size: 0.9rem;
-          outline: none;
-          background: #f8fafc;
-          transition: 0.3s;
-        }
-        .search-container input:focus {
-          border-color: #e30613;
-          background: white;
-        }
-
-        .btn-registrar { 
-          background: #e30613; 
-          color: white; 
-          border: none; 
-          padding: 12px 25px; 
-          border-radius: 12px; 
-          font-weight: 900; 
-          font-size: 12px;
-          text-transform: uppercase;
-          cursor: pointer; 
-          transition: 0.2s;
-          box-shadow: 0 4px 0px #b8050f;
-          white-space: nowrap;
-        }
-        .btn-registrar:hover { transform: translateY(2px); box-shadow: 0 2px 0px #8a040b; }
-        .btn-registrar:active { transform: translateY(4px); box-shadow: none; }
-
-        /* --- TARJETA PRINCIPAL NEOMÓRFICA INDUSTRIAL (SHADOW RELIEF) --- */
-        .card { 
-          background: white; 
-          border-radius: 24px; 
-          overflow: hidden;
-          margin-top: 20px;
-        }
-
-        .shadow-relief {
-          border: 1px solid #e2e8f0;
-          border-top: 8px solid #e30613; 
-          box-shadow: 12px 12px 0px #0f172a; 
-        }
-
-        .table-wrapper { overflow-x: auto; }
-        
-        /* --- ESTILOS DE LA TABLA --- */
-        .user-table { width: 100%; border-collapse: collapse; }
-        .user-table th { 
-          background: #f8fafc; 
-          padding: 18px; 
-          font-size: 11px; 
-          color: #64748b; 
-          text-transform: uppercase; 
-          font-weight: 900;
-          border-bottom: 3px solid #e30613; 
-          text-align: center;
-          letter-spacing: 0.5px;
-        }
-
-        .user-table td { 
-          padding: 16px 18px; 
-          border-bottom: 1px solid #f1f5f9; 
-          font-size: 0.88rem; 
-          color: #334155;
-          text-align: center;
-          vertical-align: middle;
-        }
-        .user-table tr:hover td { background-color: #f8fafc; }
-
-        /* --- DETALLES DE CELDAS --- */
-        .bold-blue { color: #e30613; font-weight: 800; font-size: 0.9rem; }
-        .bold-text { font-weight: 700; color: #0f172a; }
-        .name-text { font-weight: 700; color: #1e293b; text-align: left !important; }
-        
-        .cargo-main { font-weight: 700; color: #0f172a; font-size: 0.85rem; }
-        .unidad-sub { font-weight: 600; color: #64748b; font-size: 0.75rem; text-transform: uppercase; margin-top: 2px; }
-
-        .role-tag {
-          background: #f1f5f9;
-          color: #334155;
-          padding: 4px 10px;
-          border-radius: 8px;
-          font-size: 11px;
-          font-weight: 800;
-          text-transform: uppercase;
-          border: 1px solid #e2e8f0;
-          display: inline-block;
-        }
-
-        /* --- CAPSULAS DE ESTATUS --- */
-        .status-pill { 
-          padding: 5px 12px; 
-          border-radius: 8px; 
-          font-size: 10px; 
-          font-weight: 900; 
-          text-transform: uppercase;
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-        }
-        .active { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
-        .inactive { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
-
-        /* --- BOTONES DE ACCIÓN EN CELDAS --- */
-        .actions-cell { display: flex; gap: 8px; justify-content: center; align-items: center; }
-        .btn-icon { 
-          background: white; 
-          border: 1px solid #cbd5e1; 
-          padding: 8px; 
-          border-radius: 10px; 
-          cursor: pointer; 
-          font-size: 14px;
-          transition: 0.2s;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .btn-icon:hover { transform: scale(1.1); background: #f8fafc; color: #0f172a; border-color: #0f172a; }
-        .btn-icon.delete:hover { background: #fee2e2; border-color: #ef4444; }
-
-        .empty-message { padding: 40px !important; color: #64748b; font-weight: 600; font-style: italic; }
-
-        /* --- RESPONSIVO --- */
-        @media (max-width: 768px) {
-          .content { padding: 15px; }
-          .report-title { font-size: 28px; }
-          .action-bar { flex-direction: column; align-items: stretch; }
-          .btn-registrar { width: 100%; text-align: center; }
-          .card.shadow-relief { box-shadow: 8px 8px 0px #0f172a; }
-        }
-      `}</style>
     </div>
   );
 }
+
