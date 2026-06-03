@@ -4,6 +4,8 @@ import { getAuth } from "firebase/auth";
 import { getFirestore, collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
+import Cookies from "js-cookie";
+
 const firebaseConfig = {
   apiKey: "AIzaSyDDwbu6jA8o_9UKZUPQWPNCVElMJ-EQFtg",
   authDomain: "invecem-d8972.firebaseapp.com",
@@ -20,15 +22,35 @@ export const db = getFirestore(app);
 export const storage = getStorage(app);
 
 // --- FUNCIÓN PARA EL MONITOREO Y AUDITORÍA ---
-// Esta función guardará quién hizo qué, en qué módulo y a qué hora.
+// Esta función guardará quién hizo qué, en qué módulo, a qué hora y desde qué IP.
 export const registrarAccion = async (usuario, rol, accion, modulo) => {
   try {
+    let finalUsuario = usuario || Cookies.get("user_name") || "Invitado";
+    if (finalUsuario === "undefined" || finalUsuario === "null") finalUsuario = "Invitado";
+    let finalRol = rol || Cookies.get("user_role") || "Invitado";
+    if (finalRol === "undefined" || finalRol === "null") finalRol = "Invitado";
+
+    let ip = "Desconocida";
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      const response = await fetch("https://api.ipify.org?format=json", { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (response.ok) {
+        const data = await response.json();
+        ip = data.ip || "Desconocida";
+      }
+    } catch (e) {
+      console.warn("No se pudo obtener la IP para auditoría:", e);
+    }
+
     await addDoc(collection(db, "auditoria"), {
-      usuario: usuario,
-      rol: rol,
+      usuario: finalUsuario,
+      rol: finalRol,
       accion: accion,
       modulo: modulo,
       fecha: serverTimestamp(), // Esto pone la hora exacta del servidor
+      ip: ip
     });
     console.log("Evento registrado con éxito en INVECEM");
   } catch (error) {

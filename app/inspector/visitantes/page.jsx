@@ -2,13 +2,13 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { db } from "@/app/lib/firebase";
+import { db, registrarAccion } from "@/app/lib/firebase";
 import { 
   collection, addDoc, onSnapshot, query, where, orderBy, 
   doc, updateDoc, Timestamp 
 } from "firebase/firestore";
 
-// --- COMPONENTE AUXILIAR: CRONÃ“METRO INDUSTRIAL EN TIEMPO REAL (CON SEGUNDOS) ---
+// --- COMPONENTE AUXILIAR: CRONÓMETRO INDUSTRIAL EN TIEMPO REAL (CON SEGUNDOS) ---
 function ContadorEstancia({ fechaIngreso }) {
   const [estancia, setEstancia] = useState("00:00:00");
 
@@ -57,7 +57,7 @@ export default function RegistroVisitantes() {
   const [stats, setStats] = useState({ hoy: 0, enPlanta: 0, promedio: "0 min" });
 
   const [formData, setFormData] = useState({
-    cedula: "", nombre: "", empresa: "", autoriza: "", area: "ProducciÃ³n", motivo: ""
+    cedula: "", nombre: "", empresa: "", autoriza: "", area: "Producción", motivo: ""
   });
 
   useEffect(() => { setMounted(true); }, []);
@@ -89,7 +89,7 @@ export default function RegistroVisitantes() {
 
   const handleIngreso = async (e) => {
     e.preventDefault();
-    if (!formData.cedula || !formData.nombre) return alert("CÃ©dula y Nombre requeridos");
+    if (!formData.cedula || !formData.nombre) return alert("Cédula y Nombre requeridos");
     try {
       await addDoc(collection(db, "visitantes"), {
         ...formData, 
@@ -98,7 +98,13 @@ export default function RegistroVisitantes() {
         estado: "En Planta", 
         fechaIngreso: new Date()
       });
-      setFormData({ cedula: "", nombre: "", empresa: "", autoriza: "", area: "ProducciÃ³n", motivo: "" });
+      registrarAccion(
+        null, 
+        null, 
+        `Visitante registrado: ${formData.nombre} (Cédula: ${formData.cedula}) - Autorizado por: ${formData.autoriza || 'N/E'} - Destino: ${formData.area}`, 
+        "Control de Visitantes"
+      );
+      setFormData({ cedula: "", nombre: "", empresa: "", autoriza: "", area: "Producción", motivo: "" });
     } catch { alert("Error al guardar en la base de datos"); }
   };
 
@@ -111,12 +117,21 @@ export default function RegistroVisitantes() {
       
       let minutos = Math.floor((ahora.getTime() - entrada.getTime()) / 60000);
       if (minutos < 0) minutos = 0; 
-
+  
       await updateDoc(doc(db, "visitantes", id), { 
         salida: formatAMPM(ahora), 
         estado: "Finalizado", 
         minutosEstancia: minutos 
       });
+
+      const visitor = visitantes.find(v => v.id === id);
+      const visitorName = visitor ? visitor.nombre : id;
+      registrarAccion(
+        null, 
+        null, 
+        `Salida de visitante registrada: ${visitorName} (Estancia: ${minutos} min)`, 
+        "Control de Visitantes"
+      );
     } catch { alert("Error en salida"); }
   };
 
@@ -139,7 +154,7 @@ export default function RegistroVisitantes() {
       docPdf.setTextColor(100);
       docPdf.text(`Reporte generado el: ${fecha}`, 14, 28);
 
-      const columns = ["Visitante", "Empresa", "CÃ©dula", "Ãrea", "Entrada", "Salida", "Estado"];
+      const columns = ["Visitante", "Empresa", "Cédula", "Área", "Entrada", "Salida", "Estado"];
       const rows = listaFiltrada.map(v => [
         v.nombre,
         v.empresa || "Particular",
@@ -177,9 +192,9 @@ export default function RegistroVisitantes() {
       <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-tr from-cyan-400 to-indigo-500 rounded-full blur-3xl opacity-15 animate-pulse-glow"></div>
       <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-gradient-to-tr from-purple-500 to-pink-500 rounded-full blur-3xl opacity-10 animate-pulse-glow delay-1000"></div>
 
-      {/* BARRA DE NAVEGACIÃ“N */}
+      {/* BARRA DE NAVEGACIÓN */}
       <nav className="top-nav print:hidden bg-white/60 backdrop-blur-xl border-b border-slate-200/80 px-6 py-4 flex justify-between items-center z-20 relative">
-        <div className="flex items-center gap-2.5"><div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:"linear-gradient(135deg,#06b6d4,#3b82f6)"}}><i className="fas fa-building-columns text-white" style={{fontSize:"11px"}}></i></div><span className="text-base font-black tracking-tight text-slate-900 uppercase">INVECEM</span></div>
+        <div className="flex items-center gap-2.5"><div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:"linear-gradient(135deg,#06b6d4,#3b82f6)"}}><i className="fas fa-fingerprint text-white" style={{fontSize:"11px"}}></i></div><span className="text-base font-black tracking-tight text-slate-900 uppercase">INVECEM</span></div>
         <button 
           className="px-4 py-2 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 active:scale-95 rounded-xl font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-indigo-500/20 transition-all duration-200 cursor-pointer text-white hover:shadow-neon-cyan"
           onClick={() => router.push("/inspector")}
@@ -253,7 +268,7 @@ export default function RegistroVisitantes() {
         {/* MAIN GRID */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
           
-          {/* SECCIÃ“N FORMULARIO DE REGISTRO */}
+          {/* SECCIÓN FORMULARIO DE REGISTRO */}
           <section className="bg-white/80 backdrop-blur-xl border border-slate-200/60 rounded-3xl p-6 shadow-2xl space-y-6 print:hidden relative shadow-neon-cyan">
             {/* Tech Corners */}
             <div className="absolute top-3 left-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
@@ -268,10 +283,10 @@ export default function RegistroVisitantes() {
             <form onSubmit={handleIngreso} className="space-y-4">
               <div className="grid grid-cols-1 gap-4">
                 <div className="flex flex-col gap-2">
-                  <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">CÃ‰DULA_ID</label>
+                  <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">CÉDULA_ID</label>
                   <input 
                     type="text" 
-                    placeholder="NÃºmero de cÃ©dula" 
+                    placeholder="Número de cédula" 
                     value={formData.cedula} 
                     onChange={e => setFormData({...formData, cedula: e.target.value})} 
                     className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs font-semibold focus:shadow-neon-cyan/40"
@@ -318,8 +333,8 @@ export default function RegistroVisitantes() {
                     onChange={e => setFormData({...formData, area: e.target.value})}
                     className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs font-semibold cursor-pointer focus:shadow-neon-cyan/40"
                   >
-                    <option>ProducciÃ³n</option>
-                    <option>AdministraciÃ³n</option>
+                    <option>Producción</option>
+                    <option>Administración</option>
                     <option>Plantas</option>
                     <option>Mantenimiento</option>
                   </select>
@@ -329,7 +344,7 @@ export default function RegistroVisitantes() {
                   <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">MOTIVO</label>
                   <input 
                     type="text" 
-                    placeholder="RazÃ³n de visita" 
+                    placeholder="Razón de visita" 
                     value={formData.motivo} 
                     onChange={e => setFormData({...formData, motivo: e.target.value})} 
                     className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs font-semibold focus:shadow-neon-cyan/40"
@@ -346,7 +361,7 @@ export default function RegistroVisitantes() {
             </form>
           </section>
 
-          {/* SECCIÃ“N BASE DE DATOS VISITANTES */}
+          {/* SECCIÓN BASE DE DATOS VISITANTES */}
           <section className="bg-white/80 backdrop-blur-xl border border-slate-200/60 rounded-3xl p-6 shadow-2xl xl:col-span-2 space-y-6 relative shadow-neon-cyan">
             {/* Tech Corners */}
             <div className="absolute top-3 left-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
@@ -361,7 +376,7 @@ export default function RegistroVisitantes() {
                 </span>
                 <input 
                   type="text" 
-                  placeholder="Buscar por Nombre o CÃ©dula..." 
+                  placeholder="Buscar por Nombre o Cédula..." 
                   onChange={e => setBusqueda(e.target.value)} 
                   className="w-full pl-11 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs font-semibold"
                 />
@@ -369,13 +384,13 @@ export default function RegistroVisitantes() {
 
               <div className="flex gap-2 w-full md:w-auto justify-end">
                 <button 
-                  className="px-4 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 hover:text-indigo-950 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1 shadow-sm"
+                  className="px-4 py-2 bg-red-50/50 hover:bg-red-100/50 border border-red-200 text-red-655 hover:text-red-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1 shadow-sm"
                   onClick={handlePDF}
                 >
-                  <i className="fas fa-file-pdf text-cyan-600"></i> PDF
+                  <i className="fas fa-file-pdf"></i> PDF
                 </button>
                 <button 
-                  className="px-4 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 hover:text-indigo-950 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1 shadow-sm"
+                  className="px-4 py-2 bg-red-50/50 hover:bg-red-100/50 border border-red-200 text-red-655 hover:text-red-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1 shadow-sm"
                   onClick={handlePrint}
                 >
                   <i className="fas fa-print"></i> Imprimir
@@ -388,11 +403,11 @@ export default function RegistroVisitantes() {
                 <thead>
                   <tr className="border-b border-slate-200/60">
                     <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-2 text-left font-mono">VISITANTE / ORIGEN</th>
-                    <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-2 text-center font-mono">CÃ‰DULA</th>
-                    <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-2 text-center font-mono">ÃREA</th>
+                    <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-2 text-center font-mono">CÉDULA</th>
+                    <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-2 text-center font-mono">ÁREA</th>
                     <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-2 text-center font-mono">ENTRADA</th>
                     <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-2 text-center font-mono">ESTADO</th>
-                    <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-2 text-center no-print font-mono">GESTIÃ“N // ESTANCIA</th>
+                    <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-2 text-center no-print font-mono">GESTIÓN // ESTANCIA</th>
                     <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-2 text-center only-print font-mono">SALIDA</th>
                   </tr>
                 </thead>
@@ -422,7 +437,7 @@ export default function RegistroVisitantes() {
                           </span>
                         </td>
                         
-                        {/* ACCIONES Y CRONÃ“METRO DIGITAL */}
+                        {/* ACCIONES Y CRONÓMETRO DIGITAL */}
                         <td className="py-4 px-2 text-center no-print font-mono">
                           {isEnPlanta ? (
                             <div className="flex flex-col gap-2 items-center">
@@ -436,7 +451,7 @@ export default function RegistroVisitantes() {
                             </div>
                           ) : (
                             <span className="text-[10px] font-bold text-slate-500 uppercase">
-                              SaliÃ³: {v.salida} <span className="text-slate-400">({v.minutosEstancia || 0} min)</span>
+                              Salió: {v.salida} <span className="text-slate-400">({v.minutosEstancia || 0} min)</span>
                             </span>
                           )}
                         </td>

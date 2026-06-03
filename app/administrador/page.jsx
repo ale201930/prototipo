@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect } from "react"; 
 import { useRouter } from "next/navigation"; 
@@ -7,7 +7,7 @@ import { auth, db } from "../lib/firebase";
 import { signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 
-/* â”€â”€ Sidebar item component â”€â”€ */
+/* ── Sidebar item component ── */
 function SidebarItem({ icon, label, active, onClick, accent = "#06b6d4" }) {
   return (
     <li
@@ -32,7 +32,7 @@ function SidebarItem({ icon, label, active, onClick, accent = "#06b6d4" }) {
   );
 }
 
-/* â”€â”€ Section label â”€â”€ */
+/* ── Section label ── */
 function SidebarSection({ label }) {
   return (
     <div className="px-4 pt-5 pb-1.5 text-[10px] font-black text-slate-500 uppercase tracking-widest select-none">
@@ -77,7 +77,7 @@ export default function Dashboard() {
       await signOut(auth);
       window.location.href = "/login";
     } catch (error) {
-      console.error("Error al cerrar sesiÃ³n:", error);
+      console.error("Error al cerrar sesión:", error);
     }
   };
 
@@ -88,7 +88,7 @@ export default function Dashboard() {
   return (
     <div className="page-dashboard">
 
-      {/* â”€â”€ BotÃ³n menÃº mÃ³vil â”€â”€ */}
+      {/* ── Botón menú móvil ── */}
       <button
         className="md:hidden fixed top-4 left-4 z-50 w-11 h-11 flex items-center justify-center rounded-xl shadow-lg cursor-pointer transition-all duration-200"
         style={{ background: '#161b27', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}
@@ -97,14 +97,14 @@ export default function Dashboard() {
         <i className={`fas ${menuOpen ? 'fa-times' : 'fa-bars'} text-lg`} />
       </button>
 
-      {/* â”€â”€ Overlay mÃ³vil â”€â”€ */}
+      {/* ── Overlay móvil ── */}
       {menuOpen && (
         <div className="md:hidden fixed inset-0 z-30 bg-black/50 backdrop-blur-sm" onClick={() => setMenuOpen(false)} />
       )}
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      {/* ═══════════════════════════════════════
           SIDEBAR NAVY
-      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      ═══════════════════════════════════════ */}
       <aside
         className={`fixed md:relative top-0 bottom-0 left-0 z-40 flex flex-col transition-transform duration-300 md:translate-x-0 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}
         style={{ width: 272, background: 'linear-gradient(180deg, #0d1117 0%, #161b27 100%)', borderRight: '1px solid rgba(255,255,255,0.06)' }}
@@ -114,7 +114,7 @@ export default function Dashboard() {
         <div className="p-6 flex flex-col items-center gap-2 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-1"
             style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)', boxShadow: '0 4px 14px rgba(6,182,212,0.35)' }}>
-            <i className="fas fa-building-columns text-white text-xl" />
+            <i className="fas fa-fingerprint text-white text-xl" />
           </div>
           <h2 className="text-lg font-black tracking-tight text-white uppercase">INVECEM</h2>
           <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full"
@@ -128,10 +128,10 @@ export default function Dashboard() {
           <SidebarItem icon="fa-home" label="Inicio" active={true} onClick={() => router.push("/administrador")} />
           <SidebarItem icon="fa-user-gear" label="Mi Perfil" onClick={() => router.push("/perfil")} />
 
-          <SidebarSection label="MÃ³dulos" />
+          <SidebarSection label="Módulos" />
           <SidebarItem icon="fa-user-shield" label="Inspector" onClick={() => router.push("/inspector")} accent="#06b6d4" />
           <SidebarItem icon="fa-users-cog" label="Recursos Humanos" onClick={() => router.push("/recursos-humanos")} accent="#3b82f6" />
-          <SidebarItem icon="fa-shield-halved" label="ProtecciÃ³n FÃ­sica" onClick={() => router.push("/proteccion-fisica")} accent="#22d3ee" />
+          <SidebarItem icon="fa-shield-halved" label="Protección Física" onClick={() => router.push("/proteccion-fisica")} accent="#22d3ee" />
 
           <SidebarSection label="Sistema" />
           <SidebarItem icon="fa-users-gear" label="Usuarios" onClick={() => router.push("/administrador/usuarios")} />
@@ -159,14 +159,14 @@ export default function Dashboard() {
             onMouseEnter={e => { e.currentTarget.style.background='rgba(244,63,94,0.15)'; e.currentTarget.style.color='#fca5a5'; }}
             onMouseLeave={e => { e.currentTarget.style.background='rgba(244,63,94,0.08)'; e.currentTarget.style.color='#f87171'; }}
           >
-            <i className="fas fa-right-from-bracket" /> Cerrar SesiÃ³n
+            <i className="fas fa-right-from-bracket" /> Cerrar Sesión
           </button>
         </div>
       </aside>
 
-      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+      {/* ═══════════════════════════════════════
           MAIN CONTENT
-      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
+      ═══════════════════════════════════════ */}
       <main className="page-main animate-fade-in">
 
         {/* Bienvenida */}
@@ -197,7 +197,7 @@ export default function Dashboard() {
             <div className="md:ml-auto flex items-center gap-2 px-4 py-2 rounded-xl"
               style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)' }}>
               <span className="live-dot" />
-              <span className="text-emerald-400 text-xs font-bold">Sistema en LÃ­nea</span>
+              <span className="text-emerald-400 text-xs font-bold">Sistema en Línea</span>
             </div>
           </div>
         </div>
@@ -207,7 +207,7 @@ export default function Dashboard() {
           {[
             { icon: 'fa-user-shield', label: 'Inspector', sub: 'Registro de asistencia', route: '/inspector', color: '#06b6d4', bg: 'rgba(6,182,212,0.08)' },
             { icon: 'fa-users-cog', label: 'Recursos Humanos', sub: 'Personal y reportes', route: '/recursos-humanos', color: '#3b82f6', bg: 'rgba(59,130,246,0.08)' },
-            { icon: 'fa-shield-halved', label: 'ProtecciÃ³n FÃ­sica', sub: 'Control de contratas', route: '/proteccion-fisica', color: '#22d3ee', bg: 'rgba(34,211,238,0.08)' },
+            { icon: 'fa-shield-halved', label: 'Protección Física', sub: 'Control de contratas', route: '/proteccion-fisica', color: '#22d3ee', bg: 'rgba(34,211,238,0.08)' },
             { icon: 'fa-desktop', label: 'Monitoreo', sub: 'Estado del sistema', route: '/administrador/monitoreo', color: '#10b981', bg: 'rgba(16,185,129,0.08)' },
           ].map(item => (
             <button
@@ -233,12 +233,12 @@ export default function Dashboard() {
         <div className="card p-6">
           <h2 className="font-black text-slate-800 text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
             <i className="fas fa-cog text-cyan-500 text-base" />
-            ConfiguraciÃ³n del Sistema
+            Configuración del Sistema
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
-              { icon: 'fa-users-gear', label: 'GestiÃ³n de Usuarios', sub: 'Alta, baja y modificaciÃ³n', route: '/administrador/usuarios' },
-              { icon: 'fa-user-circle', label: 'Mi Perfil', sub: 'Datos y contraseÃ±a', route: '/perfil' },
+              { icon: 'fa-users-gear', label: 'Gestión de Usuarios', sub: 'Alta, baja y modificación', route: '/administrador/usuarios' },
+              { icon: 'fa-user-circle', label: 'Mi Perfil', sub: 'Datos y contraseña', route: '/perfil' },
             ].map(item => (
               <button
                 key={item.label}

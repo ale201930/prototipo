@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { db } from "@/app/lib/firebase";
+import { db, registrarAccion } from "@/app/lib/firebase";
 import { 
   collection, query, where, getDocs, addDoc, 
-  updateDoc, doc, serverTimestamp, onSnapshot, orderBy, deleteDoc 
+  updateDoc, doc, serverTimestamp, onSnapshot, orderBy, deleteDoc, or
 } from "firebase/firestore";
 
 export default function RegistroAsistencia() {
@@ -37,14 +37,12 @@ export default function RegistroAsistencia() {
     const opciones = { day: 'numeric', month: 'long', year: 'numeric' };
     setFechaHoy(new Date().toLocaleDateString('es-ES', opciones).toUpperCase());
 
-    const limiteAyer = new Date();
-    const limiteDia = new Date(limiteAyer);
-    limiteDia.setDate(limiteDia.getDate() - 1);
+    const limiteDia = new Date();
     limiteDia.setHours(0, 0, 0, 0);
 
     const q = query(
       collection(db, "asistencias"),
-      where("fechaHora", ">=", limiteDia),
+      or(where("fechaHora", ">=", limiteDia), where("salida", "==", null)),
       orderBy("fechaHora", "desc")
     );
 
@@ -73,6 +71,12 @@ export default function RegistroAsistencia() {
         const snapshot = await getDocs(collection(db, "asistencias"));
         const promesas = snapshot.docs.map(d => deleteDoc(doc(db, "asistencias", d.id)));
         await Promise.all(promesas);
+        registrarAccion(
+          null, 
+          null, 
+          "Base de datos de asistencia diaria vaciada (Modo Desarrollador)", 
+          "Control de Asistencia"
+        );
       } catch (error) {
         console.error("Error al limpiar:", error);
       }
@@ -88,8 +92,8 @@ export default function RegistroAsistencia() {
         nombreCompleto: `${trabajador.nombres} ${trabajador.apellidos}`.toUpperCase(),
         ficha: trabajador.idAcceso || trabajador.ficha || "S/F",
         cedula: trabajador.cedula,
-        cargo: trabajador.nombreContrata || trabajador.cargo || "OPERARIO",
-        area: trabajador.areaTrabajo || trabajador.area || "PLANTA", 
+        cargo: trabajador.nombreContrata || trabajador.cargo || (trabajador.tipoPersonal === "Pasante" ? (trabajador.carreraPasante || "PASANTE") : trabajador.tipoPersonal === "Estudiante INCES" ? (trabajador.programaInces || "ESTUDIANTE INCES") : "OPERARIO"),
+        area: trabajador.areaTrabajo || trabajador.area || (trabajador.tipoPersonal === "Pasante" ? (trabajador.universidadPasante || "PLANTA") : trabajador.tipoPersonal === "Estudiante INCES" ? ("INCES") : "PLANTA"), 
         tipoPersonal: trabajador.tipoPersonal || "INVECEM",
         entrada: horaActual,
         salida: null,
@@ -97,7 +101,29 @@ export default function RegistroAsistencia() {
         fechaHora: serverTimestamp(),
         observacionAcceso: `INGRESO AUTORIZADO POR BENEFICIOS: Personal en ${trabajador.estatus.toUpperCase()}`
       });
-      alert("âœ… Acceso por entrega de beneficio registrado correctamente.");
+
+      registrarAccion(
+        null, 
+        null, 
+        `Ingreso por beneficio autorizado para ${trabajador.nombres} ${trabajador.apellidos} (Ficha: ${trabajador.ficha || trabajador.idAcceso || 'S/F'})`, 
+        "Control de Asistencia"
+      );
+
+      // Si el trabajador tiene inasistencias registradas para hoy en su historial, las eliminamos al marcar entrada
+      const d = new Date();
+      const hoyStr = `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+      if (trabajador.historialIncidencias && trabajador.historialIncidencias.length > 0) {
+        const historialFiltrado = trabajador.historialIncidencias.filter(inc => 
+          !(inc.tipo === "FALTA" && inc.descripcion.includes(hoyStr))
+        );
+        if (historialFiltrado.length !== trabajador.historialIncidencias.length) {
+          await updateDoc(doc(db, "personal", trabajador.id), {
+            historialIncidencias: historialFiltrado
+          });
+        }
+      }
+
+      alert("✅ Acceso por entrega de beneficio registrado correctamente.");
     } catch (error) {
       console.error("Error al registrar entrada por beneficio:", error);
     } finally {
@@ -152,11 +178,67 @@ export default function RegistroAsistencia() {
           (a.cedula === trabajador.cedula || (trabajador.ficha && a.ficha === trabajador.ficha)) && !a.salida
         );
 
-        if (!existe && (trabajador.estatus === "Vacaciones" || trabajador.estatus === "Reposo MÃ©dico")) {
-          setTrabajadorEspecial(trabajador);
-          setMostrarModalBeneficio(true);
-          setCargando(false);
-          return;
+        if (!existe) {
+          // Verificar si es un pasante y su pasantía ha culminado (para denegar ingreso)
+          if (trabajador.tipoPersonal === "Pasante" && trabajador.fechaEgreso) {
+            const hoy = new Date();
+            const [anio, mes, dia] = trabajador.fechaEgreso.split("-").map(Number);
+            const fechaCulminacion = new Date(anio, mes - 1, dia, 23, 59, 59, 999);
+
+            if (hoy > fechaCulminacion) {
+              setTrabajadorEspecial({
+                ...trabajador,
+                motivoBloqueo: "PASANTÍA CULMINADA",
+                mensajeBloqueo: `Las pasantías de este colaborador culminaron el día ${dia.toString().padStart(2, '0')}/${mes.toString().padStart(2, '0')}/${anio}. No tiene permitido el acceso a las instalaciones.`
+              });
+              setMostrarModalBeneficio(true);
+              setCargando(false);
+              return;
+            }
+          }
+
+          // Verificar si el colaborador está INACTIVO
+          if (trabajador.estatus === "Inactivo") {
+            setTrabajadorEspecial({
+              ...trabajador,
+              motivoBloqueo: "PERSONAL INACTIVO",
+              mensajeBloqueo: "Este colaborador se encuentra INACTIVO en el sistema. Acceso denegado."
+            });
+            setMostrarModalBeneficio(true);
+            setCargando(false);
+            return;
+          }
+
+          // Verificar si es un contratista y está SUSPENDIDO o INACTIVO
+          if (procedencia === "CONTRATISTA") {
+            if (trabajador.estadoNominal === "Suspendido") {
+              setTrabajadorEspecial({
+                ...trabajador,
+                motivoBloqueo: "CONTRATISTA SUSPENDIDO",
+                mensajeBloqueo: "Este contratista se encuentra SUSPENDIDO. Acceso denegado."
+              });
+              setMostrarModalBeneficio(true);
+              setCargando(false);
+              return;
+            }
+            if (trabajador.estadoNominal === "Inactivo") {
+              setTrabajadorEspecial({
+                ...trabajador,
+                motivoBloqueo: "CONTRATISTA INACTIVO",
+                mensajeBloqueo: "Este contratista se encuentra INACTIVO. Acceso denegado."
+              });
+              setMostrarModalBeneficio(true);
+              setCargando(false);
+              return;
+            }
+          }
+
+          if (trabajador.estatus === "Vacaciones" || trabajador.estatus === "Reposo Médico") {
+            setTrabajadorEspecial(trabajador);
+            setMostrarModalBeneficio(true);
+            setCargando(false);
+            return;
+          }
         }
 
         if (existe) {
@@ -164,6 +246,12 @@ export default function RegistroAsistencia() {
             salida: horaActual,
             estado: "FINALIZADO" 
           });
+          registrarAccion(
+            null, 
+            null, 
+            `Salida registrada para ${trabajador.nombres} ${trabajador.apellidos} (Ficha: ${trabajador.ficha || trabajador.idAcceso || 'S/F'})`, 
+            "Control de Asistencia"
+          );
         } else {
           const minM = convertirAMinutos(horaActual);
           const minT = convertirAMinutos(trabajador.horaEntrada || "07:00");
@@ -173,14 +261,35 @@ export default function RegistroAsistencia() {
             nombreCompleto: `${trabajador.nombres} ${trabajador.apellidos}`.toUpperCase(),
             ficha: trabajador.idAcceso || trabajador.ficha || "S/F",
             cedula: trabajador.cedula,
-            cargo: trabajador.nombreContrata || trabajador.cargo || "OPERARIO",
-            area: trabajador.areaTrabajo || trabajador.area || "PLANTA", 
+            cargo: trabajador.nombreContrata || trabajador.cargo || (trabajador.tipoPersonal === "Pasante" ? (trabajador.carreraPasante || "PASANTE") : trabajador.tipoPersonal === "Estudiante INCES" ? (trabajador.programaInces || "ESTUDIANTE INCES") : "OPERARIO"),
+            area: trabajador.areaTrabajo || trabajador.area || (trabajador.tipoPersonal === "Pasante" ? (trabajador.universidadPasante || "PLANTA") : trabajador.tipoPersonal === "Estudiante INCES" ? ("INCES") : "PLANTA"), 
             tipoPersonal: trabajador.tipoPersonal || procedencia,
             entrada: horaActual,
             salida: null,
             estatus: estatusCalculado, 
             fechaHora: serverTimestamp()
           });
+
+          registrarAccion(
+            null, 
+            null, 
+            `Entrada registrada para ${trabajador.nombres} ${trabajador.apellidos} (Ficha: ${trabajador.ficha || trabajador.idAcceso || 'S/F'}) - Estatus: ${estatusCalculado}`, 
+            "Control de Asistencia"
+          );
+
+          // Si el trabajador tiene inasistencias registradas para hoy en su historial, las eliminamos al marcar entrada
+          const d = new Date();
+          const hoyStr = `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+          if (trabajador.historialIncidencias && trabajador.historialIncidencias.length > 0) {
+            const historialFiltrado = trabajador.historialIncidencias.filter(inc => 
+              !(inc.tipo === "FALTA" && inc.descripcion.includes(hoyStr))
+            );
+            if (historialFiltrado.length !== trabajador.historialIncidencias.length) {
+              await updateDoc(doc(db, "personal", trabajador.id), {
+                historialIncidencias: historialFiltrado
+              });
+            }
+          }
         }
       }
     } catch (error) {
@@ -203,11 +312,11 @@ export default function RegistroAsistencia() {
       <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-tr from-cyan-400 to-indigo-500 rounded-full blur-3xl opacity-15 animate-pulse-glow"></div>
       <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-gradient-to-tr from-purple-500 to-pink-500 rounded-full blur-3xl opacity-10 animate-pulse-glow delay-1000"></div>
 
-      {/* BARRA DE NAVEGACIÃ“N */}
+      {/* BARRA DE NAVEGACIÓN */}
       <nav className="top-nav print:hidden bg-white/60 backdrop-blur-xl border-b border-slate-200/80 px-6 py-4 flex justify-between items-center z-20 relative">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:'linear-gradient(135deg,#06b6d4,#3b82f6)'}}>
-            <i className="fas fa-building-columns text-white" style={{fontSize:'11px'}} />
+            <i className="fas fa-fingerprint text-white" style={{fontSize:'11px'}} />
           </div>
           <span className="text-base font-black tracking-tight text-slate-900 uppercase">INVECEM</span>
         </div>
@@ -235,18 +344,18 @@ export default function RegistroAsistencia() {
               onClick={handleLimpiarBase}
               className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-500 hover:text-indigo-950 rounded-lg text-xxs font-bold uppercase transition-all cursor-pointer shadow-sm"
             >
-              ðŸ§¹ Limpiar Base
+              🧹 Limpiar Base
             </button>
             <button 
               onClick={() => window.print()}
               className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-555 hover:text-indigo-950 rounded-lg text-xxs font-bold uppercase transition-all cursor-pointer shadow-sm"
             >
-              ðŸ–¨ï¸ Imprimir
+              🖨️ Imprimir
             </button>
           </div>
         </div>
 
-        {/* TARJETA ESCÃNER PRINCIPAL */}
+        {/* TARJETA ESCÁNER PRINCIPAL */}
         <div className="bg-white/80 backdrop-blur-xl border border-slate-200/60 rounded-3xl p-6 md:p-8 shadow-2xl space-y-8 relative shadow-neon-cyan/5">
           {/* Tech Corners */}
           <div className="absolute top-3 left-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
@@ -261,7 +370,7 @@ export default function RegistroAsistencia() {
                 <i className="fas fa-barcode text-cyan-600"></i> Registro de Asistencia
               </h1>
               <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">
-                Lectura de ficha tÃ©cnica y cÃ©dula para ingreso a planta
+                Lectura de ficha técnica y cédula para ingreso a planta
               </p>
             </div>
             <div className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black text-cyan-600 uppercase tracking-wider font-mono shadow-sm">
@@ -269,10 +378,10 @@ export default function RegistroAsistencia() {
             </div>
           </header>
 
-          {/* ESCÃNER TERMINAL */}
+          {/* ESCÁNER TERMINAL */}
           <section className="p-6 bg-slate-50 border border-slate-200 rounded-2xl print:hidden relative overflow-hidden group">
             
-            {/* LÃ¡mpara de scanner animado */}
+            {/* Lámpara de scanner animado */}
             <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-500 to-transparent animate-float"></div>
 
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
@@ -289,7 +398,7 @@ export default function RegistroAsistencia() {
                   type="text"
                   value={identificador}
                   onChange={(e) => setIdentificador(e.target.value)}
-                  placeholder={mostrarModalBeneficio ? "BLOQUEADO" : "AGUARDANDO CÃ“DIGO..."}
+                  placeholder={mostrarModalBeneficio ? "BLOQUEADO" : "AGUARDANDO CÓDIGO..."}
                   className="w-full px-5 py-4 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:shadow-neon-cyan/40 focus:border-transparent transition-all duration-200 text-base font-black tracking-widest text-center uppercase shadow-sm"
                   autoComplete="off"
                   disabled={mostrarModalBeneficio}
@@ -298,14 +407,14 @@ export default function RegistroAsistencia() {
             </div>
           </section>
 
-          {/* TABLA TELEMETRÃA */}
+          {/* TABLA TELEMETRÍA */}
           <div className="overflow-x-auto w-full no-scrollbar">
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-slate-200/60">
                   <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center w-24 font-mono">FICHA</th>
                   <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-left font-mono">COLABORADOR</th>
-                  <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-left font-mono">ÃREA / DPTO</th>
+                  <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-left font-mono">ÁREA / DPTO</th>
                   <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">ENTRADA</th>
                   <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">SALIDA</th>
                   <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">ESTATUS</th>
@@ -379,7 +488,7 @@ export default function RegistroAsistencia() {
                 <i className="fas fa-exclamation-triangle animate-bounce"></i>
               </div>
               <div>
-                <h2 className="text-xl font-black uppercase text-indigo-950 tracking-tight">RestricciÃ³n de Acceso</h2>
+                <h2 className="text-xl font-black uppercase text-indigo-950 tracking-tight">Restricción de Acceso</h2>
                 <p className="text-3xs font-black text-red-600 uppercase tracking-widest mt-0.5">Acceso Bloqueado por Sistema</p>
               </div>
             </div>
@@ -387,13 +496,13 @@ export default function RegistroAsistencia() {
             {/* Modal Body */}
             <div className="space-y-4">
               <p className="text-xs font-semibold text-slate-600 leading-relaxed bg-slate-50 p-4 border border-slate-200 rounded-xl">
-                El sistema detectÃ³ un bloqueo administrativo activo en la ficha de este trabajador. No tiene permitido el acceso para cumplir jornadas laborales ordinarias.
+                {trabajadorEspecial?.mensajeBloqueo || "El sistema detectó un bloqueo administrativo activo en la ficha de este trabajador. No tiene permitido el acceso para cumplir jornadas laborales ordinarias."}
               </p>
 
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-slate-500 font-bold uppercase tracking-wider text-xxs font-mono">EMPLEADO</span>
-                  <strong className="text-indigo-950 uppercase">{trabajadorEspecial?.nombres} {trabajadorEspecial?.apellidos}</strong>
+                  <strong className="text-indigo-955 uppercase">{trabajadorEspecial?.nombres} {trabajadorEspecial?.apellidos}</strong>
                 </div>
                 
                 <div className="flex justify-between items-center text-xs">
@@ -404,14 +513,16 @@ export default function RegistroAsistencia() {
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-slate-500 font-bold uppercase tracking-wider text-xxs font-mono">ESTATUS_NOMINAL</span>
                   <span className="px-2 py-0.5 bg-red-50 text-red-600 border border-red-200 rounded text-xxs font-black uppercase tracking-wider font-mono">
-                    {trabajadorEspecial?.estatus?.toUpperCase()}
+                    {trabajadorEspecial?.motivoBloqueo || trabajadorEspecial?.estatus?.toUpperCase()}
                   </span>
                 </div>
               </div>
 
-              <p className="text-xs font-black text-indigo-955 uppercase text-center py-2 border-t border-b border-slate-200/60 font-mono">
-                Â¿EL ACCESO ES EXCLUSIVAMENTE PARA RETIRAR BENEFICIOS?
-              </p>
+              {!["PASANTÍA CULMINADA", "PERSONAL INACTIVO", "CONTRATISTA SUSPENDIDO", "CONTRATISTA INACTIVO"].includes(trabajadorEspecial?.motivoBloqueo) && (
+                <p className="text-xs font-black text-indigo-955 uppercase text-center py-2 border-t border-b border-slate-200/60 font-mono">
+                  ¿EL ACCESO ES EXCLUSIVAMENTE PARA RETIRAR BENEFICIOS?
+                </p>
+              )}
             </div>
 
             {/* Modal Actions */}
@@ -421,16 +532,18 @@ export default function RegistroAsistencia() {
                 className="px-5 py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-red-600/25 transition-all duration-200 cursor-pointer"
                 onClick={() => { setMostrarModalBeneficio(false); setTrabajadorEspecial(null); }}
               >
-                âŒ Denegar Entrada
+                {["PASANTÍA CULMINADA", "PERSONAL INACTIVO", "CONTRATISTA SUSPENDIDO", "CONTRATISTA INACTIVO"].includes(trabajadorEspecial?.motivoBloqueo) ? "Aceptar y Cerrar" : "❌ Denegar Entrada"}
               </button>
               
-              <button 
-                type="button" 
-                className="px-5 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-450 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-emerald-600/25 transition-all duration-200 cursor-pointer" 
-                onClick={() => ejecutarEntradaExcepcional(trabajadorEspecial)}
-              >
-                ðŸ“¦ Permitir Entrada (Retiro)
-              </button>
+              {!["PASANTÍA CULMINADA", "PERSONAL INACTIVO", "CONTRATISTA SUSPENDIDO", "CONTRATISTA INACTIVO"].includes(trabajadorEspecial?.motivoBloqueo) && (
+                <button 
+                  type="button" 
+                  className="px-5 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-450 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-emerald-600/25 transition-all duration-200 cursor-pointer" 
+                  onClick={() => ejecutarEntradaExcepcional(trabajadorEspecial)}
+                >
+                  📦 Permitir Entrada (Retiro)
+                </button>
+              )}
             </div>
           </div>
         </div>

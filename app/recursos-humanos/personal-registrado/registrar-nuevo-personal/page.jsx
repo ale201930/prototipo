@@ -1,8 +1,8 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, Suspense } from "react"; 
 import { useRouter, useSearchParams } from "next/navigation";
-import { db } from "@/app/lib/firebase"; 
+import { db, registrarAccion } from "@/app/lib/firebase"; 
 import { 
   collection, addDoc, query, where, getDocs, 
   serverTimestamp, doc, getDoc, updateDoc 
@@ -55,32 +55,60 @@ function FormularioRegistro() {
     setLoading(true);
     try {
       const personalRef = collection(db, "personal");
+
+      // Sanitizar campos según el tipo de personal para evitar datos residuales
+      const datosASalvar = { ...formData };
+      if (datosASalvar.tipoPersonal !== "Pasante") {
+        datosASalvar.fechaEgreso = "";
+        datosASalvar.universidadPasante = "";
+        datosASalvar.carreraPasante = "";
+      }
+      if (datosASalvar.tipoPersonal !== "Estudiante INCES") {
+        datosASalvar.programaInces = "";
+        datosASalvar.cohorteInces = "";
+      }
+      if (datosASalvar.tipoPersonal !== "INVECEM") {
+        datosASalvar.cargo = "";
+        datosASalvar.area = "";
+      }
       
       if (editId) {
-        await updateDoc(doc(db, "personal", editId), { ...formData, ultimaActualizacion: serverTimestamp() });
-        alert("âœ… Registro actualizado.");
+        await updateDoc(doc(db, "personal", editId), { ...datosASalvar, ultimaActualizacion: serverTimestamp() });
+        registrarAccion(
+          null, 
+          null, 
+          `Colaborador modificado: ${datosASalvar.nombres} ${datosASalvar.apellidos} (Ficha: ${datosASalvar.ficha})`, 
+          "Personal Registrado"
+        );
+        alert("✅ Registro actualizado.");
         router.push("/recursos-humanos/personal-registrado");
       } else {
-        // ValidaciÃ³n de Ficha
-        const qFicha = query(personalRef, where("ficha", "==", formData.ficha));
+        // Validación de Ficha
+        const qFicha = query(personalRef, where("ficha", "==", datosASalvar.ficha));
         const queryFicha = await getDocs(qFicha);
         if (!queryFicha.empty) { 
-            alert(`âš ï¸ La ficha ${formData.ficha} ya existe.`); 
+            alert(`⚠️ La ficha ${datosASalvar.ficha} ya existe.`); 
             setLoading(false); 
             return; 
         }
 
-        // ValidaciÃ³n de CÃ©dula
-        const qCedula = query(personalRef, where("cedula", "==", formData.cedula));
+        // Validación de Cédula
+        const qCedula = query(personalRef, where("cedula", "==", datosASalvar.cedula));
         const queryCedula = await getDocs(qCedula);
         if (!queryCedula.empty) { 
-            alert(`âš ï¸ La cÃ©dula ${formData.cedula} ya estÃ¡ registrada.`); 
+            alert(`⚠️ La cédula ${datosASalvar.cedula} ya está registrada.`); 
             setLoading(false); 
             return; 
         }
 
-        await addDoc(personalRef, { ...formData, fechaRegistro: serverTimestamp() });
-        alert("âœ… Personal registrado exitosamente.");
+        await addDoc(personalRef, { ...datosASalvar, fechaRegistro: serverTimestamp() });
+        registrarAccion(
+          null, 
+          null, 
+          `Nuevo colaborador registrado: ${datosASalvar.nombres} ${datosASalvar.apellidos} (Ficha: ${datosASalvar.ficha})`, 
+          "Personal Registrado"
+        );
+        alert("✅ Personal registrado exitosamente.");
         setFormData(estadoInicial);
       }
     } catch (error) { alert("Error: " + error.message); }
@@ -103,9 +131,9 @@ function FormularioRegistro() {
       <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-tr from-cyan-400 to-indigo-500 rounded-full blur-3xl opacity-15 animate-pulse-glow"></div>
       <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-gradient-to-tr from-purple-500 to-pink-500 rounded-full blur-3xl opacity-10 animate-pulse-glow delay-1000"></div>
 
-      {/* BARRA DE NAVEGACIÃ“N CORPORATIVA */}
+      {/* BARRA DE NAVEGACIÓN CORPORATIVA */}
       <nav className="top-nav bg-white/60 backdrop-blur-xl border-b border-slate-200/80 px-6 py-4 flex justify-between items-center z-20 relative">
-        <div className="flex items-center gap-2.5"><div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:"linear-gradient(135deg,#06b6d4,#3b82f6)"}}><i className="fas fa-building-columns text-white" style={{fontSize:"11px"}}></i></div><span className="text-base font-black tracking-tight text-slate-900 uppercase">INVECEM</span></div>
+        <div className="flex items-center gap-2.5"><div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:"linear-gradient(135deg,#06b6d4,#3b82f6)"}}><i className="fas fa-fingerprint text-white" style={{fontSize:"11px"}}></i></div><span className="text-base font-black tracking-tight text-slate-900 uppercase">INVECEM</span></div>
         <button 
           className="px-4 py-2 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 active:scale-95 rounded-xl font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-indigo-500/20 transition-all duration-200 cursor-pointer text-white hover:shadow-neon-cyan"
           onClick={() => router.push("/recursos-humanos/personal-registrado")}
@@ -124,7 +152,7 @@ function FormularioRegistro() {
               {editId ? "Modificar Expediente" : "Registro de Personal"}
             </h1>
             <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">
-              {editId ? "ActualizaciÃ³n de ficha tÃ©cnica de planta" : "Ingreso de nuevo colaborador al sistema de nÃ³mina"}
+              {editId ? "Actualización de ficha técnica de planta" : "Ingreso de nuevo colaborador al sistema de nómina"}
             </p>
           </div>
           <div className="px-4 py-2 bg-white/80 border border-slate-200 rounded-xl text-xs font-black text-cyan-600 uppercase self-start sm:self-auto shadow-md font-mono">
@@ -140,7 +168,7 @@ function FormularioRegistro() {
           <div className="absolute bottom-3 left-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
           <div className="absolute bottom-3 right-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
 
-          {/* SECCIÃ“N 1: IDENTIFICACIÃ“N Y ESTATUS */}
+          {/* SECCIÓN 1: IDENTIFICACIÓN Y ESTATUS */}
           <section className="space-y-6">
             <h3 className="text-xs font-black uppercase text-cyan-600 tracking-wider border-b border-dashed border-cyan-500/20 pb-2 flex items-center gap-2 font-mono">
               <i className="fas fa-id-card"></i> IDENTIFICACION // STATUS
@@ -170,7 +198,7 @@ function FormularioRegistro() {
                   className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-200 text-sm font-semibold cursor-pointer"
                 >
                   <option>Activo (En funciones)</option>
-                  <option>Reposo MÃ©dico</option>
+                  <option>Reposo Médico</option>
                   <option>Vacaciones</option>
                   <option>Inactivo</option>
                 </select>
@@ -179,7 +207,7 @@ function FormularioRegistro() {
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               <div className="flex flex-col gap-2">
-                <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">CÃ‰DULA</label>
+                <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">CÉDULA</label>
                 <input 
                   type="text" 
                   name="cedula" 
@@ -220,7 +248,7 @@ function FormularioRegistro() {
             </div>
           </section>
 
-          {/* SECCIÃ“N 2: DATOS DEL CARGO / FORMACIÃ“N */}
+          {/* SECCIÓN 2: DATOS DEL CARGO / FORMACIÓN */}
           <section className="space-y-6">
             <h3 className="text-xs font-black uppercase text-cyan-600 tracking-wider border-b border-dashed border-cyan-500/20 pb-2 flex items-center gap-2 font-mono">
               <i className="fas fa-briefcase"></i> CARGO // ACADEMIA
@@ -256,20 +284,20 @@ function FormularioRegistro() {
                   </div>
 
                   <div className="flex flex-col gap-2">
-                    <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">ÃREA</label>
+                    <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">ÁREA</label>
                     <select 
                       name="area" 
                       value={formData.area} 
                       onChange={handleChange} 
                       required
-                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-805 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-200 text-sm font-semibold cursor-pointer"
+                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-200 text-sm font-semibold cursor-pointer"
                     >
                       <option value="">Seleccione...</option>
                       <option value="Mantenimiento">Mantenimiento</option>
-                      <option value="AlmacÃ©n">AlmacÃ©n</option>
-                      <option value="ProducciÃ³n">ProducciÃ³n</option>
-                      <option value="ProtecciÃ³n FÃ­sica">ProtecciÃ³n FÃ­sica</option>
-                      <option value="AdministraciÃ³n">AdministraciÃ³n</option>
+                      <option value="Almacén">Almacén</option>
+                      <option value="Producción">Producción</option>
+                      <option value="Protección Física">Protección Física</option>
+                      <option value="Administración">Administración</option>
                     </select>
                   </div>
                 </>
@@ -286,7 +314,7 @@ function FormularioRegistro() {
                       onChange={handleChange} 
                       required 
                       placeholder="Ej. Electricidad"
-                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-905 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent focus:shadow-neon-cyan/40 transition-all duration-200 text-sm font-semibold" 
+                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent focus:shadow-neon-cyan/40 transition-all duration-200 text-sm font-semibold" 
                     />
                   </div>
 
@@ -328,8 +356,20 @@ function FormularioRegistro() {
                       value={formData.carreraPasante} 
                       onChange={handleChange} 
                       required 
-                      placeholder="Ej. Ing. MecÃ¡nica"
+                      placeholder="Ej. Ing. Mecánica"
                       className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent focus:shadow-neon-cyan/40 transition-all duration-200 text-sm font-semibold" 
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">FECHA CULMINACIÓN PASANTÍA</label>
+                    <input 
+                      type="date" 
+                      name="fechaEgreso" 
+                      value={formData.fechaEgreso} 
+                      onChange={handleChange} 
+                      required 
+                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-200 text-sm font-semibold cursor-pointer"
                     />
                   </div>
                 </>
@@ -337,7 +377,7 @@ function FormularioRegistro() {
             </div>
           </section>
 
-          {/* SECCIÃ“N 3: JORNADA Y HORARIOS */}
+          {/* SECCIÓN 3: JORNADA Y HORARIOS */}
           <section className="space-y-6">
             <h3 className="text-xs font-black uppercase text-cyan-600 tracking-wider border-b border-dashed border-cyan-500/20 pb-2 flex items-center gap-2 font-mono">
               <i className="fas fa-calendar-alt"></i> HORARIO // JORNADA_PLANTA
@@ -345,7 +385,7 @@ function FormularioRegistro() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="flex flex-col gap-2">
-                <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">RÃ‰GIMEN_LABORAL</label>
+                <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">RÉGIMEN_LABORAL</label>
                 <select 
                   name="regimenLaboral" 
                   value={formData.regimenLaboral} 
@@ -418,12 +458,12 @@ function FormularioRegistro() {
                   value={formData.fechaIngreso} 
                   onChange={handleChange} 
                   required 
-                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-905 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-200 text-sm font-semibold cursor-pointer"
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-200 text-sm font-semibold cursor-pointer"
                 />
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">TELÃ‰FONO</label>
+                <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">TELÉFONO</label>
                 <input 
                   type="tel" 
                   name="telefono" 
@@ -450,7 +490,7 @@ function FormularioRegistro() {
             </div>
           </section>
 
-          {/* FOOTER ACCIÃ“N */}
+          {/* FOOTER ACCIÓN */}
           <div className="pt-6 border-t border-slate-200/60 flex justify-end">
             <button 
               type="submit" 

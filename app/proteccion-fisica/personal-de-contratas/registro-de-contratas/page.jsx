@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, Suspense } from "react";
 import { db } from "@/app/lib/firebase";
@@ -22,7 +22,8 @@ function RegistroFormContent() {
 
   const [formData, setFormData] = useState({
     cedula: "",
-    idAcceso: "", // Los 5 dÃ­gitos para la "ficha" de contrata
+    idAccAccess: "", // ID de acceso auto-generado o ingresado
+    idAcceso: "", // Los 5 dígitos para la "ficha" de contrata
     nombreContrata: "",
     nombres: "",
     apellidos: "",
@@ -48,14 +49,13 @@ function RegistroFormContent() {
     }
   }, [editId]);
 
-  // FunciÃ³n para manejar la cÃ©dula y auto-completar el ID
   const handleCedulaChange = (e) => {
     const val = e.target.value;
     const ultimosCinco = val.slice(-5);
     setFormData({
       ...formData,
       cedula: val,
-      idAcceso: editId ? formData.idAcceso : ultimosCinco // Solo auto-completa si es registro nuevo
+      idAcceso: editId ? formData.idAcceso : ultimosCinco
     });
   };
 
@@ -63,7 +63,7 @@ function RegistroFormContent() {
     e.preventDefault();
     
     if (formData.idAcceso.length !== 5) {
-      alert("âš ï¸ El ID de acceso debe ser de exactamente 5 dÃ­gitos.");
+      alert("⚠️ El ID de acceso debe ser de exactamente 5 dígitos.");
       return;
     }
 
@@ -78,25 +78,25 @@ function RegistroFormContent() {
           ...formData,
           ultimaActualizacion: serverTimestamp()
         });
-        alert("âœ… Datos actualizados con Ã©xito");
-        router.push("/proteccion-fisica/usuarios-de-contratas"); 
+        alert("✅ Datos actualizados con éxito");
+        router.push("/proteccion-fisica/personal-de-contratas"); 
       } else {
-        // VALIDACIÃ“N: CÃ©dula duplicada
+        // VALIDACIÓN: Cédula duplicada
         const qCedula = query(contratasRef, where("cedula", "==", formData.cedula));
         const snapCedula = await getDocs(qCedula);
         
         if (!snapCedula.empty) {
-          alert("âš ï¸ Esta cÃ©dula ya estÃ¡ registrada en el sistema de contratas.");
+          alert("⚠️ Esta cédula ya está registrada en el sistema de contratas.");
           setLoading(false);
           return;
         }
 
-        // VALIDACIÃ“N: ID duplicado
+        // VALIDACIÓN: ID duplicado
         const qId = query(contratasRef, where("idAcceso", "==", formData.idAcceso));
         const snapId = await getDocs(qId);
         
         if (!snapId.empty) {
-          alert(`âš ï¸ El ID ${formData.idAcceso} ya estÃ¡ asignado. Verifique los Ãºltimos 5 dÃ­gitos.`);
+          alert(`⚠️ El ID ${formData.idAcceso} ya está asignado. Verifique los últimos 5 dígitos.`);
           setLoading(false);
           return;
         }
@@ -108,7 +108,7 @@ function RegistroFormContent() {
           fechaRegistro: serverTimestamp(),
         });
         
-        alert("âœ… Contratista registrado exitosamente");
+        alert("✅ Contratista registrado exitosamente");
 
         setFormData({
           cedula: "",
@@ -118,6 +118,8 @@ function RegistroFormContent() {
           apellidos: "",
           areaTrabajo: "Mantenimiento",
         });
+        
+        router.push("/proteccion-fisica/personal-de-contratas");
       }
     } catch (error) {
       console.error("Error:", error);
@@ -133,23 +135,15 @@ function RegistroFormContent() {
       <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-tr from-cyan-400 to-indigo-500 rounded-full blur-3xl opacity-15 animate-pulse-glow"></div>
       <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-gradient-to-tr from-purple-500 to-pink-500 rounded-full blur-3xl opacity-10 animate-pulse-glow delay-1000"></div>
 
-      {/* BARRA DE NAVEGACIÃ“N */}
+      {/* BARRA DE NAVEGACIÓN */}
       <nav className="top-nav bg-white/60 backdrop-blur-xl border-b border-slate-200/80 px-6 py-4 flex justify-between items-center z-20 relative">
-        <div className="flex items-center gap-2.5"><div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:"linear-gradient(135deg,#06b6d4,#3b82f6)"}}><i className="fas fa-building-columns text-white" style={{fontSize:"11px"}}></i></div><span className="text-base font-black tracking-tight text-slate-900 uppercase">INVECEM</span></div>
-        <div className="flex gap-2">
-          <button 
-            className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-655 hover:text-indigo-950 rounded-xl font-extrabold text-xs tracking-wider uppercase transition-all duration-200 cursor-pointer flex items-center gap-1.5 shadow-sm"
-            onClick={() => router.push("/proteccion-fisica/usuarios-de-contratas")}
-          >
-            <i className="fas fa-list"></i> Ver Registrados
-          </button>
-          <button 
-            className="px-4 py-2 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-650 hover:from-cyan-400 hover:to-purple-500 active:scale-95 rounded-xl font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-indigo-500/20 transition-all duration-200 cursor-pointer text-white hover:shadow-neon-cyan"
-            onClick={() => router.push("/proteccion-fisica")}
-          >
-            <i className="fas fa-arrow-left"></i> Volver
-          </button>
-        </div>
+        <div className="flex items-center gap-2.5"><div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:"linear-gradient(135deg,#06b6d4,#3b82f6)"}}><i className="fas fa-fingerprint text-white" style={{fontSize:"11px"}}></i></div><span className="text-base font-black tracking-tight text-slate-900 uppercase">INVECEM</span></div>
+        <button 
+          className="px-4 py-2 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-650 hover:from-cyan-400 hover:to-purple-500 active:scale-95 rounded-xl font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-indigo-500/20 transition-all duration-200 cursor-pointer text-white hover:shadow-neon-cyan"
+          onClick={() => router.push("/proteccion-fisica/personal-de-contratas")}
+        >
+          <i className="fas fa-arrow-left"></i> Volver
+        </button>
       </nav>
 
       {/* CONTENEDOR CENTRAL */}
@@ -180,9 +174,9 @@ function RegistroFormContent() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               
-              {/* CÃ©dula */}
+              {/* Cédula */}
               <div className="flex flex-col gap-2">
-                <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">CÃ‰DULA_IDENTIDAD</label>
+                <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">CÉDULA_IDENTIDAD</label>
                 <input
                   type="text"
                   required
@@ -196,7 +190,7 @@ function RegistroFormContent() {
 
               {/* ID Acceso */}
               <div className="flex flex-col gap-2">
-                <label className="text-xxs font-bold uppercase tracking-wider text-cyan-600 font-mono">ID_ACCESO (5 DÃGITOS)</label>
+                <label className="text-xxs font-bold uppercase tracking-wider text-cyan-600 font-mono">ID_ACCESO (5 DÍGITOS)</label>
                 <input
                   type="text"
                   required
@@ -255,7 +249,7 @@ function RegistroFormContent() {
                 />
               </div>
 
-              {/* Ãrea de Trabajo */}
+              {/* Área de Trabajo */}
               <div className="flex flex-col gap-2">
                 <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">AREA_TRABAJO</label>
                 <select 
@@ -266,19 +260,19 @@ function RegistroFormContent() {
                   <option value="Mantenimiento">Mantenimiento</option>
                   <option value="Obras Civiles">Obras Civiles</option>
                   <option value="Servicios Generales">Servicios Generales</option>
-                  <option value="Seguridad / PrevenciÃ³n">Seguridad / PrevenciÃ³n</option>
+                  <option value="Seguridad / Prevención">Seguridad / Prevención</option>
                 </select>
               </div>
 
             </div>
           </section>
 
-          {/* ACCIÃ“N DE GUARDADO */}
+          {/* ACCIÓN DE GUARDADO */}
           <div className="pt-6 border-t border-slate-200/60 flex justify-end">
             <button 
               type="submit" 
               disabled={loading}
-              className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-650 hover:from-cyan-400 hover:to-purple-500 active:scale-95 text-white font-extrabold uppercase text-xs tracking-wider rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-neon-cyan transition-all duration-200 cursor-pointer flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-655 hover:from-cyan-400 hover:to-purple-500 active:scale-95 text-white font-extrabold uppercase text-xs tracking-wider rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-neon-cyan transition-all duration-200 cursor-pointer flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>
@@ -316,4 +310,3 @@ export default function RegistroContratista() {
     </Suspense>
   );
 }
-

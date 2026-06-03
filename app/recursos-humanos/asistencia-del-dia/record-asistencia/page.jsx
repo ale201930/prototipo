@@ -14,7 +14,7 @@ export default function RecordFuncionalAsistencia() {
   const [vista, setVista] = useState("semanal");
   const [fechaReferencia, setFechaReferencia] = useState(new Date());
 
-  const nombresDiasCortos = ["Dom", "Lun", "Mar", "MiÃ©", "Jue", "Vie", "SÃ¡b"];
+  const nombresDiasCortos = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
   useEffect(() => {
     const unsubPersonal = onSnapshot(collection(db, "personal"), (snap) => {
@@ -27,6 +27,18 @@ export default function RecordFuncionalAsistencia() {
   }, []);
 
   const listaFiltrada = personal.filter(p => {
+    // Excluir personal inactivo
+    if (p.estatus === "Inactivo") return false;
+
+    // Excluir pasantes cuya pasantía haya culminado
+    if (p.tipoPersonal === "Pasante" && p.fechaEgreso) {
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      const [anio, mes, dia] = p.fechaEgreso.split("-").map(Number);
+      const fechaCulminacion = new Date(anio, mes - 1, dia, 23, 59, 59, 999);
+      if (hoy > fechaCulminacion) return false;
+    }
+
     const coincideTexto = p.nombres?.toLowerCase().includes(filtro.toLowerCase()) || 
                           p.ficha?.toLowerCase().includes(filtro.toLowerCase());
 
@@ -116,9 +128,9 @@ export default function RecordFuncionalAsistencia() {
       <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-tr from-cyan-400 to-indigo-500 rounded-full blur-3xl opacity-15 animate-pulse-glow"></div>
       <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-gradient-to-tr from-purple-500 to-pink-500 rounded-full blur-3xl opacity-10 animate-pulse-glow delay-1000"></div>
 
-      {/* BARRA DE NAVEGACIÃ“N CORPORATIVA */}
+      {/* BARRA DE NAVEGACIÓN CORPORATIVA */}
       <nav className="top-nav bg-white/60 backdrop-blur-xl border-b border-slate-200/80 px-6 py-4 flex justify-between items-center z-20 relative">
-        <div className="flex items-center gap-2.5"><div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:"linear-gradient(135deg,#06b6d4,#3b82f6)"}}><i className="fas fa-building-columns text-white" style={{fontSize:"11px"}}></i></div><span className="text-base font-black tracking-tight text-slate-900 uppercase">INVECEM</span></div>
+        <div className="flex items-center gap-2.5"><div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:"linear-gradient(135deg,#06b6d4,#3b82f6)"}}><i className="fas fa-fingerprint text-white" style={{fontSize:"11px"}}></i></div><span className="text-base font-black tracking-tight text-slate-900 uppercase">INVECEM</span></div>
         <button 
           className="px-4 py-2 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 active:scale-95 rounded-xl font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-indigo-500/20 transition-all duration-200 cursor-pointer text-white hover:shadow-neon-cyan"
           onClick={() => router.back()}
@@ -137,7 +149,7 @@ export default function RecordFuncionalAsistencia() {
               Control de Asistencia
             </h1>
             <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">
-              RÃ©cord operacional y acumulaciÃ³n de horas de la nÃ³mina de planta
+              Récord operacional y acumulación de horas de la nómina de planta
             </p>
           </div>
           <div className="px-4 py-2 bg-white/80 backdrop-blur-md border border-slate-200 rounded-xl text-sm font-black text-cyan-600 uppercase self-start sm:self-auto shadow-md font-mono">
@@ -192,14 +204,14 @@ export default function RecordFuncionalAsistencia() {
               </div>
             </div>
 
-            {/* BÃºsqueda de personal */}
+            {/* Búsqueda de personal */}
             <div className="relative w-full lg:flex-1">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
                 <i className="fas fa-search"></i>
               </span>
               <input 
                 type="text" 
-                placeholder="Buscar por Nombre o NÂ° Ficha..." 
+                placeholder="Buscar por Nombre o N° Ficha..." 
                 onChange={(e) => setFiltro(e.target.value)}
                 className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs font-semibold"
               />
@@ -213,7 +225,7 @@ export default function RecordFuncionalAsistencia() {
           <div className="absolute top-3 left-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
           <div className="absolute top-3 right-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
           
-          <div className="overflow-x-auto w-full no-scrollbar max-h-[600px] overflow-y-auto">
+          <div className="overflow-x-auto w-full max-h-[600px] overflow-y-auto">
             <table className="w-full border-collapse text-slate-800">
               <thead>
                 <tr className="border-b border-slate-200 sticky top-0 bg-white/95 backdrop-blur-md z-20">
@@ -232,7 +244,7 @@ export default function RecordFuncionalAsistencia() {
                         </th>
                       ))
                   }
-                  <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center min-w-[80px] border-l border-slate-200/60 font-mono">OVERTIME</th>
+                  <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center min-w-[80px] border-l border-slate-200/60 font-mono">HORAS EXTRAS</th>
                 </tr>
               </thead>
               <tbody>
@@ -287,7 +299,7 @@ export default function RecordFuncionalAsistencia() {
                           })
                         }
 
-                        {/* Celda de acumulaciÃ³n final */}
+                        {/* Celda de acumulación final */}
                         <td className="py-3 px-3 text-center border-l border-slate-200/60">
                           <span className={`px-2 py-0.5 rounded text-xxs font-black tracking-wider uppercase inline-block ${acumuladoExtra > 0 ? "bg-cyan-50 text-cyan-600 border border-cyan-200 shadow-md shadow-cyan-100/50" : "text-slate-400"}`}>
                             {acumuladoExtra}h

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -48,12 +48,11 @@ export default function ReportesGenerales() {
     setLoading(true);
     try {
       const fechaElegida = new Date(fechaBusqueda + "T00:00:00");
-      const inicioExtendido = new Date(fechaElegida.getTime() - (12 * 60 * 60 * 1000));
       const finDelDia = new Date(fechaBusqueda + "T23:59:59");
 
       const q = query(
         collection(db, "asistencias"),
-        where("fechaHora", ">=", Timestamp.fromDate(inicioExtendido)),
+        where("fechaHora", ">=", Timestamp.fromDate(fechaElegida)),
         where("fechaHora", "<=", Timestamp.fromDate(finDelDia)),
         orderBy("fechaHora", "asc")
       );
@@ -67,9 +66,9 @@ export default function ReportesGenerales() {
       });
 
       data = data.filter(item => {
+        if (!item.fechaHora) return false;
         const fechaDoc = item.fechaHora.toDate().toISOString().split('T')[0];
-        if (fechaDoc === fechaBusqueda) return true;
-        return item.salida && item.salida !== "--:--";
+        return fechaDoc === fechaBusqueda;
       });
 
       if (filtroEmpresa !== "TODOS") {
@@ -126,7 +125,7 @@ export default function ReportesGenerales() {
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(18); doc.text(`INVECEM - CONTROL DE ASISTENCIA ${areaTexto}`, 15, 20);
     doc.setFontSize(10);
-    doc.text(`REGISTROS DEL DÃA: ${fechaLinda} | TURNO: ${filtroTurno}`, 15, 30);
+    doc.text(`REGISTROS DEL DÍA: ${fechaLinda} | TURNO: ${filtroTurno}`, 15, 30);
 
     const filas = resultados.map(r => [
       r.ficha, 
@@ -140,7 +139,7 @@ export default function ReportesGenerales() {
 
     doc.autoTable({
       startY: 45,
-      head: [['FICHA', 'COLABORADOR', 'ÃREA / CARGO', 'ENTRADA', 'SALIDA', 'ESTATUS', 'TIPO']],
+      head: [['FICHA', 'COLABORADOR', 'ÁREA / CARGO', 'ENTRADA', 'SALIDA', 'ESTATUS', 'TIPO']],
       body: filas,
       headStyles: { fillColor: [6, 182, 212] },
       styles: { fontSize: 8 }
@@ -157,9 +156,9 @@ export default function ReportesGenerales() {
       <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-tr from-cyan-400 to-indigo-500 rounded-full blur-3xl opacity-15 animate-pulse-glow"></div>
       <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-gradient-to-tr from-purple-500 to-pink-500 rounded-full blur-3xl opacity-10 animate-pulse-glow delay-1000"></div>
 
-      {/* BARRA DE NAVEGACIÃ“N CORPORATIVA */}
+      {/* BARRA DE NAVEGACIÓN CORPORATIVA */}
       <nav className="top-nav print:hidden bg-white/60 backdrop-blur-xl border-b border-slate-200/80 px-6 py-4 flex justify-between items-center z-20 relative">
-        <div className="flex items-center gap-2.5"><div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:"linear-gradient(135deg,#06b6d4,#3b82f6)"}}><i className="fas fa-building-columns text-white" style={{fontSize:"11px"}}></i></div><span className="text-base font-black tracking-tight text-slate-900 uppercase">INVECEM</span></div>
+        <div className="flex items-center gap-2.5"><div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:"linear-gradient(135deg,#06b6d4,#3b82f6)"}}><i className="fas fa-fingerprint text-white" style={{fontSize:"11px"}}></i></div><span className="text-base font-black tracking-tight text-slate-900 uppercase">INVECEM</span></div>
         <button 
           className="px-4 py-2 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 active:scale-95 rounded-xl font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-indigo-500/20 transition-all duration-200 cursor-pointer text-white hover:shadow-neon-cyan"
           onClick={() => router.push("/recursos-humanos")}
@@ -189,7 +188,7 @@ export default function ReportesGenerales() {
           <div className="absolute bottom-3 left-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
           <div className="absolute bottom-3 right-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
 
-          {/* PANEL DE FILTRADO TÃ‰CNICO */}
+          {/* PANEL DE FILTRADO TÉCNICO */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 print:hidden">
             {/* Input Fecha */}
             <div className="flex flex-col gap-2">
@@ -217,7 +216,7 @@ export default function ReportesGenerales() {
               </select>
             </div>
 
-            {/* Selector de Ãrea */}
+            {/* Selector de Área */}
             <div className="flex flex-col gap-2">
               <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">AREA_UNIDAD</label>
               <select 
@@ -225,11 +224,11 @@ export default function ReportesGenerales() {
                 onChange={(e) => setFiltroArea(e.target.value)}
                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm font-semibold cursor-pointer uppercase"
               >
-                <option value="TODOS">TODAS LAS ÃREAS</option>
+                <option value="TODOS">TODAS LAS ÁREAS</option>
                 <option value="MANTENIMIENTO">MANTENIMIENTO</option>
                 <option value="SEGURIDAD">SEGURIDAD</option>
                 <option value="OPERACIONES">OPERACIONES</option>
-                <option value="ADMINISTRACION">ADMINISTRACIÃ“N</option>
+                <option value="ADMINISTRACION">ADMINISTRACIÓN</option>
               </select>
             </div>
 
@@ -248,7 +247,7 @@ export default function ReportesGenerales() {
             </div>
           </div>
 
-          {/* BARRA DE BÃšSQUEDA Y ACCIONES */}
+          {/* BARRA DE BÚSQUEDA Y ACCIONES */}
           <div className="flex flex-col md:flex-row gap-4 items-center justify-between print:hidden border-t border-slate-200/60 pt-4">
             
             {/* Input buscar */}
@@ -265,7 +264,7 @@ export default function ReportesGenerales() {
               />
             </div>
 
-            {/* Botones de acciÃ³n */}
+            {/* Botones de acción */}
             <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
               <button 
                 onClick={ejecutarBusqueda} 
@@ -285,14 +284,14 @@ export default function ReportesGenerales() {
 
               <button 
                 onClick={descargarPDF}
-                className="px-5 py-3 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 shadow-md shadow-indigo-500/20 hover:shadow-neon-cyan"
+                className="px-5 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 shadow-md shadow-red-500/20 hover:shadow-neon-red"
               >
                 <i className="fas fa-file-pdf"></i> Descargar PDF
               </button>
 
               <button 
                 onClick={() => window.print()}
-                className="px-5 py-3 bg-white hover:bg-slate-50 border border-slate-200 text-slate-650 hover:text-indigo-955 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 shadow-sm"
+                className="px-5 py-3 bg-red-50/50 hover:bg-red-100/50 border border-red-200 text-red-600 hover:text-red-700 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 shadow-sm"
               >
                 <i className="fas fa-print"></i> Imprimir
               </button>
@@ -307,7 +306,7 @@ export default function ReportesGenerales() {
                 <tr className="border-b border-slate-200/60">
                   <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center w-24 font-mono">FICHA</th>
                   <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-left font-mono">COLABORADOR</th>
-                  <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-left font-mono">ÃREA / CARGO</th>
+                  <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-left font-mono">ÁREA / CARGO</th>
                   <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">ENTRADA</th>
                   <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">SALIDA</th>
                   <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">ESTATUS</th>
@@ -318,7 +317,7 @@ export default function ReportesGenerales() {
                 {resultados.length === 0 ? (
                   <tr>
                     <td colSpan="7" className="py-10 text-center text-slate-400 font-bold italic text-sm font-mono">
-                      {loading ? "Buscando registros..." : "Sin datos â€” seleccione criterios y genere el reporte"}
+                      {loading ? "Buscando registros..." : "Sin datos — seleccione criterios y genere el reporte"}
                     </td>
                   </tr>
                 ) : (

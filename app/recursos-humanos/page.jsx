@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -97,7 +97,7 @@ export default function PanelRecursosHumanos() {
         <div className="p-6 flex flex-col items-center gap-2 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-1"
             style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)', boxShadow: '0 4px 14px rgba(6,182,212,0.35)' }}>
-            <i className="fas fa-building-columns text-white text-xl" />
+            <i className="fas fa-fingerprint text-white text-xl" />
           </div>
           <h2 className="text-lg font-black tracking-tight text-white uppercase">INVECEM</h2>
           <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full"
@@ -110,14 +110,14 @@ export default function PanelRecursosHumanos() {
           <SidebarItem icon="fa-home" label="Inicio" active={true} onClick={() => router.push("/recursos-humanos")} />
           <SidebarItem icon="fa-user-gear" label="Mi Perfil" onClick={() => router.push("/perfil")} />
 
-          <SidebarSection label="MÃ³dulos" />
+          <SidebarSection label="Módulos" />
           <SidebarItem icon="fa-users" label="Personal Registrado" onClick={() => router.push("/recursos-humanos/personal-registrado")} accent="#06b6d4" />
-          <SidebarItem icon="fa-calendar-check" label="Asistencia del DÃ­a" onClick={() => router.push("/recursos-humanos/asistencia-del-dia")} accent="#3b82f6" />
+          <SidebarItem icon="fa-calendar-check" label="Asistencia del Día" onClick={() => router.push("/recursos-humanos/asistencia-del-dia")} accent="#3b82f6" />
           <SidebarItem icon="fa-chart-bar" label="Reporte General" onClick={() => router.push("/recursos-humanos/reporte-general")} accent="#22d3ee" />
 
           {isAdmin && (
             <>
-              <SidebarSection label="AdministraciÃ³n" />
+              <SidebarSection label="Administración" />
               <SidebarItem icon="fa-arrow-left" label="Volver al Panel Admin" onClick={() => router.push("/administrador")} accent="#f59e0b" />
             </>
           )}
@@ -142,7 +142,7 @@ export default function PanelRecursosHumanos() {
             onMouseEnter={e => { e.currentTarget.style.background='rgba(244,63,94,0.15)'; e.currentTarget.style.color='#fca5a5'; }}
             onMouseLeave={e => { e.currentTarget.style.background='rgba(244,63,94,0.08)'; e.currentTarget.style.color='#f87171'; }}
           >
-            <i className="fas fa-right-from-bracket" /> Cerrar SesiÃ³n
+            <i className="fas fa-right-from-bracket" /> Cerrar Sesión
           </button>
         </div>
       </aside>
@@ -157,18 +157,18 @@ export default function PanelRecursosHumanos() {
               <i className="fas fa-users-cog text-3xl text-white" />
             </div>
             <div>
-              <p className="text-cyan-300 text-xs font-bold uppercase tracking-widest mb-1">GestiÃ³n de Personal</p>
+              <p className="text-cyan-300 text-xs font-bold uppercase tracking-widest mb-1">Gestión de Personal</p>
               <h1 className="text-3xl font-black tracking-tight mb-2">
                 Bienvenido, <span style={{ color: '#22d3ee' }}>{nombreUsuario || "Usuario"}</span>
               </h1>
               <p className="text-slate-400 text-sm font-medium">
-                Administra el personal, asistencia y reportes desde los mÃ³dulos disponibles
+                Administra el personal, asistencia y reportes desde los módulos disponibles
               </p>
             </div>
             <div className="md:ml-auto flex items-center gap-2 px-4 py-2 rounded-xl"
               style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)' }}>
               <span className="live-dot" />
-              <span className="text-emerald-400 text-xs font-bold">Sistema en LÃ­nea</span>
+              <span className="text-emerald-400 text-xs font-bold">Sistema en Línea</span>
             </div>
           </div>
         </div>
@@ -176,8 +176,8 @@ export default function PanelRecursosHumanos() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
             { icon: 'fa-users', label: 'Personal Registrado', sub: 'Expedientes y historial de incidencias', route: '/recursos-humanos/personal-registrado', color: '#06b6d4', bg: 'rgba(6,182,212,0.08)' },
-            { icon: 'fa-calendar-check', label: 'Asistencia del DÃ­a', sub: 'Control de presencia en tiempo real', route: '/recursos-humanos/asistencia-del-dia', color: '#3b82f6', bg: 'rgba(59,130,246,0.08)' },
-            { icon: 'fa-chart-bar', label: 'Reporte General', sub: 'EstadÃ­sticas y reportes por perÃ­odo', route: '/recursos-humanos/reporte-general', color: '#22d3ee', bg: 'rgba(34,211,238,0.08)' },
+            { icon: 'fa-calendar-check', label: 'Asistencia del Día', sub: 'Control de presencia en tiempo real', route: '/recursos-humanos/asistencia-del-dia', color: '#3b82f6', bg: 'rgba(59,130,246,0.08)' },
+            { icon: 'fa-chart-bar', label: 'Reporte General', sub: 'Estadísticas y reportes por período', route: '/recursos-humanos/reporte-general', color: '#22d3ee', bg: 'rgba(34,211,238,0.08)' },
           ].map(item => (
             <button key={item.label} onClick={() => router.push(item.route)}
               className="card p-6 text-left cursor-pointer group animate-slide-up"
@@ -189,7 +189,7 @@ export default function PanelRecursosHumanos() {
               <p className="font-black text-slate-800 text-base">{item.label}</p>
               <p className="text-slate-500 text-sm mt-1 font-medium">{item.sub}</p>
               <div className="mt-4 flex items-center gap-1.5 text-sm font-bold transition-all duration-200 group-hover:gap-2.5" style={{ color: item.color }}>
-                Abrir mÃ³dulo <i className="fas fa-arrow-right text-xs" />
+                Abrir módulo <i className="fas fa-arrow-right text-xs" />
               </div>
             </button>
           ))}

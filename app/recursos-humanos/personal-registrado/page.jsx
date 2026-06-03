@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { db } from "../../lib/firebase";
+import { db, registrarAccion } from "../../lib/firebase";
 import Cookies from "js-cookie";
 import {
   collection,
@@ -18,7 +18,7 @@ import {
 
 const ESTADOS_NOMINALES = [
   "Activo (En funciones)",
-  "Reposo MÃ©dico",
+  "Reposo Médico",
   "Vacaciones",
   "Inactivo"
 ];
@@ -46,6 +46,15 @@ export default function PersonalRegistrado() {
   const [usuarioExpediente, setUsuarioExpediente] = useState(null);
   const [notaAmonestacion, setNotaAmonestacion] = useState("");
 
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: null
+  });
+
+  const usuarioExpedienteActual = usuarios.find(u => u.id === usuarioExpediente?.id) || usuarioExpediente;
+
   const normalizarFecha = (fechaStr) => {
     if (!fechaStr) return "";
     return fechaStr.replace(/-/g, '/').split('/').map(num => parseInt(num, 10)).join('/');
@@ -53,7 +62,7 @@ export default function PersonalRegistrado() {
 
   const limpiarID = (val) => val ? val.toString().trim().toLowerCase() : "";
 
-  // LÃ³gica para verificar si la fecha de retorno ya pasÃ³
+  // Lógica para verificar si la fecha de retorno ya pasó
   const verificarRetornoAutomatico = async (usuario) => {
     if (!usuario.fechaFin || usuario.estatus === "Activo (En funciones)") return;
 
@@ -102,7 +111,13 @@ export default function PersonalRegistrado() {
       const marcadosHoy = [];
       snapshot.docs.forEach(doc => {
         const data = doc.data();
-        const fechaDoc = normalizarFecha(data.fecha);
+        let fechaDoc = "";
+        if (data.fecha) {
+          fechaDoc = normalizarFecha(data.fecha);
+        } else if (data.fechaHora) {
+          const fDate = data.fechaHora.toDate ? data.fechaHora.toDate() : new Date(data.fechaHora);
+          fechaDoc = `${fDate.getDate()}/${fDate.getMonth() + 1}/${fDate.getFullYear()}`;
+        }
         if (fechaDoc === hoyLimpio) {
           if (data.cedula) marcadosHoy.push(limpiarID(data.cedula));
           if (data.ficha) marcadosHoy.push(limpiarID(data.ficha));
@@ -139,13 +154,21 @@ export default function PersonalRegistrado() {
   };
 
   const guardarIncidencia = async (tipo, descripcion) => {
-    if (!descripcion) return alert("âš ï¸ Por favor, escriba el detalle.");
+    if (!descripcion) return alert("⚠️ Por favor, escriba el detalle.");
     try {
       const userRef = doc(db, "personal", usuarioExpediente.id);
-      const nuevaIncidencia = { id: Date.now(), tipo: tipo, descripcion: descripcion, fecha: new Date().toLocaleString('es-ES'), registradoPor: Cookies.get("user_session") || "Admin RRHH" };
+      const operador = Cookies.get("user_name") || "Admin RRHH";
+      const nuevaIncidencia = { id: Date.now(), tipo: tipo, descripcion: descripcion, fecha: new Date().toLocaleString('es-ES'), registradoPor: operador };
       await updateDoc(userRef, { historialIncidencias: arrayUnion(nuevaIncidencia) });
       setNotaAmonestacion("");
       setUsuarioExpediente(prev => ({ ...prev, historialIncidencias: prev.historialIncidencias ? [...prev.historialIncidencias, nuevaIncidencia] : [nuevaIncidencia] }));
+      
+      registrarAccion(
+        null, 
+        null, 
+        `Incidencia guardada para ${usuarioExpediente.nombres} ${usuarioExpediente.apellidos}: ${tipo} - ${descripcion}`, 
+        "Personal Registrado"
+      );
     } catch (error) { alert("Error: " + error.message); }
   };
 
@@ -156,49 +179,121 @@ export default function PersonalRegistrado() {
     if (!yaRegistrada && !verificarPresenciaHoy(usuario) && verificarSiDebeMarcarFalta(usuario)) {
       try {
         const userRef = doc(db, "personal", usuario.id);
-        const nuevaFalta = { id: Date.now(), tipo: "FALTA", descripcion: `Inasistencia ${hoyStr} - AUSENCIA TOTAL JORNADA`, fecha: new Date().toLocaleString('es-ES'), registradoPor: "SISTEMA AUTOMÃTICO" };
+        const nuevaFalta = { id: Date.now(), tipo: "FALTA", descripcion: `Inasistencia ${hoyStr} - AUSENCIA TOTAL JORNADA`, fecha: new Date().toLocaleString('es-ES'), registradoPor: "SISTEMA AUTOMÁTICO" };
         await updateDoc(userRef, { historialIncidencias: arrayUnion(nuevaFalta) });
         setUsuarioExpediente(prev => ({ ...prev, historialIncidencias: prev.historialIncidencias ? [...prev.historialIncidencias, nuevaFalta] : [nuevaFalta] }));
-      } catch (error) { console.error("Error en registro automÃ¡tico:", error); }
+      } catch (error) { console.error("Error en registro automático:", error); }
     }
   };
 
-  const eliminarIncidencia = async (item) => {
-    if (!window.confirm("Â¿EstÃ¡s seguro de eliminar este registro del historial?")) return;
+  const manejarFaltaHoy = async (tipoFalta) => {
+    const d = new Date();
+    const hoyStr = `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
     try {
       const userRef = doc(db, "personal", usuarioExpediente.id);
-      await updateDoc(userRef, { historialIncidencias: arrayRemove(item) });
-      setUsuarioExpediente(prev => ({ ...prev, historialIncidencias: prev.historialIncidencias.filter(i => i.id !== item.id) }));
-    } catch (error) { alert("Error al eliminar: " + error.message); }
+      const userActual = usuarios.find(u => u.id === usuarioExpediente.id) || usuarioExpediente;
+      let historial = userActual.historialIncidencias ? [...userActual.historialIncidencias] : [];
+      const indexFaltaHoy = historial.findIndex(inc => inc.tipo === "FALTA" && inc.descripcion.includes(hoyStr));
+      const nuevaDescripcion = `Inasistencia ${hoyStr} - ${tipoFalta}`;
+      const operador = Cookies.get("user_name") || "Admin RRHH";
+      if (indexFaltaHoy !== -1) {
+        historial[indexFaltaHoy] = {
+          ...historial[indexFaltaHoy],
+          descripcion: nuevaDescripcion,
+          fecha: new Date().toLocaleString('es-ES'),
+          registradoPor: operador
+        };
+      } else {
+        const nuevaFalta = {
+          id: Date.now(),
+          tipo: "FALTA",
+          descripcion: nuevaDescripcion,
+          fecha: new Date().toLocaleString('es-ES'),
+          registradoPor: operador
+        };
+        historial.push(nuevaFalta);
+      }
+      await updateDoc(userRef, { historialIncidencias: historial });
+      setUsuarioExpediente(prev => ({ ...prev, historialIncidencias: historial }));
+      
+      registrarAccion(
+        null, 
+        null, 
+        `Inasistencia marcada para ${usuarioExpediente.nombres} ${usuarioExpediente.apellidos} como ${tipoFalta}`, 
+        "Personal Registrado"
+      );
+      alert(`✅ Inasistencia marcada como ${tipoFalta.toLowerCase()}.`);
+    } catch (error) {
+      alert("Error: " + error.message);
+    }
+  };
+
+  const eliminarIncidencia = (item) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: "Eliminar Incidencia",
+      message: "¿Estás seguro de eliminar este registro del historial?",
+      onConfirm: async () => {
+        try {
+          const userRef = doc(db, "personal", usuarioExpediente.id);
+          await updateDoc(userRef, { historialIncidencias: arrayRemove(item) });
+          setUsuarioExpediente(prev => ({ ...prev, historialIncidencias: prev.historialIncidencias.filter(i => i.id !== item.id) }));
+          
+          registrarAccion(
+            null, 
+            null, 
+            `Incidencia eliminada del historial de ${usuarioExpediente.nombres} ${usuarioExpediente.apellidos}: ${item.tipo} - ${item.descripcion}`, 
+            "Personal Registrado"
+          );
+        } catch (error) {
+          alert("Error al eliminar: " + error.message);
+        }
+      }
+    });
   };
 
   const actualizarClaveMaestra = async () => {
-    if (!confirmarVieja || !nuevaClave) { alert("âš ï¸ Debes completar ambos campos."); return; }
-    if (confirmarVieja !== claveMaestra) { alert("âŒ La clave actual es incorrecta."); return; }
+    if (!confirmarVieja || !nuevaClave) { alert("⚠️ Debes completar ambos campos."); return; }
+    if (confirmarVieja !== claveMaestra) { alert("❌ La clave actual es incorrecta."); return; }
     try {
       await updateDoc(doc(db, "configuracion", "seguridad"), { claveExpedientes: nuevaClave });
-      alert("ðŸ” Clave Maestra actualizada.");
+      alert("🔐 Clave Maestra actualizada.");
       setNuevaClave(""); setConfirmarVieja(""); setEditandoClave(false);
     } catch (error) { alert(error.message); }
   };
 
   const manejarAccesoExpediente = (user) => {
-    const pin = prompt("ðŸ” SEGURIDAD INVECEM: Ingrese clave de Recursos Humanos:");
+    const pin = prompt("🔐 SEGURIDAD INVECEM: Ingrese clave de Recursos Humanos:");
     if (pin === claveMaestra) {
       setUsuarioExpediente(user);
       setShowExpediente(true);
       if (!verificarPresenciaHoy(user)) registrarInasistenciaAutomatica(user);
-    } else if (pin !== null) { alert("âŒ Clave incorrecta."); }
+    } else if (pin !== null) { alert("❌ Clave incorrecta."); }
   };
 
-  const handleEliminar = async (id, nombre) => {
-    if (window.confirm(`Â¿EstÃ¡s seguro de eliminar a ${nombre}?`)) {
-      try { await deleteDoc(doc(db, "personal", id)); } catch (error) { alert(error.message); }
-    }
+  const handleEliminar = (id, nombre) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: "Eliminar Colaborador",
+      message: `¿Estás seguro de eliminar a ${nombre}? Esta acción no se puede deshacer.`,
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, "personal", id));
+          registrarAccion(
+            null, 
+            null, 
+            `Colaborador eliminado: ${nombre}`, 
+            "Personal Registrado"
+          );
+        } catch (error) {
+          alert("Error al eliminar: " + error.message);
+        }
+      }
+    });
   };
 
   const handleCambioEstatus = (user, nuevoEstatus) => {
-    if (nuevoEstatus === "Vacaciones" || nuevoEstatus === "Reposo MÃ©dico") {
+    if (nuevoEstatus === "Vacaciones" || nuevoEstatus === "Reposo Médico") {
       setUsuarioParaEstado(user);
       setTipoSeleccionado(nuevoEstatus);
       setFechas({ inicio: "", fin: "" });
@@ -218,6 +313,15 @@ export default function PersonalRegistrado() {
         fechaRegreso: esActivo ? null : (fin || null),
         fechaFin: esActivo ? null : (fin || null)
       });
+
+      const targetUser = usuarios.find(u => u.id === id);
+      const targetName = targetUser ? `${targetUser.nombres} ${targetUser.apellidos}` : id;
+      registrarAccion(
+        null, 
+        null, 
+        `Estatus de colaborador actualizado (${targetName}) a ${nuevoEstatus} ${!esActivo ? `(Desde: ${inicio || 'N/A'}, Hasta: ${fin || 'N/A'})` : ''}`, 
+        "Personal Registrado"
+      );
     } catch (error) {
       console.error(error);
       alert("Error al actualizar el estatus.");
@@ -226,7 +330,7 @@ export default function PersonalRegistrado() {
 
   const confirmarAusenciaModulo = async () => {
     if (!fechas.inicio || !fechas.fin) {
-      alert("Asistencias¸  Debe rellenar la fecha de inicio y de regreso.");
+      alert("⚠️ Debe rellenar la fecha de inicio y de regreso.");
       return;
     }
     await cambiarEstatusFirebase(usuarioParaEstado.id, tipoSeleccionado, fechas.inicio, fechas.fin);
@@ -255,12 +359,12 @@ export default function PersonalRegistrado() {
       docPdf.text(`REPORTE DE PERSONAL - INVECEM`, 14, 20);
       docPdf.setFontSize(10);
       docPdf.setTextColor(100);
-      docPdf.text(`Fecha de emisiÃ³n: ${new Date().toLocaleDateString()}`, 14, 28);
+      docPdf.text(`Fecha de emisión: ${new Date().toLocaleDateString()}`, 14, 28);
       const tableRows = usuariosFiltrados.map(u => [
         u.ficha || "---", u.cedula || "N/A", `${u.nombres} ${u.apellidos}`.toUpperCase(), u.tipoPersonal || "INVECEM", u.cargo || "N/A", u.area || "N/A", u.estatus || "Activo"
       ]);
       autoTable(docPdf, {
-        head: [['Ficha', 'CÃ©dula', 'Nombre Completo', 'Tipo', 'Cargo', 'Ãrea', 'Estado']],
+        head: [['Ficha', 'Cédula', 'Nombre Completo', 'Tipo', 'Cargo', 'Área', 'Estado']],
         body: tableRows,
         startY: 35,
         headStyles: { fillColor: [0, 51, 102], fontStyle: 'bold' },
@@ -279,9 +383,9 @@ export default function PersonalRegistrado() {
       <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-tr from-cyan-400 to-indigo-500 rounded-full blur-3xl opacity-15 animate-pulse-glow"></div>
       <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-gradient-to-tr from-purple-500 to-pink-500 rounded-full blur-3xl opacity-10 animate-pulse-glow delay-1000"></div>
 
-      {/* BARRA DE NAVEGACIÃ“N CORPORATIVA */}
+      {/* BARRA DE NAVEGACIÓN CORPORATIVA */}
       <nav className="top-nav print:hidden bg-white/60 backdrop-blur-xl border-b border-slate-200/80 px-6 py-4 flex justify-between items-center z-20 relative">
-        <div className="flex items-center gap-2.5"><div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg,#06b6d4,#3b82f6)" }}><i className="fas fa-building-columns text-white" style={{ fontSize: "11px" }}></i></div><span className="text-base font-black tracking-tight text-slate-900 uppercase">INVECEM</span></div>
+        <div className="flex items-center gap-2.5"><div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg,#06b6d4,#3b82f6)" }}><i className="fas fa-fingerprint text-white" style={{ fontSize: "11px" }}></i></div><span className="text-base font-black tracking-tight text-slate-900 uppercase">INVECEM</span></div>
         <button
           className="px-4 py-2 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 active:scale-95 rounded-xl font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-indigo-500/20 transition-all duration-200 cursor-pointer text-white hover:shadow-neon-cyan"
           onClick={() => router.push("/recursos-humanos")}
@@ -293,7 +397,7 @@ export default function PersonalRegistrado() {
       {/* CONTENEDOR CENTRAL */}
       <div className="max-w-7xl mx-auto px-6 py-10 z-10 relative">
 
-        {/* MODAL DE SELECCIÃ“N DE FECHAS */}
+        {/* MODAL DE SELECCIÓN DE FECHAS */}
         {showModal && usuarioParaEstado && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
             <div className="bg-white/95 backdrop-blur-xl border border-slate-200/80 rounded-3xl p-6 md:p-8 w-full max-w-md shadow-2xl space-y-6 relative shadow-neon-cyan/20">
@@ -365,7 +469,7 @@ export default function PersonalRegistrado() {
                   <p className="text-3xs font-bold text-slate-500 uppercase tracking-widest mt-0.5 font-mono">SYS_REGISTRAR // HISTORIAL_INCIDENCIAS</p>
                 </div>
                 <span className="px-3 py-1 bg-slate-50 border border-slate-200 text-cyan-600 rounded-xl text-xxs font-black tracking-wider uppercase font-mono">
-                  FICHA: {usuarioExpediente.ficha || "---"}
+                  FICHA: {usuarioExpedienteActual.ficha || "---"}
                 </span>
               </div>
 
@@ -379,48 +483,84 @@ export default function PersonalRegistrado() {
                   <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-xxs font-bold text-slate-500 uppercase tracking-wider font-mono">EMPLEADO</p>
-                      <p className="text-xs font-black text-indigo-950 uppercase mt-0.5">{usuarioExpediente.nombres} {usuarioExpediente.apellidos}</p>
+                      <p className="text-xs font-black text-indigo-955 uppercase mt-0.5">{usuarioExpedienteActual.nombres} {usuarioExpedienteActual.apellidos}</p>
                     </div>
                     <div>
-                      <p className="text-xxs font-bold text-slate-500 uppercase tracking-wider font-mono">CÃ‰DULA</p>
-                      <p className="text-xs font-extrabold text-slate-600 uppercase mt-0.5 font-mono">{usuarioExpediente.cedula}</p>
+                      <p className="text-xxs font-bold text-slate-500 uppercase tracking-wider font-mono">CÉDULA</p>
+                      <p className="text-xs font-extrabold text-slate-600 uppercase mt-0.5 font-mono">{usuarioExpedienteActual.cedula}</p>
                     </div>
                     <div>
-                      <p className="text-xxs font-bold text-slate-500 uppercase tracking-wider font-mono">CARGO</p>
-                      <p className="text-xs font-extrabold text-cyan-705 uppercase mt-0.5">{usuarioExpediente.cargo || "Sin cargo"}</p>
+                      <p className="text-xxs font-bold text-slate-500 uppercase tracking-wider font-mono">
+                        {usuarioExpedienteActual.tipoPersonal === "Pasante" 
+                          ? "CARRERA" 
+                          : usuarioExpedienteActual.tipoPersonal === "Estudiante INCES"
+                          ? "PROGRAMA"
+                          : "CARGO"}
+                      </p>
+                      <p className="text-xs font-extrabold text-cyan-705 uppercase mt-0.5">
+                        {usuarioExpedienteActual.tipoPersonal === "Pasante" 
+                          ? (usuarioExpedienteActual.carreraPasante || "Pasante") 
+                          : usuarioExpedienteActual.tipoPersonal === "Estudiante INCES"
+                          ? (usuarioExpedienteActual.programaInces || "Estudiante INCES")
+                          : (usuarioExpedienteActual.cargo || "Sin cargo")}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xxs font-bold text-slate-500 uppercase tracking-wider font-mono">
+                        {usuarioExpedienteActual.tipoPersonal === "Pasante" 
+                          ? "UNIVERSIDAD" 
+                          : usuarioExpedienteActual.tipoPersonal === "Estudiante INCES"
+                          ? "COHORTE"
+                          : "ÁREA"}
+                      </p>
+                      <p className="text-xs font-extrabold text-slate-600 uppercase mt-0.5">
+                        {usuarioExpedienteActual.tipoPersonal === "Pasante" 
+                          ? (usuarioExpedienteActual.universidadPasante || "Sin Universidad") 
+                          : usuarioExpedienteActual.tipoPersonal === "Estudiante INCES"
+                          ? (usuarioExpedienteActual.cohorteInces || "Sin Cohorte")
+                          : (usuarioExpedienteActual.area || "Sin área")}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xxs font-bold text-slate-500 uppercase tracking-wider font-mono">HORARIO_TURNO</p>
                       <p className="text-xs font-black text-slate-700 uppercase mt-0.5">
-                        {usuarioExpediente.horaEntrada && usuarioExpediente.horaSalida
-                          ? `${usuarioExpediente.horaEntrada} a ${usuarioExpediente.horaSalida}`
-                          : (usuarioExpediente.regimenLaboral || "No asignado")}
+                        {usuarioExpedienteActual.horaEntrada && usuarioExpedienteActual.horaSalida
+                          ? `${usuarioExpedienteActual.horaEntrada} a ${usuarioExpedienteActual.horaSalida}`
+                          : (usuarioExpedienteActual.regimenLaboral || "No asignado")}
                       </p>
                     </div>
                     <div>
                       <p className="text-xxs font-bold text-slate-500 uppercase tracking-wider font-mono">FECHA_INGRESO</p>
-                      <p className="text-xs font-extrabold text-slate-500 mt-0.5 font-mono">{usuarioExpediente.fechaIngreso || "No registrada"}</p>
+                      <p className="text-xs font-extrabold text-slate-500 mt-0.5 font-mono">{usuarioExpedienteActual.fechaIngreso || "No registrada"}</p>
                     </div>
                     <div>
                       <p className="text-xxs font-bold text-slate-500 uppercase tracking-wider font-mono">STATUS_ACTUAL</p>
-                      <p className="text-xs font-black text-emerald-600 uppercase mt-0.5">{usuarioExpediente.estatus}</p>
+                      <p className="text-xs font-black text-emerald-600 uppercase mt-0.5">{usuarioExpedienteActual.estatus}</p>
                     </div>
+                    {usuarioExpedienteActual.tipoPersonal === "Pasante" && (
+                      <div>
+                        <p className="text-xxs font-bold text-slate-500 uppercase tracking-wider font-mono">CULMINACIÓN_PASANTÍA</p>
+                        <p className="text-xs font-black text-amber-600 mt-0.5 font-mono">
+                          {usuarioExpedienteActual.fechaEgreso ? usuarioExpedienteActual.fechaEgreso.split("-").reverse().join("/") : "No registrada"}
+                        </p>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Input AmonestaciÃ³n */}
+                  {/* Input Amonestación */}
                   <div className="space-y-3">
                     <label className="text-xxs font-black uppercase text-red-600 tracking-wider flex items-center gap-1.5 font-mono">
-                      <i className="fas fa-exclamation-triangle"></i> SYS_OBSERVACION // AMONESTACIÃ“N
+                      <i className="fas fa-exclamation-triangle"></i> SYS_OBSERVACION // AMONESTACIÓN
                     </label>
                     <textarea
                       className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:shadow-neon-cyan/40 text-sm font-semibold h-24 resize-none"
-                      placeholder="Escriba aquÃ­ los detalles y motivos especÃ­ficos..."
+                      placeholder="Escriba aquí los detalles y motivos específicos..."
                       value={notaAmonestacion}
                       onChange={(e) => setNotaAmonestacion(e.target.value)}
                     />
                     <button
                       className="w-full py-3.5 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-650 hover:from-cyan-400 hover:to-purple-500 text-white font-extrabold uppercase text-xs tracking-wider rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-neon-cyan transition-all duration-200 cursor-pointer"
-                      onClick={() => guardarIncidencia("AMONESTACIÃ“N", notaAmonestacion)}
+                      onClick={() => guardarIncidencia("AMONESTACIÓN", notaAmonestacion)}
                     >
                       Guardar en Historial
                     </button>
@@ -430,28 +570,28 @@ export default function PersonalRegistrado() {
                   <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl">
                     <p className="text-xxs font-black text-slate-500 uppercase tracking-widest mb-3">Asistencia de Hoy</p>
 
-                    {verificarPresenciaHoy(usuarioExpediente) ? (
+                    {verificarPresenciaHoy(usuarioExpedienteActual) ? (
                       <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-center shadow-sm">
                         <p className="text-xs font-black text-emerald-600 uppercase tracking-wider">
                           <i className="fas fa-check-circle mr-1.5"></i> Presente: Registro confirmado en sistema.
                         </p>
                       </div>
                     ) : (
-                      verificarSiDebeMarcarFalta(usuarioExpediente) ? (
+                      verificarSiDebeMarcarFalta(usuarioExpedienteActual) ? (
                         <div className="space-y-3">
                           <p className="text-xs font-black text-red-650 uppercase tracking-wider text-center bg-red-50 border border-red-200 p-2 rounded-xl">
-                            <i className="fas fa-times-circle mr-1.5"></i> Inasistencia: No se detectÃ³ presencia hoy.
+                            <i className="fas fa-times-circle mr-1.5"></i> Inasistencia: No se detectó presencia hoy.
                           </p>
                           <div className="flex gap-2">
                             <button
                               className="flex-1 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xxs font-black tracking-wider uppercase rounded-xl transition-all cursor-pointer shadow-sm hover:shadow-neon-cyan"
-                              onClick={() => guardarIncidencia("FALTA", `Inasistencia ${new Date().toLocaleDateString()} - JUSTIFICADA`)}
+                              onClick={() => manejarFaltaHoy("JUSTIFICADA")}
                             >
                               Justificar
                             </button>
                             <button
                               className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white text-xxs font-black tracking-wider uppercase rounded-xl transition-all cursor-pointer shadow-sm hover:shadow-neon-red"
-                              onClick={() => guardarIncidencia("FALTA", `Inasistencia ${new Date().toLocaleDateString()} - INJUSTIFICADA`)}
+                              onClick={() => manejarFaltaHoy("INJUSTIFICADA")}
                             >
                               Injustificada
                             </button>
@@ -474,8 +614,8 @@ export default function PersonalRegistrado() {
                   <p className="text-xxs font-black text-slate-500 uppercase tracking-widest mb-4">Historial de Registros</p>
 
                   <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-                    {usuarioExpediente.historialIncidencias?.length > 0 ? (
-                      usuarioExpediente.historialIncidencias.slice().reverse().map((item, index) => {
+                    {usuarioExpedienteActual.historialIncidencias?.length > 0 ? (
+                      usuarioExpedienteActual.historialIncidencias.slice().reverse().map((item, index) => {
                         const esJustificada = item.descripcion.includes('JUSTIFICADA');
                         const isFalta = item.tipo === 'FALTA';
 
@@ -540,7 +680,7 @@ export default function PersonalRegistrado() {
             </div>
           </div>
 
-          {/* GestiÃ³n Clave de Expedientes */}
+          {/* Gestión Clave de Expedientes */}
           <div className="p-4 bg-white/80 backdrop-blur-md border border-slate-200 rounded-2xl w-full md:w-80 shadow-md">
             {!editandoClave ? (
               <button
@@ -582,7 +722,7 @@ export default function PersonalRegistrado() {
           </div>
         </div>
 
-        {/* BARRA DE FILTRADO Y ACCIONES RÃPIDAS */}
+        {/* BARRA DE FILTRADO Y ACCIONES RÁPIDAS */}
         <div className="p-4 bg-white/80 backdrop-blur-xl border border-slate-200/60 rounded-3xl flex flex-col xl:flex-row justify-between items-center gap-4 mb-6 shadow-xl shadow-slate-200/10 no-print relative">
           {/* Tech Corners */}
           <div className="absolute top-2 left-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
@@ -608,7 +748,7 @@ export default function PersonalRegistrado() {
             </span>
             <input
               type="text"
-              placeholder="Buscar por Nombre, CÃ©dula, Ficha..."
+              placeholder="Buscar por Nombre, Cédula, Ficha..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs font-semibold"
@@ -625,14 +765,14 @@ export default function PersonalRegistrado() {
             </button>
 
             <button
-              className="px-4 py-3 bg-white hover:bg-slate-50 border border-slate-200 text-slate-650 hover:text-indigo-950 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5"
+              className="px-4 py-3 bg-red-50/50 hover:bg-red-100/50 border border-red-200 text-red-600 hover:text-red-700 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5"
               onClick={generarPDF}
             >
               <i className="fas fa-file-pdf"></i> Descargar PDF
             </button>
 
             <button
-              className="px-4 py-3 bg-white hover:bg-slate-50 border border-slate-200 text-slate-655 hover:text-indigo-950 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5"
+              className="px-4 py-3 bg-red-50/50 hover:bg-red-100/50 border border-red-200 text-red-600 hover:text-red-700 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5"
               onClick={() => window.print()}
             >
               <i className="fas fa-print"></i> Imprimir
@@ -657,10 +797,10 @@ export default function PersonalRegistrado() {
                 <thead>
                   <tr className="border-b border-slate-200/60">
                     <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center w-24 font-mono">FICHA</th>
-                    <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">CÃ‰DULA</th>
+                    <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">CÉDULA</th>
                     <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-left font-mono">NOMBRES Y APELLIDOS</th>
                     <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">TIPO</th>
-                    <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-left font-mono">CARGO / PUESTO</th>
+                    <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-left font-mono">CARGO / ÁREA (ACADEMIA)</th>
                     <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">ESTATUS OPERACIONAL</th>
                     <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center no-print font-mono">ACCIONES EXPEDIENTE</th>
                   </tr>
@@ -681,7 +821,7 @@ export default function PersonalRegistrado() {
                           {user.ficha || "---"}
                         </td>
 
-                        {/* CÃ©dula */}
+                        {/* Cédula */}
                         <td className="py-4 px-3 text-center font-bold text-slate-600 text-sm font-mono">
                           {user.cedula}
                         </td>
@@ -693,14 +833,56 @@ export default function PersonalRegistrado() {
 
                         {/* ID (Tipo de personal) */}
                         <td className="py-4 px-3 text-center">
-                          <span className="px-2 py-0.5 bg-slate-50 border border-slate-200 text-slate-500 rounded-lg text-[9px] font-black tracking-widest uppercase font-mono">
-                            {user.tipoPersonal || "INVECEM"}
-                          </span>
+                          {user.tipoPersonal === "Pasante" ? (
+                            <span className="px-2.5 py-1 bg-amber-50 border border-amber-200 text-amber-700 rounded-lg text-[9px] font-black tracking-widest uppercase font-mono">
+                              Pasante
+                            </span>
+                          ) : user.tipoPersonal === "Estudiante INCES" ? (
+                            <span className="px-2.5 py-1 bg-purple-50 border border-purple-200 text-purple-700 rounded-lg text-[9px] font-black tracking-widest uppercase font-mono">
+                              Estudiante INCES
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-1 bg-red-50 border border-red-200 text-red-700 rounded-lg text-[9px] font-black tracking-widest uppercase font-mono">
+                              {user.tipoPersonal || "INVECEM"}
+                            </span>
+                          )}
                         </td>
 
-                        {/* Cargo */}
-                        <td className="py-4 px-3 text-left font-extrabold text-cyan-705 text-xs uppercase">
-                          {user.cargo || "Sin cargo asignado"}
+                        {/* Cargo / Área / Información Académica */}
+                        <td className="py-4 px-3 text-left">
+                          {user.tipoPersonal === "Pasante" ? (
+                            <>
+                              <div className="font-extrabold text-cyan-700 text-xs uppercase">
+                                {user.carreraPasante || "Pasante"}
+                              </div>
+                              <div className="font-bold text-slate-500 text-xxs uppercase tracking-wider mt-0.5 font-mono">
+                                {user.universidadPasante || "Sin Universidad"}
+                              </div>
+                              {user.fechaEgreso && (
+                                <div className="text-[10px] font-bold text-amber-600 uppercase mt-1 font-mono">
+                                  Culmina: <span className="font-black">{user.fechaEgreso.split("-").reverse().join("/")}</span>
+                                </div>
+                              )}
+                            </>
+                          ) : user.tipoPersonal === "Estudiante INCES" ? (
+                            <>
+                              <div className="font-extrabold text-cyan-700 text-xs uppercase">
+                                {user.programaInces || "Estudiante INCES"}
+                              </div>
+                              <div className="font-bold text-slate-500 text-xxs uppercase tracking-wider mt-0.5 font-mono">
+                                Cohorte: {user.cohorteInces || "Sin Cohorte"}
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="font-extrabold text-cyan-700 text-xs uppercase">
+                                {user.cargo || "Sin cargo asignado"}
+                              </div>
+                              <div className="font-bold text-slate-500 text-xxs uppercase tracking-wider mt-0.5 font-mono">
+                                {user.area || "Sin área asignada"}
+                              </div>
+                            </>
+                          )}
                         </td>
 
                         {/* Estatus Dropdown */}
@@ -759,6 +941,42 @@ export default function PersonalRegistrado() {
             </div>
           )}
         </div>
+
+        {confirmDialog.isOpen && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 animate-fade-in no-print">
+            <div className="bg-white/95 backdrop-blur-xl border border-red-500/30 rounded-3xl p-6 md:p-8 w-full max-w-md shadow-2xl space-y-6 relative shadow-neon-red/10 text-slate-800 animate-slide-up">
+              {/* Tech Corners */}
+              <div className="absolute top-2 left-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+              <div className="absolute top-2 right-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+
+              <h2 className="text-xl font-black uppercase text-indigo-950 tracking-tight flex items-center gap-2">
+                <i className="fas fa-exclamation-triangle text-red-500"></i> {confirmDialog.title}
+              </h2>
+              <p className="text-sm font-semibold text-slate-650 leading-relaxed">
+                {confirmDialog.message}
+              </p>
+
+              <div className="flex gap-3 justify-end pt-4">
+                <button
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-650 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer"
+                  onClick={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+                >
+                  Cancelar
+                </button>
+                <button
+                  className="px-5 py-2.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-red-500/20 transition-all duration-200 cursor-pointer hover:shadow-neon-red"
+                  onClick={async () => {
+                    setConfirmDialog({ ...confirmDialog, isOpen: false });
+                    if (confirmDialog.onConfirm) await confirmDialog.onConfirm();
+                  }}
+                >
+                  Confirmar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );

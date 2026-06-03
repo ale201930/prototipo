@@ -1,9 +1,9 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
 
 import { useRouter } from "next/navigation";
-import { db } from "../../lib/firebase"; 
+import { db, registrarAccion } from "../../lib/firebase"; 
 import { 
   collection, 
   query, 
@@ -16,6 +16,12 @@ import {
 export default function GestionUsuarios() {
   const [usuarios, setUsuarios] = useState([]);
   const [filtro, setFiltro] = useState("");
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: null
+  });
   const router = useRouter();
 
   // 1. CARGA EN TIEMPO REAL
@@ -36,7 +42,7 @@ export default function GestionUsuarios() {
     return () => unsubscribe();
   }, []);
 
-  // 2. FILTRADO PARA LA BARRA DE BÃšSQUEDA
+  // 2. FILTRADO PARA LA BARRA DE BÚSQUEDA
   const usuariosFiltrados = usuarios.filter(u => 
     u.nombres?.toLowerCase().includes(filtro.toLowerCase()) ||
     u.ficha?.includes(filtro) ||
@@ -44,20 +50,35 @@ export default function GestionUsuarios() {
     u.rol?.toLowerCase().includes(filtro.toLowerCase())
   );
 
-  const eliminarUsuario = async (id, nombreUser) => {
-    if (confirm(`Â¿Eliminar a ${nombreUser}?\nEsta acciÃ³n borrarÃ¡ sus datos de la base de datos.`)) {
-      try {
-        await deleteDoc(doc(db, "usuarios", id));
-      } catch (error) {
-        console.error("Error:", error);
-      }
+  const eliminarUsuario = (id, nombreUser, rol) => {
+    if (rol?.toLowerCase() === "administrador" || rol?.toLowerCase() === "admin") {
+      alert("⚠️ Por razones de seguridad, no está permitido eliminar usuarios con el rol de Administrador.");
+      return;
     }
+
+    setConfirmDialog({
+      isOpen: true,
+      title: "Eliminar Usuario",
+      message: `¿Eliminar a ${nombreUser}? Esta acción borrará sus datos de la base de datos de forma permanente.`,
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, "usuarios", id));
+          registrarAccion(null, null, `Usuario eliminado: ${nombreUser} (${rol})`, "Control de Usuarios");
+        } catch (error) {
+          console.error("Error:", error);
+        }
+      }
+    });
   };
 
   const toggleEstado = async (id, estadoActual) => {
     const nuevoEstado = estadoActual === "Activo" ? "Inactivo" : "Activo";
     try {
       await updateDoc(doc(db, "usuarios", id), { estado: nuevoEstado });
+      const targetUser = usuarios.find(u => u.id === id);
+      const targetName = targetUser ? (targetUser.nombres || targetUser.usuario) : id;
+      const targetRol = targetUser ? targetUser.rol : "Desconocido";
+      registrarAccion(null, null, `Estatus de usuario cambiado: ${targetName} (${targetRol}) a ${nuevoEstado}`, "Control de Usuarios");
     } catch (error) {
       console.error("Error:", error);
     }
@@ -69,9 +90,9 @@ export default function GestionUsuarios() {
       <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-tr from-cyan-400 to-indigo-500 rounded-full blur-3xl opacity-15 animate-pulse-glow"></div>
       <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-gradient-to-tr from-purple-500 to-pink-500 rounded-full blur-3xl opacity-10 animate-pulse-glow delay-1000"></div>
 
-      {/* BARRA DE NAVEGACIÃ“N SUPERIOR UNIFICADA */}
+      {/* BARRA DE NAVEGACIÓN SUPERIOR UNIFICADA */}
       <nav className="top-nav no-print bg-white/60 backdrop-blur-xl border-b border-slate-200/80 px-6 py-4 flex justify-between items-center z-20 relative">
-        <div className="flex items-center gap-2.5"><div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:"linear-gradient(135deg,#06b6d4,#3b82f6)"}}><i className="fas fa-building-columns text-white" style={{fontSize:"11px"}}></i></div><span className="text-base font-black tracking-tight text-slate-900 uppercase">INVECEM</span></div>
+        <div className="flex items-center gap-2.5"><div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:"linear-gradient(135deg,#06b6d4,#3b82f6)"}}><i className="fas fa-fingerprint text-white" style={{fontSize:"11px"}}></i></div><span className="text-base font-black tracking-tight text-slate-900 uppercase">INVECEM</span></div>
         <button 
           className="px-4 py-2 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 active:scale-95 rounded-xl font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-indigo-500/20 transition-all duration-200 cursor-pointer text-white hover:shadow-neon-cyan"
           onClick={() => router.push("/administrador")}
@@ -83,17 +104,17 @@ export default function GestionUsuarios() {
       {/* CONTENEDOR DE CONTENIDO PRINCIPAL */}
       <div className="max-w-6xl mx-auto px-6 py-10 z-10 relative">
         
-        {/* ENCABEZADO DE REPORTE TÃ‰CNICO */}
+        {/* ENCABEZADO DE REPORTE TÉCNICO */}
         <header className="mb-8 border-l-6 border-cyan-500 pl-5">
           <h1 className="text-3xl font-black tracking-tight text-indigo-950 uppercase">
-            GestiÃ³n de Usuarios
+            Gestión de Usuarios
           </h1>
           <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">
-            AdministraciÃ³n, control de estatus y asignaciÃ³n de roles para el personal de planta
+            Administración, control de estatus y asignación de roles para el personal de planta
           </p>
         </header>
 
-        {/* BARRA DE ACCIONES (BÃšSQUEDA Y REGISTRO) */}
+        {/* BARRA DE ACCIONES (BÚSQUEDA Y REGISTRO) */}
         <div className="p-4 bg-white/80 backdrop-blur-xl border border-slate-200/60 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-4 mb-6 shadow-xl shadow-slate-200/20">
           <div className="relative w-full md:flex-1">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-500">
@@ -101,7 +122,7 @@ export default function GestionUsuarios() {
             </span>
             <input 
               type="text" 
-              placeholder="Buscar por Nombre, Ficha, CÃ©dula, Rol..." 
+              placeholder="Buscar por Nombre, Ficha, Cédula, Rol..." 
               value={filtro}
               onChange={(e) => setFiltro(e.target.value)}
               className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-200 text-sm font-semibold shadow-sm"
@@ -129,7 +150,7 @@ export default function GestionUsuarios() {
                 <tr className="border-b border-slate-200">
                   <th className="text-slate-500 font-mono text-[9px] font-black tracking-wider uppercase py-4 px-3 text-center">ESTATUS</th>
                   <th className="text-slate-500 font-mono text-[9px] font-black tracking-wider uppercase py-4 px-3 text-center">FICHA</th>
-                  <th className="text-slate-500 font-mono text-[9px] font-black tracking-wider uppercase py-4 px-3 text-center">CÃ‰DULA</th>
+                  <th className="text-slate-500 font-mono text-[9px] font-black tracking-wider uppercase py-4 px-3 text-center">CÉDULA</th>
                   <th className="text-slate-500 font-mono text-[9px] font-black tracking-wider uppercase py-4 px-3 text-left">NOMBRES Y APELLIDOS</th>
                   <th className="text-slate-500 font-mono text-[9px] font-black tracking-wider uppercase py-4 px-3 text-left">CARGO / DEPARTAMENTO</th>
                   <th className="text-slate-500 font-mono text-[9px] font-black tracking-wider uppercase py-4 px-3 text-center">ROL</th>
@@ -146,7 +167,7 @@ export default function GestionUsuarios() {
                     <tr key={user.id} className="hover:bg-slate-50/80 transition-colors border-b border-slate-100">
                       <td className="py-4 px-3 text-center">
                         <span className={`px-2.5 py-0.5 rounded-lg text-xxs font-black tracking-wider uppercase inline-block border ${user.estado === "Activo" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-600 border-red-200"}`}>
-                          â— {user.estado || "Activo"}
+                          ● {user.estado || "Activo"}
                         </span>
                       </td>
                       <td className="py-4 px-3 text-center font-black text-cyan-600 text-sm font-mono">{user.ficha || "---"}</td>
@@ -183,9 +204,13 @@ export default function GestionUsuarios() {
                             <i className="fas fa-ban"></i>
                           </button>
                           <button 
-                            className="bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-500 hover:text-red-600 p-2 rounded-xl text-xs transition-all active:scale-90 cursor-pointer flex items-center justify-center w-8 h-8" 
-                            onClick={() => eliminarUsuario(user.id, user.nombres)}
-                            title="Eliminar"
+                            className={`border text-xs transition-all p-2 rounded-xl w-8 h-8 flex items-center justify-center ${
+                              user.rol?.toLowerCase() === "administrador" || user.rol?.toLowerCase() === "admin"
+                                ? "bg-slate-105 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed"
+                                : "bg-white hover:bg-red-50 border-slate-200 hover:border-red-200 text-slate-500 hover:text-red-600 active:scale-90 cursor-pointer"
+                            }`}
+                            onClick={() => eliminarUsuario(user.id, user.nombres || user.usuario, user.rol)}
+                            title={user.rol?.toLowerCase() === "administrador" || user.rol?.toLowerCase() === "admin" ? "No se puede eliminar un administrador" : "Eliminar"}
                           >
                             <i className="fas fa-trash-alt"></i>
                           </button>
@@ -198,6 +223,42 @@ export default function GestionUsuarios() {
             </table>
           </div>
         </div>
+
+        {confirmDialog.isOpen && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 animate-fade-in no-print">
+            <div className="bg-white/95 backdrop-blur-xl border border-red-500/30 rounded-3xl p-6 md:p-8 w-full max-w-md shadow-2xl space-y-6 relative shadow-neon-red/10 text-slate-800 animate-slide-up">
+              {/* Tech Corners */}
+              <div className="absolute top-2 left-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+              <div className="absolute top-2 right-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+
+              <h2 className="text-xl font-black uppercase text-indigo-950 tracking-tight flex items-center gap-2">
+                <i className="fas fa-exclamation-triangle text-red-500"></i> {confirmDialog.title}
+              </h2>
+              <p className="text-sm font-semibold text-slate-650 leading-relaxed">
+                {confirmDialog.message}
+              </p>
+
+              <div className="flex gap-3 justify-end pt-4">
+                <button
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-650 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer"
+                  onClick={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+                >
+                  Cancelar
+                </button>
+                <button
+                  className="px-5 py-2.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-red-500/20 transition-all duration-200 cursor-pointer hover:shadow-neon-red"
+                  onClick={async () => {
+                    setConfirmDialog({ ...confirmDialog, isOpen: false });
+                    if (confirmDialog.onConfirm) await confirmDialog.onConfirm();
+                  }}
+                >
+                  Confirmar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { auth, db } from "../lib/firebase"; 
+import { auth, db, registrarAccion } from "../lib/firebase"; 
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
@@ -23,7 +23,7 @@ export default function Login() {
 
     const params = new URLSearchParams(window.location.search);
     if (params.get("error") === "unauthorized") {
-      setError("âš ï¸ Debe iniciar sesiÃ³n para acceder a este mÃ³dulo.");
+      setError("⚠️ Debe iniciar sesión para acceder a este módulo.");
     }
   }, []);
 
@@ -41,7 +41,8 @@ export default function Login() {
         userCredential = await signInWithEmailAndPassword(auth, correoParaAuth, clave.trim());
       } catch (authError) {
         console.log("Fallo Auth:", authError.message);
-        setError("Usuario o contraseÃ±a incorrectos");
+        registrarAccion(usuario, "Invitado", "Intento de inicio de sesión fallido: Credenciales incorrectas", "Acceso");
+        setError("Usuario o contraseña incorrectos");
         setLoading(false);
         return;
       }
@@ -55,14 +56,17 @@ export default function Login() {
         const userData = docSnap.data();
         
         if (userData.estado === "Inactivo") {
-          setError("ðŸš« Usuario desactivado por administraciÃ³n.");
+          registrarAccion(userData.nombres || userData.correo, userData.rol, "Intento de inicio de sesión fallido: Cuenta desactivada", "Acceso");
+          setError("🚫 Usuario desactivado por administración.");
           setLoading(false);
           return;
         }
 
-        iniciarSesionExitosa(userData.rol, userData.usuario);
+        registrarAccion(userData.nombres || userData.correo, userData.rol, "Inicio de sesión exitoso", "Acceso");
+        iniciarSesionExitosa(userData.rol, userData.nombres || userData.correo);
       } else {
-        setError("âš ï¸ Error de perfil: El usuario no tiene datos asignados.");
+        registrarAccion(usuario, "Invitado", "Intento de inicio de sesión fallido: Perfil sin datos en sistema", "Acceso");
+        setError("⚠️ Error de perfil: El usuario no tiene datos asignados.");
         setLoading(false);
       }
 
@@ -91,17 +95,17 @@ export default function Login() {
     if (ruta) {
       router.push(ruta);
     } else {
-      setError("Rol no vÃ¡lido: " + rol);
+      setError("Rol no válido: " + rol);
     }
   };
 
   return (
-    <div className="min-h-screen w-full flex" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="theme-dark min-h-screen w-full flex" style={{ fontFamily: "'Inter', sans-serif" }}>
 
-      {/* â”€â”€ PANEL IZQUIERDO â€” BRANDING â”€â”€ */}
+      {/* ── PANEL IZQUIERDO — BRANDING ── */}
       <div className="hidden lg:flex lg:w-1/2 login-panel-left flex-col items-center justify-center p-12 relative">
         
-        {/* DecoraciÃ³n geomÃ©trica */}
+        {/* Decoración geométrica */}
         <div className="absolute top-8 left-8 w-32 h-32 border border-cyan-500/10 rounded-3xl rotate-12 pointer-events-none" />
         <div className="absolute bottom-16 right-12 w-20 h-20 border border-blue-500/10 rounded-2xl -rotate-6 pointer-events-none" />
         <div className="absolute top-1/3 right-8 w-3 h-3 bg-cyan-500/40 rounded-full animate-pulse pointer-events-none" />
@@ -110,10 +114,10 @@ export default function Login() {
         {/* Logo y branding */}
         <div className="relative z-10 text-center animate-slide-up">
 
-          {/* Ãcono corporativo */}
+          {/* Ícono corporativo */}
           <div className="mx-auto mb-8 w-24 h-24 rounded-2xl flex items-center justify-center animate-glow-ring"
             style={{ background: 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)', boxShadow: '0 0 40px rgba(6,182,212,0.3)' }}>
-            <i className="fas fa-building-columns text-white text-4xl" />
+            <i className="fas fa-fingerprint text-white text-4xl" />
           </div>
 
           <h1 className="text-5xl font-black tracking-tight text-white mb-2">
@@ -123,16 +127,16 @@ export default function Login() {
             style={{ background: 'linear-gradient(90deg, #06b6d4, #3b82f6)' }} />
           
           <p className="text-slate-300 text-base font-medium leading-relaxed max-w-xs mx-auto">
-            Sistema integrado de control de asistencia y gestiÃ³n de personal de planta
+            Sistema integrado de control de asistencia y gestión de personal de planta
           </p>
 
-          {/* MÃ³dulos disponibles */}
+          {/* Módulos disponibles */}
           <div className="mt-10 grid grid-cols-2 gap-3 max-w-xs mx-auto">
             {[
-              { icon: 'fa-user-tie', label: 'AdministraciÃ³n', color: 'text-cyan-400' },
+              { icon: 'fa-user-tie', label: 'Administración', color: 'text-cyan-400' },
               { icon: 'fa-user-shield', label: 'Inspector', color: 'text-blue-400' },
               { icon: 'fa-users', label: 'Recursos Humanos', color: 'text-sky-400' },
-              { icon: 'fa-shield-halved', label: 'ProtecciÃ³n FÃ­sica', color: 'text-indigo-400' },
+              { icon: 'fa-shield-halved', label: 'Protección Física', color: 'text-indigo-400' },
             ].map(m => (
               <div key={m.label} className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
                 style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -145,23 +149,23 @@ export default function Login() {
 
         {/* Footer branding */}
         <div className="absolute bottom-8 left-0 right-0 text-center">
-          <p className="text-slate-600 text-xs font-mono tracking-wider">PLANTA INDUSTRIAL Â· ACCESO SEGURO</p>
+          <p className="text-slate-600 text-xs font-mono tracking-wider">PLANTA INDUSTRIAL · ACCESO SEGURO</p>
         </div>
       </div>
 
-      {/* â”€â”€ PANEL DERECHO â€” FORMULARIO â”€â”€ */}
+      {/* ── PANEL DERECHO — FORMULARIO ── */}
       <div className="flex-1 flex items-center justify-center p-6 md:p-12" style={{ background: 'var(--bg-main)' }}>
         
         <div className="w-full max-w-md animate-fade-in">
 
-          {/* Header mÃ³vil (visible solo en mobile) */}
+          {/* Header móvil (visible solo en mobile) */}
           <div className="lg:hidden text-center mb-8">
             <div className="mx-auto mb-4 w-16 h-16 rounded-2xl flex items-center justify-center"
               style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)' }}>
-              <i className="fas fa-building-columns text-white text-2xl" />
+              <i className="fas fa-fingerprint text-white text-2xl" />
             </div>
-            <h1 className="text-2xl font-black text-slate-900">INVECEM</h1>
-            <p className="text-slate-500 text-sm mt-1">Sistema de GestiÃ³n de Planta</p>
+            <h1 className="text-2xl font-black text-white">INVECEM</h1>
+            <p className="text-slate-400 text-sm mt-1">Sistema de Gestión de Planta</p>
           </div>
 
           {/* Card de login */}
@@ -169,15 +173,15 @@ export default function Login() {
             style={{ boxShadow: '0 20px 60px rgba(15,23,42,0.1), 0 1px 3px rgba(15,23,42,0.05)' }}>
 
             <div className="mb-8">
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight">Iniciar SesiÃ³n</h2>
-              <p className="text-slate-500 text-sm mt-1.5 font-medium">Ingresa tus credenciales para acceder al sistema</p>
+              <h2 className="text-2xl font-black text-center text-white tracking-tight">Iniciar Sesión</h2>
+              <p className="text-slate-400 text-center text-sm mt-1.5 font-medium">Ingresa tus credenciales para acceder al sistema</p>
             </div>
 
             <form onSubmit={manejarLogin} className="space-y-5">
 
               {/* Campo usuario */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
                   <i className="fas fa-user text-cyan-500 text-[11px]" />
                   Usuario o Correo
                 </label>
@@ -188,31 +192,31 @@ export default function Login() {
                     value={usuario}
                     onChange={(e) => setUsuario(e.target.value)}
                     required
-                    className="w-full px-4 py-3.5 pr-12 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 font-semibold text-sm"
+                    className="w-full px-4 py-3.5 pr-12 bg-slate-900/40 border border-slate-700 rounded-2xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:border-transparent transition-all duration-200 font-semibold text-sm"
                     style={{ '--tw-ring-color': 'rgba(6,182,212,0.4)' }}
-                    onFocus={e => { e.target.style.borderColor='var(--cyan)'; e.target.style.boxShadow='0 0 0 3px rgba(6,182,212,0.15)'; e.target.style.background='var(--bg-card)'; }}
-                    onBlur={e => { e.target.style.borderColor='var(--border)'; e.target.style.boxShadow='none'; e.target.style.background='var(--navy-soft)'; }}
+                    onFocus={e => { e.target.style.borderColor='var(--cyan)'; e.target.style.boxShadow='0 0 0 3px rgba(6,182,212,0.15)'; e.target.style.background='rgba(15,23,42,0.6)'; }}
+                    onBlur={e => { e.target.style.borderColor='var(--border)'; e.target.style.boxShadow='none'; e.target.style.background='rgba(15,23,42,0.4)'; }}
                   />
                   <i className="fas fa-at absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
                 </div>
               </div>
 
-              {/* Campo contraseÃ±a */}
+              {/* Campo contraseña */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
                   <i className="fas fa-key text-cyan-500 text-[11px]" />
-                  ContraseÃ±a
+                  Contraseña
                 </label>
                 <div className="relative">
                   <input
                     type={showPass ? "text" : "password"}
-                    placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                    placeholder="••••••••••"
                     value={clave}
                     onChange={(e) => setClave(e.target.value)}
                     required
-                    className="w-full px-4 py-3.5 pr-12 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 placeholder-slate-400 focus:outline-none transition-all duration-200 font-semibold text-sm"
-                    onFocus={e => { e.target.style.borderColor='var(--cyan)'; e.target.style.boxShadow='0 0 0 3px rgba(6,182,212,0.15)'; e.target.style.background='var(--bg-card)'; }}
-                    onBlur={e => { e.target.style.borderColor='var(--border)'; e.target.style.boxShadow='none'; e.target.style.background='var(--navy-soft)'; }}
+                    className="w-full px-4 py-3.5 pr-12 bg-slate-900/40 border border-slate-700 rounded-2xl text-white placeholder-slate-500 focus:outline-none transition-all duration-200 font-semibold text-sm"
+                    onFocus={e => { e.target.style.borderColor='var(--cyan)'; e.target.style.boxShadow='0 0 0 3px rgba(6,182,212,0.15)'; e.target.style.background='rgba(15,23,42,0.6)'; }}
+                    onBlur={e => { e.target.style.borderColor='var(--border)'; e.target.style.boxShadow='none'; e.target.style.background='rgba(15,23,42,0.4)'; }}
                   />
                   <button
                     type="button"
@@ -233,7 +237,7 @@ export default function Login() {
                 </div>
               )}
 
-              {/* BotÃ³n */}
+              {/* Botón */}
               <button
                 type="submit"
                 disabled={loading}
@@ -260,14 +264,14 @@ export default function Login() {
 
               {/* Footer */}
               <div className="pt-4 border-t border-slate-100 text-center">
-                <p className="text-slate-400 text-xs font-mono tracking-wider">ACCESO SEGURO Â· PLANTA OFICIAL</p>
+                <p className="text-slate-400 text-xs font-mono tracking-wider">ACCESO SEGURO · PLANTA OFICIAL</p>
               </div>
 
             </form>
           </div>
 
           <p className="text-center text-slate-400 text-xs mt-6 font-medium">
-            INVECEM Â© {new Date().getFullYear()} Â· Sistema de Control de Personal
+            INVECEM © {new Date().getFullYear()} · Sistema de Control de Personal
           </p>
         </div>
       </div>

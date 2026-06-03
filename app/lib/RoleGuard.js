@@ -9,8 +9,9 @@ export default function RoleGuard({ children, allowedRole }) {
   const router = useRouter();
 
   useEffect(() => {
-    const session = Cookies.get("user_session"); // Nombre del usuario
-    const role = Cookies.get("user_role");       // Rol del usuario
+    const session = Cookies.get("user_session");
+    const role = Cookies.get("user_role");
+    const username = Cookies.get("user_name") || "Invitado";
 
     // --- LÓGICA CON AUDITORÍA ACTIVA ---
     
@@ -25,7 +26,7 @@ export default function RoleGuard({ children, allowedRole }) {
       
       // Registramos el intento fallido en Firebase antes de sacarlo
       registrarAccion(
-        session, 
+        username, 
         role, 
         `Intento de acceso denegado a ${allowedRole}`, 
         allowedRole

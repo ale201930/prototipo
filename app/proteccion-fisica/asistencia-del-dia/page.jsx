@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -64,6 +64,77 @@ export default function AsistenciaContratas() {
     return () => unsubscribe();
   }, []);
 
+  const descargarPDF = async () => {
+    const { default: jsPDF } = await import("jspdf");
+    const { default: autoTable } = await import("jspdf-autotable");
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+
+    // Header
+    doc.setFillColor(6, 182, 212);
+    doc.rect(0, 0, 297, 18, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(13);
+    doc.setFont("helvetica", "bold");
+    doc.text("INVECEM — Control de Asistencia Diaria", 14, 11);
+    doc.setFontSize(8);
+    doc.text(`Fecha: ${fechaHoyStr}`, 297 - 14, 11, { align: "right" });
+
+    // Subheader info
+    doc.setTextColor(100, 116, 139);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Personal en planta: ${resumen.presentes}   |   Total registrados: ${resumen.totalNomina}`, 14, 24);
+
+    // Table
+    const filas = jsonFiltrada.map((r, i) => [
+      i + 1,
+      r.cedula || "--",
+      r.nombreCompleto || "--",
+      r.nombreContrata || "--",
+      r.area || "--",
+      r.entrada || "--:--",
+      r.salida || "--:--",
+      r.entrada && !r.salida ? "EN PLANTA" : r.salida ? "RETIRADO" : "--"
+    ]);
+
+    autoTable(doc, {
+      startY: 28,
+      head: [["#", "CÉDULA", "NOMBRE COMPLETO", "EMPRESA / CONTRATA", "ÁREA", "ENTRADA", "SALIDA", "ESTADO"]],
+      body: filas,
+      styles: { fontSize: 8, font: "helvetica", cellPadding: 3 },
+      headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7.5 },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      columnStyles: {
+        0: { halign: "center", cellWidth: 8 },
+        1: { halign: "center", cellWidth: 24 },
+        2: { cellWidth: 54 },
+        3: { cellWidth: 44 },
+        4: { cellWidth: 36 },
+        5: { halign: "center", cellWidth: 22 },
+        6: { halign: "center", cellWidth: 22 },
+        7: { halign: "center", cellWidth: 24 },
+      },
+      didDrawCell: (data) => {
+        if (data.section === "body" && data.column.index === 7) {
+          const val = data.cell.raw;
+          if (val === "EN PLANTA") data.cell.styles.textColor = [5, 150, 105];
+          else if (val === "RETIRADO") data.cell.styles.textColor = [100, 116, 139];
+        }
+      },
+    });
+
+    // Footer
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7);
+      doc.setTextColor(148, 163, 184);
+      doc.text(`Página ${i} de ${pageCount}  —  Generado por Sistema INVECEM`, 148.5, 205, { align: "center" });
+    }
+
+    doc.save(`Asistencia_${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
   const jsonFiltrada = asistencias.filter(a => {
     const texto = filtro.toLowerCase();
     const cumpleTexto = (a.nombreCompleto?.toLowerCase() || "").includes(texto) ||
@@ -80,9 +151,9 @@ export default function AsistenciaContratas() {
       <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-tr from-cyan-400 to-indigo-500 rounded-full blur-3xl opacity-15 animate-pulse-glow"></div>
       <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-gradient-to-tr from-purple-500 to-pink-500 rounded-full blur-3xl opacity-10 animate-pulse-glow delay-1000"></div>
 
-      {/* BARRA DE NAVEGACIÃ“N */}
+      {/* BARRA DE NAVEGACIÓN */}
       <nav className="top-nav print:hidden bg-white/60 backdrop-blur-xl border-b border-slate-200/80 px-6 py-4 flex justify-between items-center z-20 relative">
-        <div className="flex items-center gap-2.5"><div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:"linear-gradient(135deg,#06b6d4,#3b82f6)"}}><i className="fas fa-building-columns text-white" style={{fontSize:"11px"}}></i></div><span className="text-base font-black tracking-tight text-slate-900 uppercase">INVECEM</span></div>
+        <div className="flex items-center gap-2.5"><div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:"linear-gradient(135deg,#06b6d4,#3b82f6)"}}><i className="fas fa-fingerprint text-white" style={{fontSize:"11px"}}></i></div><span className="text-base font-black tracking-tight text-slate-900 uppercase">INVECEM</span></div>
         <div className="flex gap-2">
           <div className="px-3 py-1.5 bg-cyan-500/10 border border-cyan-500/25 rounded-lg text-xxs font-black tracking-wider uppercase text-cyan-600 animate-pulse flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 bg-cyan-500 rounded-full"></span> Monitoreo en Vivo
@@ -160,7 +231,7 @@ export default function AsistenciaContratas() {
               </span>
               <input 
                 type="text" 
-                placeholder="Buscar por Nombre o CÃ©dula..." 
+                placeholder="Buscar por Nombre o Cédula..." 
                 onChange={(e) => setFiltro(e.target.value)}
                 className="w-full pl-11 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs font-semibold"
               />
@@ -178,11 +249,21 @@ export default function AsistenciaContratas() {
                 ))}
               </select>
 
-              <button 
-                onClick={() => window.print()}
-                className="px-5 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 hover:text-indigo-950 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer active:scale-95 whitespace-nowrap"
+              <button
+                onClick={descargarPDF}
+                className="px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer active:scale-95 whitespace-nowrap text-white shadow-lg"
+                style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)', boxShadow: '0 4px 14px rgba(239,68,68,0.3)' }}
+                onMouseEnter={e => e.currentTarget.style.boxShadow='0 6px 20px rgba(239,68,68,0.5)'}
+                onMouseLeave={e => e.currentTarget.style.boxShadow='0 4px 14px rgba(239,68,68,0.3)'}
               >
-                <i className="fas fa-print"></i> PDF / Imprimir
+                <i className="fas fa-file-pdf"></i> Descargar PDF
+              </button>
+
+              <button
+                onClick={() => window.print()}
+                className="px-5 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-slate-600 hover:text-slate-800 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer active:scale-95 whitespace-nowrap shadow-sm"
+              >
+                <i className="fas fa-print"></i> Imprimir
               </button>
             </div>
           </div>
@@ -191,10 +272,10 @@ export default function AsistenciaContratas() {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-slate-200/60">
-                  <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">IDENTIFICACIÃ“N</th>
+                  <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">IDENTIFICACIÓN</th>
                   <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-left font-mono">PERSONAL EXTERNO</th>
                   <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">EMPRESA / CONTRATA</th>
-                  <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-left font-mono">ÃREA DE TRABAJO</th> 
+                  <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-left font-mono">ÁREA DE TRABAJO</th> 
                   <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">ENTRADA</th>
                   <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">SALIDA</th>
                   <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">ESTADO</th>
@@ -238,7 +319,7 @@ export default function AsistenciaContratas() {
                       </td>
                       <td className="py-4 px-3 text-center">
                         <span className={`px-2.5 py-0.5 rounded-lg text-xxs font-black tracking-wider uppercase inline-block border ${!reg.salida ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
-                          â— {!reg.salida ? "EN PLANTA" : "RETIRADO"}
+                          ● {!reg.salida ? "EN PLANTA" : "RETIRADO"}
                         </span>
                       </td>
                     </tr>

@@ -1,5 +1,6 @@
-﻿import { Inter } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
+import GlobalToast from "./lib/GlobalToast";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -9,8 +10,8 @@ const inter = Inter({
 });
 
 export const metadata = {
-  title: "INVECEM â€” Sistema de GestiÃ³n de Planta",
-  description: "Panel de control corporativo para gestiÃ³n de asistencia, personal y contratas de INVECEM.",
+  title: "INVECEM — Sistema de Gestión de Planta",
+  description: "Panel de control corporativo para gestión de asistencia, personal y contratas de INVECEM.",
 };
 
 export const viewport = {
@@ -21,7 +22,7 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="es" className={`${inter.variable} antialiased`}>
+    <html lang="es" className={`${inter.variable} antialiased`} data-scroll-behavior="smooth">
       <head>
         <link
           rel="stylesheet"
@@ -37,6 +38,7 @@ export default function RootLayout({ children }) {
             {children}
           </main>
         </div>
+        <GlobalToast />
       </body>
     </html>
   );

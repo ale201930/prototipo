@@ -10,11 +10,11 @@
    ========================================================================== */
 
 :root {
-  /* Navy Blue Core Palettes */
-  --navy: #0f172a;        /* Main Layout Background (Slate 900) */
-  --navy-mid: #1e293b;    /* Cards & Containers Background (Slate 800) */
-  --navy-soft: #334155;   /* Form fields / Table Headers (Slate 700) */
-  --navy-light: #475569;  /* Secondary details (Slate 600) */
+  /* Navy Blue Core Palettes (Mapped to Light Dim Slate values) */
+  --navy: #b0bccb;        /* Main Layout Background (Slate 300 Dimmed) */
+  --navy-mid: #ffffff;    /* Cards & Containers Background (White) */
+  --navy-soft: #e2e8f0;   /* Form fields / Table Headers (Slate 200) */
+  --navy-light: #94a3b8;  /* Secondary details (Slate 400) */
 
   /* Cyber & Accent Colors */
   --cyan: #06b6d4;
@@ -25,12 +25,12 @@
   --rose: #f43f5e;
   --amber: #f59e0b;
 
-  /* Semantic Variables */
-  --bg-main: #0f172a;
-  --bg-card: #1e293b;
-  --border: rgba(96, 165, 250, 0.15); /* Tech translucent light blue border */
-  --text-base: #f8fafc;
-  --text-muted: #93c5fd; /* Soft blue text */
+  /* Semantic Variables - Light Dim Mode */
+  --bg-main: #b0bccb;
+  --bg-card: #ffffff;
+  --border: #94a3b8; /* Clear high-contrast gray border */
+  --text-base: #0f172a; /* Dark slate text */
+  --text-muted: #1e293b; /* Slate gray text - darkened for high contrast */
 
   /* Layout Variables */
   --sidebar-w: 288px;
@@ -77,12 +77,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(to bottom, var(--cyan), var(--blue));
+  background: linear-gradient(to bottom, #ef4444, #b91c1c); /* Match red theme details */
   border-radius: 99px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--cyan);
+  background: #dc2626;
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -140,21 +140,31 @@ body {
   }
 }
 
-/* Top Sticky Navbar */
+/* Top Sticky Navbar (Dark theme with red bottom border) */
 .top-nav {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(15, 23, 42, 0.85); /* Translucent Slate-900 */
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--border);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  background: #0f172a !important; /* Dark Slate-900 */
+  border-bottom: 3px solid var(--rose) !important; /* Red bottom border */
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
   transition: box-shadow 0.3s ease;
 }
 
 .top-nav:hover {
-  box-shadow: 0 4px 24px rgba(6, 182, 212, 0.12);
+  box-shadow: 0 4px 24px rgba(244, 63, 94, 0.15);
+}
+
+/* Force dark top nav contents to be light-colored */
+.top-nav span,
+.top-nav .text-slate-900,
+.top-nav .text-slate-805,
+.top-nav .text-slate-905 {
+  color: #ffffff !important;
+}
+
+.top-nav .text-cyan-600 {
+  color: var(--cyan-light) !important;
 }
 
 /* Sidebar Styling */
@@ -171,7 +181,7 @@ body {
 }
 
 .sidebar-item {
-  color: #94a3b8;
+  color: #cbd5e1; /* Improved from #94a3b8 for better legibility */
   transition: all var(--transition);
   border-left: 3px solid transparent;
   border-radius: 10px;
@@ -194,9 +204,14 @@ body {
 }
 
 .card:hover {
-  box-shadow: 0 8px 30px rgba(6, 182, 212, 0.15);
-  border-color: rgba(6, 182, 212, 0.35);
+  box-shadow: 0 10px 30px rgba(239, 68, 68, 0.05), 0 1px 3px rgba(239, 68, 68, 0.02) !important;
+  border-color: rgba(239, 68, 68, 0.25) !important;
   transform: translateY(-2px);
+}
+
+.theme-dark .card:hover {
+  box-shadow: 0 8px 30px rgba(6, 182, 212, 0.15) !important;
+  border-color: rgba(6, 182, 212, 0.35) !important;
 }
 
 .glass-card-dark {
@@ -240,12 +255,12 @@ body {
   opacity: 1;
 }
 
-/* Dashboard Hero (Welcome Card) */
+/* Dashboard Hero (Welcome Card) - Kept dark for text legibility and styled with a red accent */
 .welcome-card {
-  background: linear-gradient(135deg, var(--navy) 0%, var(--navy-soft) 60%, #1e293b 100%);
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #ef4444 100%) !important;
   border-radius: 24px;
-  border: 1px solid rgba(6, 182, 212, 0.25);
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.25) !important;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   position: relative;
   overflow: hidden;
 }
@@ -361,7 +376,7 @@ body {
 }
 
 .form-input::placeholder {
-  color: #94a3b8;
+  color: #cbd5e1; /* Improved from #94a3b8 for better legibility */
   font-weight: 400;
 }
 
@@ -380,39 +395,47 @@ body {
 
 .badge-cyan {
   background: rgba(6, 182, 212, 0.12);
-  color: #22d3ee;
+  color: #0891b2; /* High contrast dark text for light mode */
   border: 1px solid rgba(6, 182, 212, 0.25);
 }
 
 .badge-emerald {
   background: rgba(16, 185, 129, 0.12);
-  color: #34d399;
+  color: #15803d;
   border: 1px solid rgba(16, 185, 129, 0.25);
 }
 
 .badge-rose {
   background: rgba(244, 63, 94, 0.12);
-  color: #f43f5e;
+  color: #b91c1c;
   border: 1px solid rgba(244, 63, 94, 0.25);
 }
 
 .badge-amber {
   background: rgba(245, 158, 11, 0.12);
-  color: #fbbf24;
+  color: #b45309;
   border: 1px solid rgba(245, 158, 11, 0.25);
 }
 
 .badge-blue {
   background: rgba(59, 130, 246, 0.12);
-  color: #60a5fa;
+  color: #1d4ed8;
   border: 1px solid rgba(59, 130, 246, 0.25);
 }
 
 .badge-slate {
   background: rgba(148, 163, 184, 0.12);
-  color: #cbd5e1;
+  color: #475569;
   border: 1px solid rgba(148, 163, 184, 0.25);
 }
+
+/* Restore original badge colors in dark theme (login page) */
+.theme-dark .badge-cyan { color: #22d3ee !important; }
+.theme-dark .badge-emerald { color: #34d399 !important; }
+.theme-dark .badge-rose { color: #f43f5e !important; }
+.theme-dark .badge-amber { color: #fbbf24 !important; }
+.theme-dark .badge-blue { color: #60a5fa !important; }
+.theme-dark .badge-slate { color: #cbd5e1 !important; }
 
 /* Live Indicators */
 .live-dot {
@@ -436,7 +459,7 @@ body {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: var(--text-muted);
+  color: var(--text-muted) !important; /* Fixed: uses secondary text color of respective theme (slate-600 in light mode) */
   background: var(--navy-soft);
   border-bottom: 2px solid var(--border);
 }
@@ -459,8 +482,12 @@ body {
 /* Cyber Grid background */
 .cyber-grid {
   background-color: var(--bg-main);
-  background-image: radial-gradient(circle, rgba(6, 182, 212, 0.05) 1px, transparent 1px);
+  background-image: radial-gradient(circle, rgba(15, 23, 42, 0.08) 1px, transparent 1px);
   background-size: 28px 28px;
+}
+
+.theme-dark .cyber-grid {
+  background-image: radial-gradient(circle, rgba(6, 182, 212, 0.05) 1px, transparent 1px) !important;
 }
 
 /* Section Header */
@@ -559,13 +586,23 @@ body {
 }
 
 @keyframes scan-laser {
-  0% { top: -100%; }
-  100% { top: 200%; }
+  0%, 100% {
+    top: 5%;
+    opacity: 0.3;
+  }
+  50% {
+    top: 90%;
+    opacity: 1;
+  }
 }
 
 @keyframes glow-ring {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.4); }
-  50% { box-shadow: 0 0 0 8px rgba(6, 182, 212, 0); }
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.4), 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(239, 68, 68, 0.6), 0 0 0 10px rgba(239, 68, 68, 0);
+  }
 }
 
 @keyframes counter-up {
@@ -632,55 +669,260 @@ body {
    ========================================================================== */
 
 /* Overriding white backgrounds with mid-navy card backgrounds */
-.bg-white,
-.bg-white\/95,
-.bg-white\/90,
-.bg-white\/85,
-.bg-white\/80,
-.bg-white\/75,
-.bg-white\/70,
-.bg-white\/60 {
+.theme-dark .bg-white,
+.theme-dark .bg-white\/95,
+.theme-dark .bg-white\/90,
+.theme-dark .bg-white\/85,
+.theme-dark .bg-white\/80,
+.theme-dark .bg-white\/75,
+.theme-dark .bg-white\/70,
+.theme-dark .bg-white\/60 {
   background-color: var(--bg-card) !important;
 }
 
 /* Specifying custom overlays with translucency */
-.bg-white\/60 { background-color: rgba(30, 41, 59, 0.6) !important; }
-.bg-white\/80 { background-color: rgba(30, 41, 59, 0.8) !important; }
-.bg-white\/85 { background-color: rgba(30, 41, 59, 0.85) !important; }
-.bg-white\/90 { background-color: rgba(30, 41, 59, 0.9) !important; }
+.theme-dark .bg-white\/60 { background-color: rgba(30, 41, 59, 0.6) !important; }
+.theme-dark .bg-white\/80 { background-color: rgba(30, 41, 59, 0.8) !important; }
+.theme-dark .bg-white\/85 { background-color: rgba(30, 41, 59, 0.85) !important; }
+.theme-dark .bg-white\/90 { background-color: rgba(30, 41, 59, 0.9) !important; }
 
 /* Overriding border colors with translucent tech border */
-.border-slate-100,
-.border-slate-200,
-.border-slate-300 {
+.theme-dark .border-slate-100,
+.theme-dark .border-slate-200,
+.theme-dark .border-slate-300 {
   border-color: var(--border) !important;
 }
 
 /* Overriding text colors to support light fonts in dark mode */
-.text-slate-800,
-.text-slate-900,
-.text-slate-950,
-.text-indigo-950,
-.text-indigo-955 {
+.theme-dark .text-slate-805,
+.theme-dark .text-slate-905,
+.theme-dark .text-slate-950,
+.theme-dark .text-indigo-955 {
   color: var(--text-base) !important;
 }
 
-.text-slate-500,
-.text-slate-650,
-.text-slate-655,
-.text-slate-600,
-.text-slate-700 {
+.theme-dark .text-slate-500,
+.theme-dark .text-slate-650,
+.theme-dark .text-slate-655,
+.theme-dark .text-slate-600,
+.theme-dark .text-slate-700 {
   color: var(--text-muted) !important;
 }
 
 /* Overriding shadows to dark-glow style */
-.shadow-slate-200\/10,
-.shadow-slate-200\/20,
-.shadow-slate-200\/5,
-.shadow-slate-200,
-.shadow-2xl,
-.shadow-xl,
-.shadow-lg,
-.shadow-md {
+.theme-dark .shadow-slate-202\/10,
+.theme-dark .shadow-slate-202\/20,
+.theme-dark .shadow-slate-202\/5,
+.theme-dark .shadow-slate-202,
+.theme-dark .shadow-2xl,
+.theme-dark .shadow-xl,
+.theme-dark .shadow-lg,
+.theme-dark .shadow-md {
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* ==========================================================================
+   ── SECTION 7: DARK THEME VARIABLES (FOR LOGIN PAGE) ──────────────────────
+   ========================================================================== */
+.theme-dark {
+  --navy: #0f172a;        /* Main Layout Background (Slate 900) */
+  --navy-mid: #1e293b;    /* Cards & Containers Background (Slate 800) */
+  --navy-soft: #334155;   /* Form fields / Table Headers (Slate 700) */
+  --navy-light: #475569;  /* Secondary details (Slate 600) */
+
+  --bg-main: #0f172a;
+  --bg-card: #1e293b;
+  --border: rgba(96, 165, 250, 0.15); /* Tech translucent light blue border */
+  --text-base: #f8fafc;
+  --text-muted: #cbd5e1; /* Sleek, highly readable silver text */
+  
+  background-color: var(--bg-main) !important;
+  color: var(--text-base) !important;
+}
+
+/* ==========================================================================
+   ── SECTION 8: LIGHT SIDEBAR OVERRIDES ───────────────────────────────────
+   ========================================================================== */
+
+/* Overriding the inline styles of the sidebar container to be light-themed */
+.page-dashboard aside {
+  background: linear-gradient(180deg, #f1f5f9 0%, #cbd5e1 100%) !important;
+  border-right: 1px solid rgba(15, 23, 42, 0.15) !important;
+  box-shadow: 4px 0 32px rgba(15, 23, 42, 0.08) !important;
+}
+
+/* Sidebar header and footer borders */
+.page-dashboard aside > div {
+  border-color: rgba(15, 23, 42, 0.12) !important;
+}
+
+/* Sidebar branding header text */
+.page-dashboard aside h2 {
+  color: #0f172a !important;
+}
+
+/* Sidebar active item styling in light mode (Red accents) */
+.page-dashboard aside li[style*="color: rgb(255, 255, 255)"],
+.page-dashboard aside li[style*="color: #ffffff"] {
+  background: rgba(239, 68, 68, 0.08) !important;
+  color: #ef4444 !important;
+  font-weight: 800 !important;
+  border-left: 3px solid #ef4444 !important;
+  padding-left: 13px !important;
+}
+
+/* Sidebar inactive item styling in light mode */
+.page-dashboard aside li[style*="color: rgb(148, 163, 184)"],
+.page-dashboard aside li[style*="color: #94a3b8"],
+.page-dashboard aside li[style*="inherit"] {
+  color: #334155 !important; /* Darker slate for better legibility on steel background */
+  border-left-color: transparent !important;
+}
+
+/* Sidebar hover effect */
+.page-dashboard aside li:hover {
+  background: rgba(239, 68, 68, 0.06) !important;
+  color: #b91c1c !important;
+  border-left-color: rgba(239, 68, 68, 0.5) !important;
+  transform: translateX(3px) !important;
+}
+
+/* User profile details in sidebar footer */
+.page-dashboard aside div.flex.items-center {
+  background: rgba(15, 23, 42, 0.04) !important;
+}
+
+.page-dashboard aside p.text-white {
+  color: #0f172a !important;
+}
+
+.page-dashboard aside p.text-slate-500 {
+  color: #64748b !important;
+}
+
+/* Logout button override */
+.page-dashboard aside button[style*="color: #f87171"],
+.page-dashboard aside button[style*="color: rgb(248, 113, 113)"] {
+  background: rgba(244, 63, 94, 0.06) !important;
+  border-color: rgba(244, 63, 94, 0.15) !important;
+  color: #ef4444 !important;
+}
+
+.page-dashboard aside button[style*="color: #f87171"]:hover,
+.page-dashboard aside button[style*="color: rgb(248, 113, 113)"]:hover {
+  background: rgba(244, 63, 94, 0.12) !important;
+  color: #e11d48 !important;
+}
+
+/* Mobile menu button in light mode */
+.page-dashboard > button.md\:hidden {
+  background: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.08) !important;
+  color: #0f172a !important;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08) !important;
+}
+
+/* ═══════════════════════════════════════
+   PREMIUM RED LOGO GRADIENT OVERRIDES
+   ═══════════════════════════════════════ */
+
+/* ═══════════════════════════════════════
+   PREMIUM RED BIOMETRIC SCANNER OVERRIDES
+   ═══════════════════════════════════════ */
+
+/* Base container overrides for biometric reader styling */
+.page-dashboard aside div.w-12.h-12,
+.top-nav div.w-7.h-7,
+.theme-dark div.w-24.h-24,
+.theme-dark div.w-16.h-16 {
+  background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%) !important;
+  position: relative !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3) !important;
+}
+
+/* Pulsing glow ring for the login main logo */
+.theme-dark div.w-24.h-24 {
+  border-width: 2px !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  box-shadow: 0 0 30px rgba(239, 68, 68, 0.5), 0 0 0 4px rgba(239, 68, 68, 0.15) !important;
+  animation: glow-ring 2.5s ease-in-out infinite !important;
+}
+
+/* Laser scan line overlay */
+.page-dashboard aside div.w-12.h-12::after,
+.top-nav div.w-7.h-7::after,
+.theme-dark div.w-24.h-24::after,
+.theme-dark div.w-16.h-16::after {
+  content: '' !important;
+  position: absolute !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 2px !important;
+  background: #ffcdd2 !important;
+  box-shadow: 0 0 8px #ef4444, 0 0 15px #ef4444 !important;
+  animation: scan-laser 2.5s ease-in-out infinite !important;
+  z-index: 10 !important;
+  pointer-events: none !important;
+}
+
+/* Specific scan laser speeds/heights to fit different container sizes */
+.top-nav div.w-7.h-7::after {
+  height: 1.5px !important;
+  animation-duration: 2s !important;
+}
+
+.theme-dark div.w-24.h-24::after {
+  height: 3px !important;
+  animation-duration: 3s !important;
+}
+
+/* ==========================================================================
+   ── SECTION 9: PRINT & PDF BUTTON OVERRIDES ──────────────────────────────
+   ========================================================================== */
+
+/* PDF download buttons: premium corporate solid red to rose-red gradient */
+button:has(.fa-file-pdf) {
+  background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%) !important;
+  background-image: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25) !important;
+}
+
+button:has(.fa-file-pdf):hover {
+  background: linear-gradient(135deg, #f43f5e 0%, #dc2626 100%) !important;
+  background-image: linear-gradient(135deg, #f43f5e 0%, #dc2626 100%) !important;
+  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35), 0 0 15px rgba(239, 68, 68, 0.2) !important;
+  transform: translateY(-1px) !important;
+}
+
+button:has(.fa-file-pdf) i {
+  color: #ffffff !important;
+}
+
+/* Print action buttons: premium ghost/border red button style */
+button:has(.fa-print) {
+  background: rgba(239, 68, 68, 0.06) !important;
+  background-image: none !important;
+  border: 1px solid rgba(239, 68, 68, 0.3) !important;
+  color: #ef4444 !important;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.05) !important;
+}
+
+button:has(.fa-print):hover {
+  background: rgba(239, 68, 68, 0.12) !important;
+  background-image: none !important;
+  border-color: #dc2626 !important;
+  color: #b91c1c !important;
+  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.15) !important;
+  transform: translateY(-1px) !important;
+}
+
+button:has(.fa-print) i {
+  color: #ef4444 !important;
 }

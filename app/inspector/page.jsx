@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -94,7 +94,7 @@ export default function Inspector() {
         <div className="p-6 flex flex-col items-center gap-2 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-1"
             style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)', boxShadow: '0 4px 14px rgba(6,182,212,0.35)' }}>
-            <i className="fas fa-building-columns text-white text-xl" />
+            <i className="fas fa-fingerprint text-white text-xl" />
           </div>
           <h2 className="text-lg font-black tracking-tight text-white uppercase">INVECEM</h2>
           <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full"
@@ -107,13 +107,13 @@ export default function Inspector() {
           <SidebarItem icon="fa-home" label="Inicio" active={true} onClick={() => router.push("/inspector")} />
           <SidebarItem icon="fa-user-gear" label="Mi Perfil" onClick={() => router.push("/perfil")} />
 
-          <SidebarSection label="MÃ³dulos" />
+          <SidebarSection label="Módulos" />
           <SidebarItem icon="fa-edit" label="Registro de Asistencia" onClick={() => router.push("/inspector/registro-asistencia")} />
           <SidebarItem icon="fa-user-group" label="Visitantes" onClick={() => router.push("/inspector/visitantes")} accent="#3b82f6" />
 
           {isAdmin && (
             <>
-              <SidebarSection label="AdministraciÃ³n" />
+              <SidebarSection label="Administración" />
               <SidebarItem icon="fa-arrow-left" label="Volver al Panel Admin" onClick={() => router.push("/administrador")} accent="#f59e0b" />
             </>
           )}
@@ -138,7 +138,7 @@ export default function Inspector() {
             onMouseEnter={e => { e.currentTarget.style.background='rgba(244,63,94,0.15)'; e.currentTarget.style.color='#fca5a5'; }}
             onMouseLeave={e => { e.currentTarget.style.background='rgba(244,63,94,0.08)'; e.currentTarget.style.color='#f87171'; }}
           >
-            <i className="fas fa-right-from-bracket" /> Cerrar SesiÃ³n
+            <i className="fas fa-right-from-bracket" /> Cerrar Sesión
           </button>
         </div>
       </aside>
@@ -153,12 +153,12 @@ export default function Inspector() {
               <i className="fas fa-user-shield text-3xl text-white" />
             </div>
             <div>
-              <p className="text-cyan-300 text-xs font-bold uppercase tracking-widest mb-1">MÃ³dulo Inspector</p>
+              <p className="text-cyan-300 text-xs font-bold uppercase tracking-widest mb-1">Módulo Inspector</p>
               <h1 className="text-3xl font-black tracking-tight mb-2">
                 Bienvenido, <span style={{ color: '#22d3ee' }}>{nombreUsuario || "Inspector"}</span>
               </h1>
               <p className="text-slate-400 text-sm font-medium">
-                Accede a los mÃ³dulos de registro y control desde el menÃº lateral
+                Accede a los módulos de registro y control desde el menú lateral
               </p>
             </div>
             <div className="md:ml-auto flex items-center gap-2 px-4 py-2 rounded-xl"
@@ -185,7 +185,7 @@ export default function Inspector() {
               <p className="font-black text-slate-800 text-base">{item.label}</p>
               <p className="text-slate-500 text-sm mt-1 font-medium">{item.sub}</p>
               <div className="mt-4 flex items-center gap-1.5 text-sm font-bold transition-all duration-200 group-hover:gap-2.5" style={{ color: item.color }}>
-                Abrir mÃ³dulo <i className="fas fa-arrow-right text-xs" />
+                Abrir módulo <i className="fas fa-arrow-right text-xs" />
               </div>
             </button>
           ))}

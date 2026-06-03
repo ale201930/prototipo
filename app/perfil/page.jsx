@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { auth, db } from "../lib/firebase";
@@ -60,7 +60,7 @@ export default function PerfilUsuario() {
     const todasValidas = Object.values(validaciones).every(v => v);
 
     if (!todasValidas) {
-      return alert("âŒ Debes cumplir todos los requisitos.");
+      return alert("❌ Debes cumplir todos los requisitos.");
     }
 
     setCargando(true);
@@ -76,7 +76,7 @@ export default function PerfilUsuario() {
       await reauthenticateWithCredential(user, credential);
       await updatePassword(user, nuevaClave);
 
-      alert("âœ… ContraseÃ±a actualizada correctamente");
+      alert("✅ Contraseña actualizada correctamente");
 
       setClaveActual("");
       setNuevaClave("");
@@ -87,7 +87,7 @@ export default function PerfilUsuario() {
 
     } catch (error) {
       if (error.code === "auth/wrong-password") {
-        alert("âŒ La contraseÃ±a actual es incorrecta.");
+        alert("❌ La contraseña actual es incorrecta.");
       } else {
         alert("Error: " + error.message);
       }
@@ -128,9 +128,9 @@ export default function PerfilUsuario() {
       <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-tr from-cyan-400 to-indigo-500 rounded-full blur-3xl opacity-15 animate-pulse-glow"></div>
       <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-gradient-to-tr from-purple-500 to-pink-500 rounded-full blur-3xl opacity-10 animate-pulse-glow delay-1000"></div>
 
-      {/* BARRA DE NAVEGACIÃ“N CORPORATIVA */}
+      {/* BARRA DE NAVEGACIÓN CORPORATIVA */}
       <nav className="top-nav no-print bg-white/60 backdrop-blur-xl border-b border-slate-200/80 px-6 py-4 flex justify-between items-center z-20 relative">
-        <div className="flex items-center gap-2.5"><div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:"linear-gradient(135deg,#06b6d4,#3b82f6)"}}><i className="fas fa-building-columns text-white" style={{fontSize:"11px"}}></i></div><span className="text-base font-black tracking-tight text-slate-900 uppercase">INVECEM</span></div>
+        <div className="flex items-center gap-2.5"><div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:"linear-gradient(135deg,#06b6d4,#3b82f6)"}}><i className="fas fa-fingerprint text-white" style={{fontSize:"11px"}}></i></div><span className="text-base font-black tracking-tight text-slate-900 uppercase">INVECEM</span></div>
         <button 
           className="px-4 py-2 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 active:scale-95 rounded-xl font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-indigo-500/20 transition-all duration-200 cursor-pointer text-white hover:shadow-neon-cyan"
           onClick={() => router.back()}
@@ -139,7 +139,7 @@ export default function PerfilUsuario() {
         </button>
       </nav>
 
-      {/* CONTENEDOR DE CONTENIDO DEL MÃ“DULO */}
+      {/* CONTENEDOR DE CONTENIDO DEL MÓDULO */}
       <div className="max-w-6xl mx-auto px-6 py-10 z-10 relative">
         
         {/* ENCABEZADO DE REPORTE */}
@@ -148,7 +148,7 @@ export default function PerfilUsuario() {
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-600 via-indigo-600 to-purple-650">INVECEM</span> - Perfil de Usuario
           </h1>
           <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">
-            Consulta de datos de planta y actualizaciÃ³n de credenciales
+            Consulta de datos de planta y actualización de credenciales
           </p>
         </header>
 
@@ -162,12 +162,12 @@ export default function PerfilUsuario() {
           
           <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1px_1fr] gap-8 md:gap-12 items-start">
             
-            {/* SECCIÃ“N IZQUIERDA: INFORMACIÃ“N EXTENDIDA */}
+            {/* SECCIÓN IZQUIERDA: INFORMACIÓN EXTENDIDA */}
             <section className="space-y-8">
               
               <div className="space-y-4">
                 <h4 className="text-xs font-black uppercase text-cyan-600 tracking-wider border-b border-dashed border-cyan-500/20 pb-2">
-                  <i className="fas fa-id-card mr-2"></i> InformaciÃ³n Personal
+                  <i className="fas fa-id-card mr-2"></i> Información Personal
                 </h4>
                 
                 <div className="space-y-1">
@@ -177,11 +177,11 @@ export default function PerfilUsuario() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xxs font-extrabold text-slate-450 uppercase tracking-widest block">CÃ©dula de Identidad</label>
+                    <label className="text-xxs font-extrabold text-slate-450 uppercase tracking-widest block">Cédula de Identidad</label>
                     <p className="text-sm font-extrabold text-slate-800 uppercase">{userData.cedula || "No registrado"}</p>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xxs font-extrabold text-slate-450 uppercase tracking-widest block">TelÃ©fono</label>
+                    <label className="text-xxs font-extrabold text-slate-450 uppercase tracking-widest block">Teléfono</label>
                     <p className="text-sm font-extrabold text-slate-800">{userData.telefono || "No registrado"}</p>
                   </div>
                 </div>
@@ -201,12 +201,12 @@ export default function PerfilUsuario() {
               {/* GRUPO DE FICHA LABORAL */}
               <div className="space-y-4">
                 <h4 className="text-xs font-black uppercase text-purple-600 tracking-wider border-b border-dashed border-purple-500/20 pb-2">
-                  <i className="fas fa-industry mr-2"></i> Ficha Laboral de Planta
+                  <i className="fas fa-fingerprint mr-2"></i> Ficha Laboral de Planta
                 </h4>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xxs font-extrabold text-slate-455 uppercase tracking-widest block">NÂ° de Ficha</label>
+                    <label className="text-xxs font-extrabold text-slate-455 uppercase tracking-widest block">N° de Ficha</label>
                     <p className="text-base font-black text-cyan-600 font-mono">{userData.ficha || "No registrado"}</p>
                   </div>
                   <div className="space-y-1">
@@ -241,17 +241,17 @@ export default function PerfilUsuario() {
             {/* DIVIDER VERTICAL */}
             <div className="hidden lg:block bg-slate-200 w-[1px] h-full min-h-[400px]"></div>
 
-            {/* SECCIÃ“N DERECHA: FORMULARIO */}
+            {/* SECCIÓN DERECHA: FORMULARIO */}
             <form onSubmit={handleCambiarClave} className="space-y-6">
               <div>
                 <h3 className="text-xs font-black uppercase text-indigo-600 tracking-wider border-b border-dashed border-indigo-500/20 pb-2 flex items-center gap-2">
-                  <i className="fas fa-lock"></i> Seguridad y ContraseÃ±a
+                  <i className="fas fa-lock"></i> Seguridad y Contraseña
                 </h3>
                 <p className="text-slate-500 text-xs mt-1.5 font-medium">Actualiza tu clave de acceso al sistema INVECEM</p>
               </div>
 
               <div className="space-y-2">
-                <label className="text-xxs font-bold uppercase tracking-wider text-slate-600 block">ContraseÃ±a Actual</label>
+                <label className="text-xxs font-bold uppercase tracking-wider text-slate-600 block">Contraseña Actual</label>
                 <div className="relative flex w-full">
                   <input 
                     type={verClaveActual ? "text" : "password"} 
@@ -271,7 +271,7 @@ export default function PerfilUsuario() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-xxs font-bold uppercase tracking-wider text-slate-600 block">Nueva ContraseÃ±a</label>
+                <label className="text-xxs font-bold uppercase tracking-wider text-slate-600 block">Nueva Contraseña</label>
                 <div className="relative flex w-full">
                   <input 
                     type={verNuevaClave ? "text" : "password"} 
@@ -293,21 +293,21 @@ export default function PerfilUsuario() {
               {/* LISTA VISUAL REQUISITOS */}
               <div className="bg-slate-50 p-4 border border-slate-200/80 rounded-xl space-y-1.5">
                 <p className={`text-xxs font-bold uppercase tracking-wider flex items-center gap-2 ${validaciones.longitud ? "text-emerald-600" : "text-slate-450"}`}>
-                  <i className={`fas ${validaciones.longitud ? 'fa-check-circle' : 'fa-circle-notch'}`}></i> MÃ­nimo 8 caracteres
+                  <i className={`fas ${validaciones.longitud ? 'fa-check-circle' : 'fa-circle-notch'}`}></i> Mínimo 8 caracteres
                 </p>
                 <p className={`text-xxs font-bold uppercase tracking-wider flex items-center gap-2 ${validaciones.mayuscula ? "text-emerald-600" : "text-slate-450"}`}>
-                  <i className={`fas ${validaciones.mayuscula ? 'fa-check-circle' : 'fa-circle-notch'}`}></i> Al menos una mayÃºscula
+                  <i className={`fas ${validaciones.mayuscula ? 'fa-check-circle' : 'fa-circle-notch'}`}></i> Al menos una mayúscula
                 </p>
                 <p className={`text-xxs font-bold uppercase tracking-wider flex items-center gap-2 ${validaciones.minuscula ? "text-emerald-600" : "text-slate-450"}`}>
-                  <i className={`fas ${validaciones.minuscula ? 'fa-check-circle' : 'fa-circle-notch'}`}></i> Al menos una minÃºscula
+                  <i className={`fas ${validaciones.minuscula ? 'fa-check-circle' : 'fa-circle-notch'}`}></i> Al menos una minúscula
                 </p>
                 <p className={`text-xxs font-bold uppercase tracking-wider flex items-center gap-2 ${validaciones.numero ? "text-emerald-600" : "text-slate-450"}`}>
-                  <i className={`fas ${validaciones.numero ? 'fa-check-circle' : 'fa-circle-notch'}`}></i> Al menos un nÃºmero
+                  <i className={`fas ${validaciones.numero ? 'fa-check-circle' : 'fa-circle-notch'}`}></i> Al menos un número
                 </p>
               </div>
 
               <div className="space-y-2">
-                <label className="text-xxs font-bold uppercase tracking-wider text-slate-600 block">Confirmar Nueva ContraseÃ±a</label>
+                <label className="text-xxs font-bold uppercase tracking-wider text-slate-600 block">Confirmar Nueva Contraseña</label>
                 <div className="relative flex w-full">
                   <input 
                     type={verConfirmarClave ? "text" : "password"} 
@@ -327,7 +327,7 @@ export default function PerfilUsuario() {
               </div>
 
               <p className={`text-xxs font-bold uppercase tracking-wider flex items-center gap-2 ${validaciones.coincide ? "text-emerald-600" : "text-slate-450"}`}>
-                <i className={`fas ${validaciones.coincide ? 'fa-check-circle' : 'fa-circle-notch'}`}></i> Las contraseÃ±as coinciden
+                <i className={`fas ${validaciones.coincide ? 'fa-check-circle' : 'fa-circle-notch'}`}></i> Las contraseñas coinciden
               </p>
 
               <button 
@@ -335,7 +335,7 @@ export default function PerfilUsuario() {
                 className="w-full py-4 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 active:scale-95 rounded-xl font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-indigo-500/20 transition-all duration-200 transform cursor-pointer text-white hover:shadow-neon-purple" 
                 disabled={cargando}
               >
-                {cargando ? "Procesando..." : "Actualizar ContraseÃ±a"}
+                {cargando ? "Procesando..." : "Actualizar Contraseña"}
               </button>
             </form>
           </div>
