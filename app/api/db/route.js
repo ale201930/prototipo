@@ -2,16 +2,32 @@ import mysql from "mysql2/promise";
 import { NextResponse } from "next/server";
 
 const config = {
-  host: "localhost",
-  user: "root",
-  password: "",
-  port: 3306,
+  host: process.env.DB_HOST || "localhost",
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASSWORD || "",
+  port: parseInt(process.env.DB_PORT || "3306", 10),
+  database: process.env.DB_NAME || "invecem",
 };
 
 async function getConnection() {
-  const conn = await mysql.createConnection(config);
-  await conn.query("CREATE DATABASE IF NOT EXISTS `invecem` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-  await conn.query("USE `invecem`");
+  const dbName = config.database;
+
+  // En producción (ej. hosting remoto), es posible que ya tengamos el nombre de base de datos asignado
+  // y que no tengamos permisos para ejecutar CREATE DATABASE o conectar sin base de datos.
+  if (process.env.DB_NAME) {
+    try {
+      const conn = await mysql.createConnection(config);
+      return conn;
+    } catch (err) {
+      console.warn("Conexión directa fallida, intentando fallback de desarrollo local:", err.message);
+    }
+  }
+
+  // Comportamiento local / fallback: conectar sin base de datos para crearla si no existe
+  const { database, ...connConfig } = config;
+  const conn = await mysql.createConnection(connConfig);
+  await conn.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+  await conn.query(`USE \`${dbName}\``);
   return conn;
 }
 
