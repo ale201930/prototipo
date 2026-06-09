@@ -2,12 +2,13 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { db } from '../../lib/firebase';
-import { collection, query, onSnapshot, orderBy, limit } from 'firebase/firestore';
+import { collection, query, getDocs, orderBy, limit } from 'firebase/firestore';
 
 export default function MonitoreoPage() {
   const router = useRouter();
   const [auditoria, setAuditoria] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingRefresh, setLoadingRefresh] = useState(false);
   const [busqueda, setBusqueda] = useState('');
   const [agruparAsistencia, setAgruparAsistencia] = useState(true);
   const [expandedDays, setExpandedDays] = useState({});
@@ -61,18 +62,24 @@ export default function MonitoreoPage() {
     }));
   };
 
-
-
-  useEffect(() => {
-    const q = query(
-      collection(db, "auditoria"),
-      orderBy("fecha", "desc"),
-      limit(500)
-    );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+  const cargarAuditoria = async (showMainSpinner = false) => {
+    if (showMainSpinner) {
+      setLoading(true);
+    } else {
+      setLoadingRefresh(true);
+    }
+    try {
+      const q = query(
+        collection(db, "auditoria"),
+        orderBy("fecha", "desc"),
+        limit(200) // Cambiado de 500 a 200 para mejorar velocidad de carga
+      );
+      const snapshot = await getDocs(q);
       const datos = snapshot.docs.map(doc => {
         const data = doc.data();
-        const fechaReal = data.fecha?.toDate();
+        const fechaReal = typeof data.fecha?.toDate === 'function'
+          ? data.fecha.toDate()
+          : (data.fecha ? new Date(data.fecha) : null);
         const fechaFormateada = fechaReal
           ? fechaReal.toLocaleString('es-VE', {
               day: '2-digit', month: '2-digit', year: 'numeric',
@@ -97,9 +104,16 @@ export default function MonitoreoPage() {
         return { id: doc.id, ...data, fechaFormateada, fechaReal, diaKey, diaLabel };
       });
       setAuditoria(datos);
+    } catch (err) {
+      console.error("Error al cargar auditoría:", err);
+    } finally {
       setLoading(false);
-    });
-    return () => unsubscribe();
+      setLoadingRefresh(false);
+    }
+  };
+
+  useEffect(() => {
+    cargarAuditoria(true);
   }, []);
 
   // Filtro de búsqueda y fecha
@@ -232,14 +246,27 @@ export default function MonitoreoPage() {
               />
             </div>
             
-            {/* Botón PDF */}
-            <button
-              onClick={exportarPDF}
-              className="w-full md:w-auto px-6 py-3.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 active:scale-95 text-white font-extrabold uppercase text-xs tracking-wider rounded-xl shadow-lg shadow-red-500/20 transition-all duration-200 cursor-pointer flex items-center justify-center gap-2"
-            >
-              <i className="fas fa-file-pdf" />
-              Descargar PDF
-            </button>
+            {/* Botones de Acción */}
+            <div className="flex w-full md:w-auto gap-3 flex-wrap">
+              {/* Botón Refrescar */}
+              <button
+                onClick={() => cargarAuditoria(false)}
+                disabled={loadingRefresh || loading}
+                className="flex-1 md:flex-initial px-6 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold uppercase text-xs tracking-wider rounded-xl shadow-md border border-slate-200 transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <i className={`fas fa-sync ${loadingRefresh ? 'fa-spin' : ''}`} />
+                Refrescar
+              </button>
+
+              {/* Botón PDF */}
+              <button
+                onClick={exportarPDF}
+                className="flex-1 md:flex-initial px-6 py-3.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 active:scale-95 text-white font-extrabold uppercase text-xs tracking-wider rounded-xl shadow-lg shadow-red-500/20 transition-all duration-200 cursor-pointer flex items-center justify-center gap-2"
+              >
+                <i className="fas fa-file-pdf" />
+                Descargar PDF
+              </button>
+            </div>
           </div>
 
           <div className="h-px bg-slate-200/65 w-full" />

@@ -18,6 +18,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+auth.languageCode = "es"; // Configura el idioma de los correos de Firebase en español
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
