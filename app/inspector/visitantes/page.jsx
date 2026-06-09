@@ -146,13 +146,35 @@ export default function RegistroVisitantes() {
       const docPdf = new jsPDF();
       const fecha = new Date().toLocaleDateString();
 
-      docPdf.setFontSize(18);
-      docPdf.setTextColor(33, 33, 33);
-      docPdf.text("INVECEM - CONTROL DE ACCESO", 14, 20);
-      
-      docPdf.setFontSize(10);
-      docPdf.setTextColor(100);
-      docPdf.text(`Reporte generado el: ${fecha}`, 14, 28);
+      const loadImage = (url) => new Promise((resolve) => {
+        const img = new Image();
+        img.src = url;
+        img.onload = () => resolve(img);
+        img.onerror = () => resolve(null);
+      });
+      const imgLogo = await loadImage('/logo.png');
+
+      docPdf.setFillColor(248, 250, 252);
+      docPdf.rect(0, 0, 210, 40, 'F');
+      docPdf.setDrawColor(226, 232, 240);
+      docPdf.line(0, 40, 210, 40);
+
+      if (imgLogo) {
+        docPdf.addImage(imgLogo, 'PNG', 15, 5, 30, 30);
+        docPdf.setFontSize(18);
+        docPdf.setTextColor(15, 23, 42);
+        docPdf.text("INVECEM - CONTROL DE ACCESO", 50, 20);
+        docPdf.setFontSize(10);
+        docPdf.setTextColor(71, 85, 105);
+        docPdf.text(`Reporte generado el: ${fecha}`, 50, 30);
+      } else {
+        docPdf.setFontSize(18);
+        docPdf.setTextColor(15, 23, 42);
+        docPdf.text("INVECEM - CONTROL DE ACCESO", 15, 20);
+        docPdf.setFontSize(10);
+        docPdf.setTextColor(71, 85, 105);
+        docPdf.text(`Reporte generado el: ${fecha}`, 15, 30);
+      }
 
       const columns = ["Visitante", "Empresa", "Cédula", "Área", "Entrada", "Salida", "Estado"];
       const rows = listaFiltrada.map(v => [
@@ -168,14 +190,15 @@ export default function RegistroVisitantes() {
       autoTable(docPdf, {
         head: [columns],
         body: rows,
-        startY: 35,
+        startY: 45,
         theme: 'grid',
         headStyles: { fillColor: [6, 182, 212], textColor: [255, 255, 255], fontStyle: 'bold' },
         styles: { fontSize: 8, cellPadding: 2 },
       });
 
       docPdf.save(`Reporte_INVECEM_${fecha.replace(/\//g, '-')}.pdf`);
-    } catch {
+    } catch (e) {
+      console.error(e);
       alert("Error al cargar las herramientas de PDF.");
     }
   };
@@ -206,8 +229,23 @@ export default function RegistroVisitantes() {
       {/* CONTENEDOR CENTRAL */}
       <div className="max-w-7xl mx-auto px-6 py-10 z-10 relative">
         
+      {/* ENCABEZADO DE IMPRESIÓN */}
+        <div className="hidden print:flex items-center justify-between border-b-2 border-slate-300 pb-4 mb-6 w-full">
+          <div className="flex items-center gap-4">
+            <img src="/logo.png" alt="Logo Invecem" className="h-16 w-auto object-contain" />
+            <div>
+              <h1 className="text-2xl font-black uppercase text-indigo-955 tracking-tight">INVECEM</h1>
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Control de Visitantes - Reporte de Acceso</p>
+            </div>
+          </div>
+          <div className="text-right text-xs font-mono text-slate-500">
+            <div>Fecha: {new Date().toLocaleDateString()}</div>
+            <div>Tipo: Visitantes de Planta</div>
+          </div>
+        </div>
+
         {/* ENCABEZADO DE REPORTE */}
-        <header className="mb-8 border-l-6 border-cyan-500 pl-5 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+        <header className="mb-8 border-l-6 border-cyan-500 pl-5 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 print:hidden">
           <div>
             <h1 className="text-3xl font-black tracking-tight text-indigo-950 uppercase">
               Control de Visitantes

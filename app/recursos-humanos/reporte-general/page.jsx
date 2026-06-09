@@ -25,6 +25,14 @@ export default function ReportesGenerales() {
   const [resultados, setResultados] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  // Paginación
+  const [paginaActual, setPaginaActual] = useState(1);
+  const itemsPorPagina = 30;
+
+  useEffect(() => {
+    setPaginaActual(1);
+  }, [fechaBusqueda, filtroEmpresa, filtroTurno, filtroArea, busquedaManual]);
+
   useEffect(() => { setMounted(true); }, []);
 
   const formatearFechaVisual = (fechaISO) => {
@@ -100,6 +108,7 @@ export default function ReportesGenerales() {
       }
 
       setResultados(data);
+      setPaginaActual(1);
     } catch (error) {
       console.error("Error:", error);
       alert("Error en la base de datos.");
@@ -118,14 +127,35 @@ export default function ReportesGenerales() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: "landscape" });
 
+    const loadImage = (url) => new Promise((resolve) => {
+      const img = new Image();
+      img.src = url;
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+    });
+
+    const imgLogo = await loadImage('/logo.png');
+
     const areaTexto = filtroArea === "TODOS" ? "GENERAL" : filtroArea;
     const fechaLinda = formatearFechaVisual(fechaBusqueda);
 
-    doc.setFillColor(30, 41, 59); doc.rect(0, 0, 300, 40, 'F'); 
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(18); doc.text(`INVECEM - CONTROL DE ASISTENCIA ${areaTexto}`, 15, 20);
-    doc.setFontSize(10);
-    doc.text(`REGISTROS DEL DÍA: ${fechaLinda} | TURNO: ${filtroTurno}`, 15, 30);
+    doc.setFillColor(248, 250, 252); doc.rect(0, 0, 300, 40, 'F');
+    doc.setDrawColor(226, 232, 240); doc.line(0, 40, 300, 40);
+    
+    if (imgLogo) {
+      doc.addImage(imgLogo, 'PNG', 15, 5, 30, 30);
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(18); doc.text(`INVECEM - CONTROL DE ASISTENCIA ${areaTexto}`, 50, 20);
+      doc.setTextColor(71, 85, 105);
+      doc.setFontSize(10);
+      doc.text(`REGISTROS DEL DÍA: ${fechaLinda} | TURNO: ${filtroTurno}`, 50, 30);
+    } else {
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(18); doc.text(`INVECEM - CONTROL DE ASISTENCIA ${areaTexto}`, 15, 20);
+      doc.setTextColor(71, 85, 105);
+      doc.setFontSize(10);
+      doc.text(`REGISTROS DEL DÍA: ${fechaLinda} | TURNO: ${filtroTurno}`, 15, 30);
+    }
 
     const filas = resultados.map(r => [
       r.ficha, 
@@ -170,8 +200,23 @@ export default function ReportesGenerales() {
       {/* CONTENEDOR CENTRAL */}
       <div className="max-w-7xl mx-auto px-6 py-10 z-10 relative">
         
+        {/* ENCABEZADO DE IMPRESIÓN */}
+        <div className="hidden print:flex items-center justify-between border-b-2 border-slate-300 pb-4 mb-6 w-full">
+          <div className="flex items-center gap-4">
+            <img src="/logo.png" alt="Logo Invecem" className="h-16 w-auto object-contain" />
+            <div>
+              <h1 className="text-2xl font-black uppercase text-indigo-950 tracking-tight">INVECEM</h1>
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Reporte General de Asistencias</p>
+            </div>
+          </div>
+          <div className="text-right text-xs font-mono text-slate-500">
+            <div>Fecha Consulta: {formatearFechaVisual(fechaBusqueda)}</div>
+            <div>Turno: {filtroTurno} | Área: {filtroArea}</div>
+          </div>
+        </div>
+
         {/* ENCABEZADO DE REPORTE */}
-        <header className="mb-8 border-l-6 border-cyan-500 pl-5">
+        <header className="mb-8 border-l-6 border-cyan-500 pl-5 print:hidden">
           <h1 className="text-3xl font-black tracking-tight text-indigo-955 uppercase">
             Reporte General de Asistencias
           </h1>
@@ -321,46 +366,104 @@ export default function ReportesGenerales() {
                     </td>
                   </tr>
                 ) : (
-                  resultados.map(r => (
-                    <tr key={r.id} className="border-b border-slate-100/60 hover:bg-slate-50/50 transition-all">
-                      <td className="py-4 px-3 text-center font-black text-cyan-600 text-sm font-mono">
-                        {r.ficha || "---"}
-                      </td>
-                      
-                      <td className="py-4 px-3 text-left font-extrabold text-indigo-950 text-sm uppercase">
-                        {r.nombreCompleto}
-                      </td>
-                      
-                      <td className="py-4 px-3 text-left">
-                        <div className="font-extrabold text-cyan-700 text-xs uppercase">{r.area || "N/A"}</div>
-                        <div className="font-bold text-slate-500 text-xxs uppercase tracking-wider mt-0.5 font-mono">{r.cargo}</div>
-                      </td>
-                      
-                      <td className="py-4 px-3 text-center font-bold text-slate-700 text-sm font-mono">
-                        {formatAMPM(r.entrada)}
-                      </td>
-                      
-                      <td className="py-4 px-3 text-center font-bold text-slate-700 text-sm font-mono">
-                        {formatAMPM(r.salida)}
-                      </td>
-                      
-                      <td className="py-4 px-3 text-center">
-                        <span className={`px-2.5 py-0.5 rounded-lg text-xxs font-black tracking-wider uppercase inline-block border ${r.estatus === "Retraso" ? "bg-orange-50 text-orange-605 border-orange-200" : "bg-emerald-50 text-emerald-600 border-emerald-200"}`}>
-                          {r.estatus || "PUNTUAL"}
-                        </span>
-                      </td>
+                  (() => {
+                    const totalPaginas = Math.ceil(resultados.length / itemsPorPagina) || 1;
+                    const indexInicio = (paginaActual - 1) * itemsPorPagina;
+                    const indexFin = paginaActual * itemsPorPagina;
+                    const itemsPaginados = resultados.slice(indexInicio, indexFin);
 
-                      <td className="py-4 px-3 text-center">
-                        <span className="px-2 py-0.5 bg-slate-50 border border-slate-200 text-slate-500 rounded-lg text-[9px] font-black tracking-widest uppercase font-mono">
-                          {r.tipoPersonal}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
+                    return itemsPaginados.map(r => (
+                      <tr key={r.id} className="border-b border-slate-100/60 hover:bg-slate-50/50 transition-all">
+                        <td className="py-4 px-3 text-center font-black text-cyan-600 text-sm font-mono">
+                          {r.ficha || "---"}
+                        </td>
+                        
+                        <td className="py-4 px-3 text-left font-extrabold text-indigo-950 text-sm uppercase">
+                          {r.nombreCompleto}
+                        </td>
+                        
+                        <td className="py-4 px-3 text-left">
+                          <div className="font-extrabold text-cyan-700 text-xs uppercase">{r.area || "N/A"}</div>
+                          <div className="font-bold text-slate-500 text-xxs uppercase tracking-wider mt-0.5 font-mono">{r.cargo}</div>
+                        </td>
+                        
+                        <td className="py-4 px-3 text-center font-bold text-slate-700 text-sm font-mono">
+                          {formatAMPM(r.entrada)}
+                        </td>
+                        
+                        <td className="py-4 px-3 text-center font-bold text-slate-700 text-sm font-mono">
+                          {formatAMPM(r.salida)}
+                        </td>
+                        
+                        <td className="py-4 px-3 text-center">
+                          <span className={`px-2.5 py-0.5 rounded-lg text-xxs font-black tracking-wider uppercase inline-block border ${r.estatus === "Retraso" ? "bg-orange-50 text-orange-605 border-orange-200" : "bg-emerald-50 text-emerald-600 border-emerald-200"}`}>
+                            {r.estatus || "PUNTUAL"}
+                          </span>
+                        </td>
+
+                        <td className="py-4 px-3 text-center">
+                          <span className="px-2 py-0.5 bg-slate-50 border border-slate-200 text-slate-500 rounded-lg text-[9px] font-black tracking-widest uppercase font-mono">
+                            {r.tipoPersonal}
+                          </span>
+                        </td>
+                      </tr>
+                    ));
+                  })()
                 )}
               </tbody>
             </table>
           </div>
+
+          {/* Paginación */}
+          {resultados.length > itemsPorPagina && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-200/60 print:hidden">
+              <span className="text-xxs font-bold text-slate-500 uppercase tracking-widest font-mono">
+                Mostrando {((paginaActual - 1) * itemsPorPagina) + 1} - {Math.min(paginaActual * itemsPorPagina, resultados.length)} de {resultados.length} registros
+              </span>
+              <div className="flex gap-1.5 flex-wrap">
+                <button
+                  onClick={() => setPaginaActual(prev => Math.max(prev - 1, 1))}
+                  disabled={paginaActual === 1}
+                  className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 disabled:opacity-50 text-slate-800 rounded-xl text-xxs font-bold uppercase transition-all cursor-pointer shadow-sm flex items-center gap-1"
+                >
+                  <i className="fas fa-chevron-left text-cyan-500"></i> Anterior
+                </button>
+                {(() => {
+                  const totalPaginas = Math.ceil(resultados.length / itemsPorPagina) || 1;
+                  return Array.from({ length: totalPaginas }, (_, i) => i + 1)
+                    .filter(pag => pag === 1 || pag === totalPaginas || Math.abs(pag - paginaActual) <= 1)
+                    .map((pag, index, arr) => {
+                      const showEllipsis = index > 0 && pag - arr[index - 1] > 1;
+                      return (
+                        <React.Fragment key={pag}>
+                          {showEllipsis && <span className="text-slate-400 font-bold self-center px-1">...</span>}
+                          <button
+                            onClick={() => setPaginaActual(pag)}
+                            className={`w-8 h-8 flex items-center justify-center rounded-xl text-xxs font-black transition-all cursor-pointer ${
+                              paginaActual === pag
+                                ? 'bg-gradient-to-r from-cyan-500 to-indigo-500 text-white shadow shadow-cyan-500/20'
+                                : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-650'
+                            }`}
+                          >
+                            {pag}
+                          </button>
+                        </React.Fragment>
+                      );
+                    });
+                })()}
+                <button
+                  onClick={() => {
+                    const totalPaginas = Math.ceil(resultados.length / itemsPorPagina) || 1;
+                    setPaginaActual(prev => Math.min(prev + 1, totalPaginas));
+                  }}
+                  disabled={paginaActual === (Math.ceil(resultados.length / itemsPorPagina) || 1)}
+                  className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 disabled:opacity-50 text-slate-800 rounded-xl text-xxs font-bold uppercase transition-all cursor-pointer shadow-sm flex items-center gap-1"
+                >
+                  Siguiente <i className="fas fa-chevron-right text-cyan-500"></i>
+                </button>
+              </div>
+            </div>
+          )}
 
         </div>
       </div>

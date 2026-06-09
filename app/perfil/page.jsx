@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { auth, db } from "../lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
-import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { updatePassword, reauthenticateWithCredential, EmailAuthProvider, updateEmail } from "firebase/auth";
 import { useRouter } from "next/navigation";
 
 export default function PerfilUsuario() {
@@ -12,6 +12,11 @@ export default function PerfilUsuario() {
   const [claveActual, setClaveActual] = useState("");
   const [nuevaClave, setNuevaClave] = useState("");
   const [confirmarClave, setConfirmarClave] = useState("");
+
+  const [nuevoCorreo, setNuevoCorreo] = useState("");
+  const [claveParaCorreo, setClaveParaCorreo] = useState("");
+  const [cargandoCorreo, setCargandoCorreo] = useState(false);
+  const [verClaveCorreo, setVerClaveCorreo] = useState(false);
 
   const [cargando, setCargando] = useState(false);
 
@@ -35,7 +40,19 @@ export default function PerfilUsuario() {
         const docRef = doc(db, "usuarios", user.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          setUserData(docSnap.data());
+          const data = docSnap.data();
+          setUserData(data);
+          
+          // Inicializar username si no existe en Firestore
+          if (!data.username && data.correo) {
+            const usernameExtracted = data.correo.split("@")[0];
+            try {
+              await updateDoc(docRef, { username: usernameExtracted });
+              setUserData(prev => prev ? { ...prev, username: usernameExtracted } : null);
+            } catch (err) {
+              console.error("Error al inicializar username:", err);
+            }
+          }
         }
       } else {
         router.push("/login");
@@ -93,6 +110,52 @@ export default function PerfilUsuario() {
       }
     } finally {
       setCargando(false);
+    }
+  };
+
+  const handleCambiarCorreo = async (e) => {
+    e.preventDefault();
+    if (!nuevoCorreo.trim() || !claveParaCorreo) {
+      return alert("❌ Debes completar todos los campos.");
+    }
+    setCargandoCorreo(true);
+    try {
+      const user = auth.currentUser;
+      const credential = EmailAuthProvider.credential(user.email, claveParaCorreo);
+      
+      // Reautenticar al usuario antes del cambio de correo
+      await reauthenticateWithCredential(user, credential);
+      
+      // Actualizar en Firebase Auth
+      const emailLimpio = nuevoCorreo.trim().toLowerCase();
+      await updateEmail(user, emailLimpio);
+      
+      // Actualizar en Firestore
+      const userRef = doc(db, "usuarios", user.uid);
+      const usernameExtracted = emailLimpio.split("@")[0];
+      
+      await updateDoc(userRef, {
+        correo: emailLimpio,
+        username: usernameExtracted
+      });
+      
+      setUserData(prev => prev ? {
+        ...prev,
+        correo: emailLimpio,
+        username: usernameExtracted
+      } : null);
+      
+      alert("✅ Correo de recuperación actualizado correctamente.");
+      setNuevoCorreo("");
+      setClaveParaCorreo("");
+    } catch (error) {
+      if (error.code === "auth/wrong-password") {
+        alert("❌ La contraseña es incorrecta.");
+      } else {
+        alert("Error al actualizar correo: " + error.message);
+      }
+    } finally {
+      setCargandoCorreo(false);
     }
   };
 
@@ -241,105 +304,160 @@ export default function PerfilUsuario() {
             {/* DIVIDER VERTICAL */}
             <div className="hidden lg:block bg-slate-200 w-[1px] h-full min-h-[400px]"></div>
 
-            {/* SECCIÓN DERECHA: FORMULARIO */}
-            <form onSubmit={handleCambiarClave} className="space-y-6">
-              <div>
-                <h3 className="text-xs font-black uppercase text-indigo-600 tracking-wider border-b border-dashed border-indigo-500/20 pb-2 flex items-center gap-2">
-                  <i className="fas fa-lock"></i> Seguridad y Contraseña
-                </h3>
-                <p className="text-slate-500 text-xs mt-1.5 font-medium">Actualiza tu clave de acceso al sistema INVECEM</p>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xxs font-bold uppercase tracking-wider text-slate-600 block">Contraseña Actual</label>
-                <div className="relative flex w-full">
-                  <input 
-                    type={verClaveActual ? "text" : "password"} 
-                    value={claveActual}
-                    onChange={(e) => setClaveActual(e.target.value)}
-                    required 
-                    className="w-full px-4 py-3 pr-12 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 font-semibold"
-                  />
-                  <button 
-                    type="button" 
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-450 hover:text-indigo-550 transition-colors cursor-pointer"
-                    onClick={() => setVerClaveActual(!verClaveActual)}
-                  >
-                    <EyeIcon visible={verClaveActual} />
-                  </button>
+            {/* SECCIÓN DERECHA: CONFIGURACIÓN Y SEGURIDAD */}
+            <div className="space-y-8">
+              
+              {/* FORMULARIO DE CONTRASEÑA */}
+              <form onSubmit={handleCambiarClave} className="space-y-6 bg-slate-550/5 p-6 border border-slate-200/50 rounded-2xl">
+                <div>
+                  <h3 className="text-xs font-black uppercase text-indigo-650 tracking-wider border-b border-dashed border-indigo-500/20 pb-2 flex items-center gap-2">
+                    <i className="fas fa-lock"></i> Seguridad y Contraseña
+                  </h3>
+                  <p className="text-slate-500 text-xs mt-1.5 font-medium">Actualiza tu clave de acceso al sistema INVECEM</p>
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-xxs font-bold uppercase tracking-wider text-slate-600 block">Nueva Contraseña</label>
-                <div className="relative flex w-full">
-                  <input 
-                    type={verNuevaClave ? "text" : "password"} 
-                    value={nuevaClave}
-                    onChange={(e) => setNuevaClave(e.target.value)}
-                    required 
-                    className="w-full px-4 py-3 pr-12 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 font-semibold"
-                  />
-                  <button 
-                    type="button" 
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-455 hover:text-indigo-550 transition-colors cursor-pointer"
-                    onClick={() => setVerNuevaClave(!verNuevaClave)}
-                  >
-                    <EyeIcon visible={verNuevaClave} />
-                  </button>
+                <div className="space-y-2">
+                  <label className="text-xxs font-bold uppercase tracking-wider text-slate-600 block">Contraseña Actual</label>
+                  <div className="relative flex w-full">
+                    <input 
+                      type={verClaveActual ? "text" : "password"} 
+                      value={claveActual}
+                      onChange={(e) => setClaveActual(e.target.value)}
+                      required 
+                      className="w-full px-4 py-3 pr-12 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 font-semibold"
+                    />
+                    <button 
+                      type="button" 
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-450 hover:text-indigo-550 transition-colors cursor-pointer"
+                      onClick={() => setVerClaveActual(!verClaveActual)}
+                    >
+                      <EyeIcon visible={verClaveActual} />
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              {/* LISTA VISUAL REQUISITOS */}
-              <div className="bg-slate-50 p-4 border border-slate-200/80 rounded-xl space-y-1.5">
-                <p className={`text-xxs font-bold uppercase tracking-wider flex items-center gap-2 ${validaciones.longitud ? "text-emerald-600" : "text-slate-450"}`}>
-                  <i className={`fas ${validaciones.longitud ? 'fa-check-circle' : 'fa-circle-notch'}`}></i> Mínimo 8 caracteres
-                </p>
-                <p className={`text-xxs font-bold uppercase tracking-wider flex items-center gap-2 ${validaciones.mayuscula ? "text-emerald-600" : "text-slate-450"}`}>
-                  <i className={`fas ${validaciones.mayuscula ? 'fa-check-circle' : 'fa-circle-notch'}`}></i> Al menos una mayúscula
-                </p>
-                <p className={`text-xxs font-bold uppercase tracking-wider flex items-center gap-2 ${validaciones.minuscula ? "text-emerald-600" : "text-slate-450"}`}>
-                  <i className={`fas ${validaciones.minuscula ? 'fa-check-circle' : 'fa-circle-notch'}`}></i> Al menos una minúscula
-                </p>
-                <p className={`text-xxs font-bold uppercase tracking-wider flex items-center gap-2 ${validaciones.numero ? "text-emerald-600" : "text-slate-450"}`}>
-                  <i className={`fas ${validaciones.numero ? 'fa-check-circle' : 'fa-circle-notch'}`}></i> Al menos un número
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xxs font-bold uppercase tracking-wider text-slate-600 block">Confirmar Nueva Contraseña</label>
-                <div className="relative flex w-full">
-                  <input 
-                    type={verConfirmarClave ? "text" : "password"} 
-                    value={confirmarClave}
-                    onChange={(e) => setConfirmarClave(e.target.value)}
-                    required 
-                    className="w-full px-4 py-3 pr-12 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 font-semibold"
-                  />
-                  <button 
-                    type="button" 
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-455 hover:text-indigo-550 transition-colors cursor-pointer"
-                    onClick={() => setVerConfirmarClave(!verConfirmarClave)}
-                  >
-                    <EyeIcon visible={verConfirmarClave} />
-                  </button>
+                <div className="space-y-2">
+                  <label className="text-xxs font-bold uppercase tracking-wider text-slate-600 block">Nueva Contraseña</label>
+                  <div className="relative flex w-full">
+                    <input 
+                      type={verNuevaClave ? "text" : "password"} 
+                      value={nuevaClave}
+                      onChange={(e) => setNuevaClave(e.target.value)}
+                      required 
+                      className="w-full px-4 py-3 pr-12 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 font-semibold"
+                    />
+                    <button 
+                      type="button" 
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-455 hover:text-indigo-550 transition-colors cursor-pointer"
+                      onClick={() => setVerNuevaClave(!verNuevaClave)}
+                    >
+                      <EyeIcon visible={verNuevaClave} />
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <p className={`text-xxs font-bold uppercase tracking-wider flex items-center gap-2 ${validaciones.coincide ? "text-emerald-600" : "text-slate-450"}`}>
-                <i className={`fas ${validaciones.coincide ? 'fa-check-circle' : 'fa-circle-notch'}`}></i> Las contraseñas coinciden
-              </p>
+                {/* LISTA VISUAL REQUISITOS */}
+                <div className="bg-slate-50 p-4 border border-slate-200/80 rounded-xl space-y-1.5">
+                  <p className={`text-xxs font-bold uppercase tracking-wider flex items-center gap-2 ${validaciones.longitud ? "text-emerald-600" : "text-slate-450"}`}>
+                    <i className={`fas ${validaciones.longitud ? 'fa-check-circle' : 'fa-circle-notch'}`}></i> Mínimo 8 caracteres
+                  </p>
+                  <p className={`text-xxs font-bold uppercase tracking-wider flex items-center gap-2 ${validaciones.mayuscula ? "text-emerald-600" : "text-slate-450"}`}>
+                    <i className={`fas ${validaciones.mayuscula ? 'fa-check-circle' : 'fa-circle-notch'}`}></i> Al menos una mayúscula
+                  </p>
+                  <p className={`text-xxs font-bold uppercase tracking-wider flex items-center gap-2 ${validaciones.minuscula ? "text-emerald-600" : "text-slate-450"}`}>
+                    <i className={`fas ${validaciones.minuscula ? 'fa-check-circle' : 'fa-circle-notch'}`}></i> Al menos una minúscula
+                  </p>
+                  <p className={`text-xxs font-bold uppercase tracking-wider flex items-center gap-2 ${validaciones.numero ? "text-emerald-600" : "text-slate-450"}`}>
+                    <i className={`fas ${validaciones.numero ? 'fa-check-circle' : 'fa-circle-notch'}`}></i> Al menos un número
+                  </p>
+                </div>
 
-              <button 
-                type="submit" 
-                className="w-full py-4 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 active:scale-95 rounded-xl font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-indigo-500/20 transition-all duration-200 transform cursor-pointer text-white hover:shadow-neon-purple" 
-                disabled={cargando}
-              >
-                {cargando ? "Procesando..." : "Actualizar Contraseña"}
-              </button>
-            </form>
+                <div className="space-y-2">
+                  <label className="text-xxs font-bold uppercase tracking-wider text-slate-600 block">Confirmar Nueva Contraseña</label>
+                  <div className="relative flex w-full">
+                    <input 
+                      type={verConfirmarClave ? "text" : "password"} 
+                      value={confirmarClave}
+                      onChange={(e) => setConfirmarClave(e.target.value)}
+                      required 
+                      className="w-full px-4 py-3 pr-12 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 font-semibold"
+                    />
+                    <button 
+                      type="button" 
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-455 hover:text-indigo-550 transition-colors cursor-pointer"
+                      onClick={() => setVerConfirmarClave(!verConfirmarClave)}
+                    >
+                      <EyeIcon visible={verConfirmarClave} />
+                    </button>
+                  </div>
+                </div>
+
+                <p className={`text-xxs font-bold uppercase tracking-wider flex items-center gap-2 ${validaciones.coincide ? "text-emerald-600" : "text-slate-450"}`}>
+                  <i className={`fas ${validaciones.coincide ? 'fa-check-circle' : 'fa-circle-notch'}`}></i> Las contraseñas coinciden
+                </p>
+
+                <button 
+                  type="submit" 
+                  className="w-full py-4 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 active:scale-95 rounded-xl font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-indigo-500/20 transition-all duration-200 transform cursor-pointer text-white hover:shadow-neon-purple" 
+                  disabled={cargando}
+                >
+                  {cargando ? "Procesando..." : "Actualizar Contraseña"}
+                </button>
+              </form>
+
+              {/* FORMULARIO DE CORREO */}
+              <form onSubmit={handleCambiarCorreo} className="space-y-6 bg-slate-550/5 p-6 border border-slate-200/50 rounded-2xl">
+                <div>
+                  <h3 className="text-xs font-black uppercase text-cyan-600 tracking-wider border-b border-dashed border-cyan-500/20 pb-2 flex items-center gap-2">
+                    <i className="fas fa-envelope"></i> Correo de Recuperación
+                  </h3>
+                  <p className="text-slate-500 text-xs mt-1.5 font-medium">Actualiza tu correo para recibir los enlaces de restablecimiento de contraseña.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xxs font-bold uppercase tracking-wider text-slate-600 block">Nuevo Correo Real</label>
+                  <input 
+                    type="email" 
+                    value={nuevoCorreo}
+                    onChange={(e) => setNuevoCorreo(e.target.value)}
+                    placeholder="ejemplo@correo.com"
+                    required 
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 font-semibold"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xxs font-bold uppercase tracking-wider text-slate-600 block">Contraseña para Confirmar</label>
+                  <div className="relative flex w-full">
+                    <input 
+                      type={verClaveCorreo ? "text" : "password"} 
+                      value={claveParaCorreo}
+                      onChange={(e) => setClaveParaCorreo(e.target.value)}
+                      required 
+                      placeholder="Contraseña actual..."
+                      className="w-full px-4 py-3 pr-12 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 font-semibold"
+                    />
+                    <button 
+                      type="button" 
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-455 hover:text-indigo-550 transition-colors cursor-pointer"
+                      onClick={() => setVerClaveCorreo(!verClaveCorreo)}
+                    >
+                      <EyeIcon visible={verClaveCorreo} />
+                    </button>
+                  </div>
+                </div>
+
+                <button 
+                  type="submit" 
+                  className="w-full py-4 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 active:scale-95 rounded-xl font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-indigo-500/20 transition-all duration-200 transform cursor-pointer text-white hover:shadow-neon-purple" 
+                  disabled={cargandoCorreo}
+                >
+                  {cargandoCorreo ? "Actualizando..." : "Actualizar Correo"}
+                </button>
+              </form>
+
+            </div>
           </div>
-
         </div>
       </div>
     </div>

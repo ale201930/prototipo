@@ -17,7 +17,7 @@ const estadoInicial = {
   fechaInicioCiclo: "", 
   horaEntrada: "07:00", horaSalida: "16:00", esNocturno: false,
   estatus: "Activo (En funciones)", fechaIngreso: "",
-  fechaEgreso: "", telefono: "", correo: "",
+  fechaEgreso: "", telefono: "", correo: "", fechaNacimiento: "",
 };
 
 function FormularioRegistro() {
@@ -35,7 +35,10 @@ function FormularioRegistro() {
         try {
           const docRef = doc(db, "personal", editId);
           const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) setFormData(docSnap.data());
+          if (docSnap.exists()) {
+              const data = docSnap.data();
+              setFormData({ ...data, esNocturno: data.esNocturno === true });
+            }
         } catch (error) { console.error("Error:", error); }
         setLoading(false);
       };
@@ -449,7 +452,7 @@ function FormularioRegistro() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="flex flex-col gap-2">
                 <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">FECHA_INGRESO</label>
                 <input 
@@ -462,6 +465,20 @@ function FormularioRegistro() {
                 />
               </div>
 
+              <div className="flex flex-col gap-2">
+                <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">FECHA_NACIMIENTO</label>
+                <input 
+                  type="date" 
+                  name="fechaNacimiento" 
+                  value={formData.fechaNacimiento || ""} 
+                  onChange={handleChange} 
+                  required 
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-200 text-sm font-semibold cursor-pointer"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="flex flex-col gap-2">
                 <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">TELÉFONO</label>
                 <input 

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import { auth, db } from "../lib/firebase";
 import { signOut } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, orderBy, onSnapshot } from "firebase/firestore";
 
 function SidebarItem({ icon, label, active, onClick, accent = "#06b6d4" }) {
   return (
@@ -36,6 +36,13 @@ export default function ProteccionFisica() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [nombreUsuario, setNombreUsuario] = useState("");
+
+  // Real-time states
+  const [stats, setStats] = useState({ enPlanta: 0, totalRegistrados: 0, entradasHoy: 0, salidasHoy: 0 });
+  const [contratistasPlanta, setContratistasPlanta] = useState([]);
+  const [distribucionEmpresas, setDistribucionEmpresas] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   const router = useRouter();
 
   useEffect(() => {
@@ -55,6 +62,58 @@ export default function ProteccionFisica() {
     if (role === "admin" || role === "administrador") {
       setIsAdmin(true);
     }
+  }, []);
+
+  useEffect(() => {
+    // 1. Escuchar contratistas
+    const unsubContratistas = onSnapshot(collection(db, "contratistas"), (snapshot) => {
+      const listContratistas = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      const totalCount = listContratistas.length;
+
+      // 2. Escuchar asistencias de contratistas hoy
+      const inicioHoy = new Date();
+      inicioHoy.setHours(0, 0, 0, 0);
+
+      const qAsistencias = query(
+        collection(db, "asistencias"),
+        where("fechaHora", ">=", inicioHoy),
+        where("tipoPersonal", "==", "CONTRATISTA")
+      );
+
+      const unsubAsistencias = onSnapshot(qAsistencias, (asistSnap) => {
+        const asistDocs = asistSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        const enPlantaDocs = asistDocs.filter(a => a.entrada && (!a.salida || a.salida === "--:--"));
+        const entradasCount = asistDocs.filter(a => a.entrada).length;
+        const salidasCount = asistDocs.filter(a => a.salida && a.salida !== "--:--").length;
+
+        // Group by company for distribution
+        const compMap = {};
+        enPlantaDocs.forEach(a => {
+          const comp = a.nombreContrata || "Sin Empresa";
+          compMap[comp] = (compMap[comp] || 0) + 1;
+        });
+
+        const sortedComp = Object.keys(compMap).map(key => ({
+          empresa: key,
+          cantidad: compMap[key]
+        })).sort((a, b) => b.cantidad - a.cantidad);
+
+        setContratistasPlanta(enPlantaDocs);
+        setDistribucionEmpresas(sortedComp.slice(0, 5));
+        setStats({
+          enPlanta: enPlantaDocs.length,
+          totalRegistrados: totalCount,
+          entradasHoy: entradasCount,
+          salidasHoy: salidasCount
+        });
+        setLoading(false);
+      });
+
+      return () => unsubAsistencias();
+    });
+
+    return () => unsubContratistas();
   }, []);
 
   const handleLogout = async () => {
@@ -169,26 +228,150 @@ export default function ProteccionFisica() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {[
-            { icon: 'fa-users', label: 'Personal de Contratas', sub: 'Gestión y registro del personal de contratas', route: '/proteccion-fisica/personal-de-contratas', color: '#06b6d4', bg: 'rgba(6,182,212,0.08)' },
-            { icon: 'fa-calendar-check', label: 'Asistencia del Día', sub: 'Control de acceso en tiempo real', route: '/proteccion-fisica/asistencia-del-dia', color: '#22d3ee', bg: 'rgba(34,211,238,0.08)' },
-          ].map(item => (
-            <button key={item.label} onClick={() => router.push(item.route)}
-              className="card p-6 text-left cursor-pointer group animate-slide-up"
-              style={{ border: `1px solid ${item.color}20` }}>
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 transition-transform duration-200 group-hover:scale-110"
-                style={{ background: item.bg, border: `1px solid ${item.color}25` }}>
-                <i className={`fas ${item.icon} text-xl`} style={{ color: item.color }} />
+        {loading ? (
+          <div className="py-12 text-center text-xs font-bold uppercase tracking-widest text-cyan-500 animate-pulse font-sans">
+            <i className="fas fa-spinner fa-spin mr-2"></i> Conectando con el sistema... Cargando contratistas...
+          </div>
+        ) : (
+          <div className="space-y-8 animate-slide-up">
+            
+            {/* SECCIÓN 1: ESTADÍSTICAS GENERALES DE CONTRATISTAS */}
+            <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-md relative overflow-hidden">
+              <div className="border-l-4 border-cyan-500 pl-4 mb-6">
+                <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">Estadísticas de Contratas (Hoy)</h2>
+                <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mt-0.5">Monitoreo y control de personal externo en planta</p>
               </div>
-              <p className="font-black text-slate-800 text-base">{item.label}</p>
-              <p className="text-slate-500 text-sm mt-1 font-medium">{item.sub}</p>
-              <div className="mt-4 flex items-center gap-1.5 text-sm font-bold transition-all duration-200 group-hover:gap-2.5" style={{ color: item.color }}>
-                Abrir módulo <i className="fas fa-arrow-right text-xs" />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {/* KPI 1: Contratistas en Planta */}
+                <div className="stat-box-premium stat-box-premium-cyan cursor-pointer" onClick={() => router.push("/proteccion-fisica/asistencia-del-dia")}>
+                  <i className="fas fa-sign-in-alt stat-box-icon-bg"></i>
+                  <div>
+                    <div className="stat-box-icon-circle stat-box-icon-circle-cyan">
+                      <i className="fas fa-sign-in-alt"></i>
+                    </div>
+                    <p className="text-[11px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">En Planta Ahora</p>
+                    <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mt-1">{stats.enPlanta}</h3>
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 font-medium">Contratistas activos en planta</p>
+                </div>
+
+                {/* KPI 2: Total Registrados */}
+                <div className="stat-box-premium stat-box-premium-purple cursor-pointer" onClick={() => router.push("/proteccion-fisica/personal-de-contratas")}>
+                  <i className="fas fa-id-card stat-box-icon-bg"></i>
+                  <div>
+                    <div className="stat-box-icon-circle stat-box-icon-circle-purple">
+                      <i className="fas fa-id-card"></i>
+                    </div>
+                    <p className="text-[11px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Total Registrados</p>
+                    <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mt-1">{stats.totalRegistrados}</h3>
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 font-medium">Personal externo homologado</p>
+                </div>
+
+                {/* KPI 3: Entradas Hoy */}
+                <div className="stat-box-premium stat-box-premium-emerald cursor-pointer" onClick={() => router.push("/proteccion-fisica/asistencia-del-dia")}>
+                  <i className="fas fa-arrow-right-to-bracket stat-box-icon-bg"></i>
+                  <div>
+                    <div className="stat-box-icon-circle stat-box-icon-circle-emerald">
+                      <i className="fas fa-sign-in-alt text-emerald-500"></i>
+                    </div>
+                    <p className="text-[11px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Entradas Hoy</p>
+                    <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mt-1">{stats.entradasHoy}</h3>
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 font-medium">Registros de ingreso de hoy</p>
+                </div>
+
+                {/* KPI 4: Salidas Hoy */}
+                <div className="stat-box-premium stat-box-premium-amber cursor-pointer" onClick={() => router.push("/proteccion-fisica/asistencia-del-dia")}>
+                  <i className="fas fa-arrow-right-from-bracket stat-box-icon-bg"></i>
+                  <div>
+                    <div className="stat-box-icon-circle stat-box-icon-circle-amber">
+                      <i className="fas fa-sign-out-alt text-amber-500"></i>
+                    </div>
+                    <p className="text-[11px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Salidas Hoy</p>
+                    <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mt-1">{stats.salidasHoy}</h3>
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 font-medium">Registros de egreso de hoy</p>
+                </div>
               </div>
-            </button>
-          ))}
-        </div>
+            </section>
+
+            {/* SECCIÓN 2: DETALLE EN PLANTA */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+              
+              {/* Contratistas en Planta */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-lg relative overflow-hidden">
+                <div className="absolute top-3 right-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+                <h3 className="text-sm font-black uppercase text-indigo-950 dark:text-white tracking-wider border-b border-slate-200 dark:border-slate-800 pb-3 flex items-center gap-2">
+                  <i className="fas fa-users-gear text-cyan-500"></i> Contratistas en Planta Ahora
+                </h3>
+                
+                <div className="overflow-y-auto max-h-[300px] mt-4 space-y-3 pr-2">
+                  {contratistasPlanta.length > 0 ? (
+                    contratistasPlanta.map(c => (
+                      <div key={c.id} className="p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-xl flex items-center justify-between">
+                        <div>
+                          <strong className="text-xs font-black text-slate-800 dark:text-white uppercase block">{c.nombreCompleto}</strong>
+                          <span className="text-[10px] font-bold text-slate-500 uppercase font-mono">{c.nombreContrata}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="inline-block px-2.5 py-0.5 bg-cyan-50 dark:bg-cyan-950/20 border border-cyan-255 dark:border-cyan-800 text-cyan-600 dark:text-cyan-400 rounded-lg text-xxs font-black uppercase tracking-wider font-mono">
+                            EN: {c.entrada}
+                          </span>
+                          <span className="block text-[9px] text-slate-450 mt-0.5 font-bold font-mono">ÁREA: {c.area || "N/A"}</span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs font-bold text-slate-400 uppercase text-center py-12 font-mono">No hay contratistas en planta en este momento</p>
+                  )}
+                </div>
+                {contratistasPlanta.length > 0 && (
+                  <button 
+                    onClick={() => router.push("/proteccion-fisica/asistencia-del-dia")} 
+                    className="w-full mt-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-350 rounded-xl text-xxs font-black uppercase tracking-wider transition-all cursor-pointer text-center"
+                  >
+                    Ver reporte de asistencia
+                  </button>
+                )}
+              </div>
+
+              {/* Distribución por Empresa */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-lg relative overflow-hidden">
+                <div className="absolute top-3 right-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+                <h3 className="text-sm font-black uppercase text-indigo-950 dark:text-white tracking-wider border-b border-slate-200 dark:border-slate-800 pb-3 flex items-center gap-2">
+                  <i className="fas fa-chart-column text-cyan-500"></i> Distribución de Contratas en Planta
+                </h3>
+                
+                <div className="overflow-y-auto max-h-[300px] mt-4 space-y-4 pr-2">
+                  {distribucionEmpresas.length > 0 ? (
+                    distribucionEmpresas.map((d, index) => {
+                      const totalPresentes = stats.enPlanta || 1;
+                      const pct = Math.max(8, Math.round((d.cantidad / totalPresentes) * 100));
+                      
+                      return (
+                        <div key={index} className="space-y-1">
+                          <div className="flex justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                            <span className="truncate max-w-[200px] uppercase font-black">{d.empresa}</span>
+                            <span className="font-mono text-cyan-600 dark:text-cyan-400 font-extrabold">{d.cantidad} persona(s) ({pct}%)</span>
+                          </div>
+                          <div className="w-full bg-slate-100 dark:bg-slate-850 h-2 rounded-full overflow-hidden">
+                            <div className="bg-gradient-to-r from-cyan-500 to-indigo-500 h-full rounded-full" style={{ width: `${pct}%` }}></div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-xs font-bold text-slate-400 uppercase text-center py-12 font-mono">Sin contratistas activos hoy</p>
+                  )}
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        )}
       </main>
     </div>
   );

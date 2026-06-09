@@ -13,8 +13,31 @@ export default function RecordFuncionalAsistencia() {
   const [filtroTipo, setFiltroTipo] = useState("TODOS"); 
   const [vista, setVista] = useState("semanal");
   const [fechaReferencia, setFechaReferencia] = useState(new Date());
+  
+  // Paginación
+  const [paginaActual, setPaginaActual] = useState(1);
+  const itemsPorPagina = 30;
 
   const nombresDiasCortos = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+  const nombresMesesCortos = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
+  const [showAnualDropdown, setShowAnualDropdown] = useState(false);
+  const [modalSeleccionMes, setModalSeleccionMes] = useState({ open: false, mesIndex: null });
+  const [tempFecha, setTempFecha] = useState("");
+
+  const nombresMesesLargos = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", 
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+  ];
+
+  const abrirModalMes = (mesIndex) => {
+    const anio = fechaReferencia instanceof Date && !isNaN(fechaReferencia.getTime())
+      ? fechaReferencia.getFullYear()
+      : new Date().getFullYear();
+    const mesStr = String(mesIndex + 1).padStart(2, "0");
+    setTempFecha(`${anio}-${mesStr}-01`);
+    setModalSeleccionMes({ open: true, mesIndex });
+  };
 
   useEffect(() => {
     const unsubPersonal = onSnapshot(collection(db, "personal"), (snap) => {
@@ -25,6 +48,24 @@ export default function RecordFuncionalAsistencia() {
     });
     return () => { unsubPersonal(); unsubAsist(); };
   }, []);
+
+  // Reiniciar paginación al cambiar filtros o tipo de vista
+  useEffect(() => {
+    setPaginaActual(1);
+  }, [filtro, filtroTipo, vista, fechaReferencia]);
+
+  // Mapa optimizado O(1) de asistencias
+  const asistenciasMap = React.useMemo(() => {
+    const map = {};
+    asistencias.forEach(a => {
+      const fA = a.fechaHora?.toDate ? a.fechaHora.toDate() : (a.fechaHora ? new Date(a.fechaHora) : null);
+      if (fA && a.ficha) {
+        const key = `${a.ficha}_${fA.getFullYear()}_${fA.getMonth()}_${fA.getDate()}`;
+        map[key] = a;
+      }
+    });
+    return map;
+  }, [asistencias]);
 
   const listaFiltrada = personal.filter(p => {
     // Excluir personal inactivo
@@ -52,6 +93,9 @@ export default function RecordFuncionalAsistencia() {
 
   const obtenerTituloFecha = () => {
     const ref = (fechaReferencia instanceof Date && !isNaN(fechaReferencia.getTime())) ? fechaReferencia : new Date();
+    if (vista === 'anual') {
+      return `AÑO ${ref.getFullYear()}`;
+    }
     const titulo = ref.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
     return titulo.charAt(0).toUpperCase() + titulo.slice(1);
   };
@@ -80,13 +124,8 @@ export default function RecordFuncionalAsistencia() {
 
   const obtenerDatosReales = (p, dia, mes, anio) => {
     const { ficha, regimenLaboral } = p; 
-    const fechaActual = new Date(anio, mes, dia);
-    const diaSemana = fechaActual.getDay();
-
-    const registro = asistencias.find(a => {
-      const fA = a.fechaHora?.toDate();
-      return fA && fA.getDate() === dia && fA.getMonth() === mes && fA.getFullYear() === anio && a.ficha === ficha;
-    });
+    const key = `${ficha}_${anio}_${mes}_${dia}`;
+    const registro = asistenciasMap[key];
 
     if (registro) {
         let hExtra = 0;
@@ -104,6 +143,9 @@ export default function RecordFuncionalAsistencia() {
         return { clase: "status-presente", extra: hExtra, label: "ASISTENCIA" };
     }
 
+    const fechaActual = new Date(anio, mes, dia);
+    const diaSemana = fechaActual.getDay();
+
     if (regimenLaboral === "TURNO_4X4") {
         const fechaBase = new Date(2026, 0, 1); 
         const diffTime = fechaActual - fechaBase;
@@ -114,6 +156,27 @@ export default function RecordFuncionalAsistencia() {
         if (diaSemana === 0 || diaSemana === 6) return { clase: "status-descanso", extra: 0, label: "DESCANSO" };
     }
     return { clase: "status-ausente", extra: 0, label: "FALTA" };
+  };
+
+  const obtenerAcumuladoMensual = (p, mes, anio) => {
+    const diasEnMes = new Date(anio, mes + 1, 0).getDate();
+    let asistenciasCount = 0;
+    let faltasCount = 0;
+    let descansosCount = 0;
+    let extraSum = 0;
+
+    for (let dia = 1; dia <= diasEnMes; dia++) {
+      const info = obtenerDatosReales(p, dia, mes, anio);
+      if (info.label === "ASISTENCIA") {
+        asistenciasCount++;
+        extraSum += info.extra;
+      } else if (info.label === "DESCANSO") {
+        descansosCount++;
+      } else {
+        faltasCount++;
+      }
+    }
+    return { asistencias: asistenciasCount, faltas: faltasCount, descansos: descansosCount, extra: extraSum };
   };
 
   const badgeStyles = {
@@ -167,11 +230,32 @@ export default function RecordFuncionalAsistencia() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:w-auto">
               {/* Selector de fecha */}
               <div className="relative">
-                <input 
-                  type="date" 
-                  className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-cyan-500 cursor-pointer" 
-                  onChange={(e) => setFechaReferencia(e.target.value ? new Date(e.target.value + "T12:00:00") : new Date())} 
-                />
+                {vista === "anual" ? (
+                  <select
+                    key="select-anio"
+                    value={fechaReferencia instanceof Date && !isNaN(fechaReferencia.getTime()) ? fechaReferencia.getFullYear() : new Date().getFullYear()}
+                    onChange={(e) => {
+                      const anio = parseInt(e.target.value);
+                      const nuevaFecha = new Date(fechaReferencia);
+                      nuevaFecha.setFullYear(anio);
+                      setFechaReferencia(nuevaFecha);
+                    }}
+                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-cyan-500 cursor-pointer uppercase font-mono"
+                  >
+                    {Array.from({ length: 11 }, (_, i) => {
+                      const y = new Date().getFullYear() - 5 + i;
+                      return <option key={y} value={y}>Año {y}</option>;
+                    })}
+                  </select>
+                ) : (
+                  <input 
+                    key="input-fecha"
+                    type="date" 
+                    value={fechaReferencia instanceof Date && !isNaN(fechaReferencia.getTime()) ? `${fechaReferencia.getFullYear()}-${String(fechaReferencia.getMonth() + 1).padStart(2, "0")}-${String(fechaReferencia.getDate()).padStart(2, "0")}` : ""}
+                    onChange={(e) => setFechaReferencia(e.target.value ? new Date(e.target.value + "T12:00:00") : new Date())} 
+                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-cyan-500 cursor-pointer" 
+                  />
+                )}
               </div>
 
               {/* Selector de tipo */}
@@ -187,20 +271,68 @@ export default function RecordFuncionalAsistencia() {
                 </select>
               </div>
 
-              {/* Vista Semanal / Mensual */}
-              <div className="flex bg-slate-50 p-1 border border-slate-200 rounded-xl">
+              {/* Vista Semanal / Mensual / Anual */}
+              <div className="flex bg-slate-50 p-1 border border-slate-200 rounded-xl relative">
                 <button 
-                  className={`flex-1 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all duration-200 cursor-pointer ${vista === 'semanal' ? 'bg-gradient-to-r from-cyan-500 to-indigo-500 text-white shadow' : 'text-slate-400 hover:text-slate-900'}`} 
-                  onClick={() => setVista('semanal')}
+                  className={`py-1.5 px-3 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all duration-200 cursor-pointer ${vista === 'semanal' ? 'bg-gradient-to-r from-cyan-500 to-indigo-500 text-white shadow' : 'text-slate-400 hover:text-slate-950'}`} 
+                  onClick={() => { setVista('semanal'); setShowAnualDropdown(false); }}
                 >
                   Semanal
                 </button>
                 <button 
-                  className={`flex-1 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all duration-200 cursor-pointer ${vista === 'mensual' ? 'bg-gradient-to-r from-cyan-500 to-indigo-500 text-white shadow' : 'text-slate-400 hover:text-slate-900'}`} 
-                  onClick={() => setVista('mensual')}
+                  className={`py-1.5 px-3 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all duration-200 cursor-pointer ${vista === 'mensual' ? 'bg-gradient-to-r from-cyan-500 to-indigo-500 text-white shadow' : 'text-slate-400 hover:text-slate-950'}`} 
+                  onClick={() => { setVista('mensual'); setShowAnualDropdown(false); }}
                 >
                   Mensual
                 </button>
+                
+                <div className="relative">
+                  <button 
+                    className={`py-1.5 px-3 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all duration-200 cursor-pointer flex items-center gap-1 ${vista === 'anual' ? 'bg-gradient-to-r from-cyan-500 to-indigo-500 text-white shadow' : 'text-slate-400 hover:text-slate-950'}`} 
+                    onClick={() => {
+                      setVista('anual');
+                      setShowAnualDropdown(!showAnualDropdown);
+                    }}
+                  >
+                    Anual <i className="fas fa-chevron-down text-[8px]" />
+                  </button>
+
+                  {showAnualDropdown && (
+                    <div className="absolute right-0 top-full mt-2 w-60 bg-white border border-slate-200/80 rounded-2xl shadow-2xl p-4 z-[999] animate-fade-in text-slate-800">
+                      <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 pb-1 border-b border-slate-100 font-mono">
+                        OPCIONES DE VISTA ANUAL
+                      </div>
+                      
+                      <button
+                        className="w-full text-left py-2 px-3 hover:bg-slate-50 rounded-xl text-xxs font-black uppercase tracking-wider text-indigo-950 transition-colors flex items-center gap-2 mb-3 cursor-pointer"
+                        onClick={() => {
+                          setVista('anual');
+                          setShowAnualDropdown(false);
+                        }}
+                      >
+                        <i className="fas fa-table text-cyan-500" /> Ver Resumen Anual
+                      </button>
+
+                      <div className="text-[9px] font-black uppercase tracking-wider text-slate-400 mb-2 font-mono">
+                        SELECCIONAR MES (MENSUAL)
+                      </div>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {nombresMesesCortos.map((m, i) => (
+                          <button
+                            key={i}
+                            className="py-1 px-1 bg-slate-50 hover:bg-cyan-50 hover:text-cyan-600 border border-slate-200/60 hover:border-cyan-200 rounded-lg text-[10px] font-bold uppercase transition-all cursor-pointer font-mono"
+                            onClick={() => {
+                              abrirModalMes(i);
+                              setShowAnualDropdown(false);
+                            }}
+                          >
+                            {m}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -225,7 +357,7 @@ export default function RecordFuncionalAsistencia() {
           <div className="absolute top-3 left-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
           <div className="absolute top-3 right-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
           
-          <div className="overflow-x-auto w-full max-h-[600px] overflow-y-auto">
+          <div className="overflow-x-auto w-full max-h-[600px] overflow-y-auto mb-4">
             <table className="w-full border-collapse text-slate-800">
               <thead>
                 <tr className="border-b border-slate-200 sticky top-0 bg-white/95 backdrop-blur-md z-20">
@@ -237,12 +369,24 @@ export default function RecordFuncionalAsistencia() {
                           <span className="text-sm font-black text-slate-800 font-mono">{d.dia}</span>
                         </th>
                       ))
-                    : obtenerDiasMes().map((d, i) => (
-                        <th key={i} className="text-slate-500 font-bold text-[9px] tracking-wider uppercase py-4 px-1 text-center min-w-[55px]">
-                          <span className="block text-slate-500 text-[8px] font-bold font-mono">{d.nombre}</span>
-                          <span className="text-xs font-extrabold text-slate-800 font-mono">{d.dia}</span>
-                        </th>
-                      ))
+                    : vista === 'mensual'
+                      ? obtenerDiasMes().map((d, i) => (
+                          <th key={i} className="text-slate-500 font-bold text-[9px] tracking-wider uppercase py-4 px-1 text-center min-w-[55px]">
+                            <span className="block text-slate-500 text-[8px] font-bold font-mono">{d.nombre}</span>
+                            <span className="text-xs font-extrabold text-slate-800 font-mono">{d.dia}</span>
+                          </th>
+                        ))
+                      : nombresMesesLargos.map((m, i) => (
+                          <th key={i} className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-2 text-center min-w-[110px] font-mono">
+                            <button
+                              onClick={() => abrirModalMes(i)}
+                              className="text-xs font-black text-slate-850 hover:text-cyan-600 transition-colors uppercase cursor-pointer flex items-center justify-center gap-1 mx-auto"
+                              title={`Haga clic para ver el reporte mensual de ${nombresMesesLargos[i]}`}
+                            >
+                              {m} <i className="fas fa-search text-[8px] opacity-40" />
+                            </button>
+                          </th>
+                        ))
                   }
                   <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center min-w-[80px] border-l border-slate-200/60 font-mono">HORAS EXTRAS</th>
                 </tr>
@@ -250,71 +394,200 @@ export default function RecordFuncionalAsistencia() {
               <tbody>
                 {listaFiltrada.length === 0 ? (
                   <tr>
-                    <td colSpan={vista === 'semanal' ? 9 : 40} className="py-8 text-center text-slate-400 font-bold italic text-sm font-mono">
+                    <td colSpan={vista === 'semanal' ? 9 : vista === 'mensual' ? 40 : 14} className="py-8 text-center text-slate-400 font-bold italic text-sm font-mono">
                       Sin registros encontrados
                     </td>
                   </tr>
                 ) : (
-                  listaFiltrada.map((p) => {
-                    let acumuladoExtra = 0;
-                    return (
-                      <tr key={p.id} className="hover:bg-slate-50/50 border-b border-slate-100/60 transition-colors">
-                        
-                        {/* Celda fija a la izquierda */}
-                        <td className="py-3 px-3 text-left sticky left-0 bg-white/95 backdrop-blur-md z-10 border-r border-slate-200/80">
-                          <div className="font-extrabold text-indigo-950 text-xs uppercase truncate max-w-[190px]">
-                            {p.nombres} {p.apellidos}
-                          </div>
-                          <div className="text-[9px] font-black text-cyan-600 uppercase mt-0.5 tracking-wider font-mono">
-                            FICHA: {p.ficha || "---"}
-                          </div>
-                        </td>
+                  (() => {
+                    const totalPaginas = Math.ceil(listaFiltrada.length / itemsPorPagina) || 1;
+                    const indexInicio = (paginaActual - 1) * itemsPorPagina;
+                    const indexFin = paginaActual * itemsPorPagina;
+                    const trabajadoresPaginados = listaFiltrada.slice(indexInicio, indexFin);
 
-                        {/* Celdas de asistencia */}
-                        {vista === 'semanal' ? 
-                          obtenerDiasSemana().map((d, i) => {
-                            const info = obtenerDatosReales(p, d.dia, d.mes, d.anio);
-                            acumuladoExtra += info.extra;
-                            return (
-                              <td key={i} className="py-3 px-1 text-center">
-                                <span className={`px-2 py-1 text-[9px] font-black tracking-widest uppercase rounded border inline-block w-16 text-center ${badgeStyles[info.clase] || "bg-slate-100 text-slate-500"}`}>
-                                  {info.label}
-                                </span>
-                              </td>
-                            );
-                          }) : 
-                          obtenerDiasMes().map((d, i) => {
-                            const info = obtenerDatosReales(p, d.dia, d.mes, d.anio);
-                            acumuladoExtra += info.extra;
-                            return (
-                              <td key={i} className="py-3 px-1 text-center">
-                                <span 
-                                  className={`px-1.5 py-0.5 text-[8px] font-black tracking-tighter uppercase rounded border inline-block w-10 text-center ${badgeStyles[info.clase] || "bg-slate-100 text-slate-500"}`}
-                                  title={info.label}
-                                >
-                                  {info.label === "ASISTENCIA" ? "ASIST" : info.label === "DESCANSO" ? "DESC" : "FALT"}
-                                </span>
-                              </td>
-                            );
-                          })
-                        }
+                    return trabajadoresPaginados.map((p) => {
+                      let acumuladoExtra = 0;
+                      return (
+                        <tr key={p.id} className="hover:bg-slate-50/50 border-b border-slate-100/60 transition-colors">
+                          
+                          {/* Celda fija a la izquierda */}
+                          <td className="py-3 px-3 text-left sticky left-0 bg-white/95 backdrop-blur-md z-10 border-r border-slate-200/80">
+                            <div className="font-extrabold text-indigo-950 text-xs uppercase truncate max-w-[190px]">
+                              {p.nombres} {p.apellidos}
+                            </div>
+                            <div className="text-[9px] font-black text-cyan-600 uppercase mt-0.5 tracking-wider font-mono">
+                              FICHA: {p.ficha || "---"}
+                            </div>
+                          </td>
 
-                        {/* Celda de acumulación final */}
-                        <td className="py-3 px-3 text-center border-l border-slate-200/60">
-                          <span className={`px-2 py-0.5 rounded text-xxs font-black tracking-wider uppercase inline-block ${acumuladoExtra > 0 ? "bg-cyan-50 text-cyan-600 border border-cyan-200 shadow-md shadow-cyan-100/50" : "text-slate-400"}`}>
-                            {acumuladoExtra}h
-                          </span>
-                        </td>
+                          {/* Celdas de asistencia */}
+                          {vista === 'semanal' ? 
+                            obtenerDiasSemana().map((d, i) => {
+                              const info = obtenerDatosReales(p, d.dia, d.mes, d.anio);
+                              acumuladoExtra += info.extra;
+                              return (
+                                <td key={i} className="py-3 px-1 text-center">
+                                  <span className={`px-2 py-1 text-[9px] font-black tracking-widest uppercase rounded border inline-block w-16 text-center ${badgeStyles[info.clase] || "bg-slate-100 text-slate-500"}`}>
+                                    {info.label}
+                                  </span>
+                                </td>
+                              );
+                            }) : 
+                            vista === 'mensual' ?
+                            obtenerDiasMes().map((d, i) => {
+                              const info = obtenerDatosReales(p, d.dia, d.mes, d.anio);
+                              acumuladoExtra += info.extra;
+                              return (
+                                <td key={i} className="py-3 px-1 text-center">
+                                  <span 
+                                    className={`px-1.5 py-0.5 text-[8px] font-black tracking-tighter uppercase rounded border inline-block w-10 text-center ${badgeStyles[info.clase] || "bg-slate-100 text-slate-500"}`}
+                                    title={info.label}
+                                  >
+                                    {info.label === "ASISTENCIA" ? "ASIST" : info.label === "DESCANSO" ? "DESC" : "FALT"}
+                                  </span>
+                                </td>
+                              );
+                            }) :
+                            Array.from({ length: 12 }, (_, mes) => {
+                              const info = obtenerAcumuladoMensual(p, mes, fechaReferencia.getFullYear());
+                              acumuladoExtra += info.extra;
+                              return (
+                                <td key={mes} className="py-3 px-1 text-center">
+                                  <button
+                                    onClick={() => abrirModalMes(mes)}
+                                    className="inline-flex flex-col items-center justify-center p-1 bg-slate-50 hover:bg-cyan-50 border border-slate-200/60 hover:border-cyan-200 rounded w-12 text-center shadow-sm cursor-pointer transition-colors"
+                                    title={`Haga clic para ver el reporte mensual detallado de ${nombresMesesLargos[mes]}`}
+                                  >
+                                    <span className="text-[9px] font-black text-emerald-600 block">A: {info.asistencias}</span>
+                                    <span className="text-[9px] font-black text-red-500 block">F: {info.faltas}</span>
+                                  </button>
+                                </td>
+                              );
+                            })
+                          }
 
-                      </tr>
-                    );
-                  })
+                          {/* Celda de acumulación final */}
+                          <td className="py-3 px-3 text-center border-l border-slate-200/60">
+                            <span className={`px-2 py-0.5 rounded text-xxs font-black tracking-wider uppercase inline-block ${acumuladoExtra > 0 ? "bg-cyan-50 text-cyan-600 border border-cyan-200 shadow-md shadow-cyan-100/50" : "text-slate-400"}`}>
+                              {acumuladoExtra}h
+                            </span>
+                          </td>
+
+                        </tr>
+                      );
+                    });
+                  })()
                 )}
               </tbody>
             </table>
           </div>
+
+          {/* Paginación */}
+          {listaFiltrada.length > itemsPorPagina && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-200/60 print:hidden">
+              <span className="text-xxs font-bold text-slate-500 uppercase tracking-widest font-mono">
+                Mostrando {((paginaActual - 1) * itemsPorPagina) + 1} - {Math.min(paginaActual * itemsPorPagina, listaFiltrada.length)} de {listaFiltrada.length} colaboradores
+              </span>
+              <div className="flex gap-1.5 flex-wrap">
+                <button
+                  onClick={() => setPaginaActual(prev => Math.max(prev - 1, 1))}
+                  disabled={paginaActual === 1}
+                  className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 disabled:opacity-50 text-slate-800 rounded-xl text-xxs font-bold uppercase transition-all cursor-pointer shadow-sm flex items-center gap-1"
+                >
+                  <i className="fas fa-chevron-left text-cyan-500"></i> Anterior
+                </button>
+                {(() => {
+                  const totalPaginas = Math.ceil(listaFiltrada.length / itemsPorPagina) || 1;
+                  return Array.from({ length: totalPaginas }, (_, i) => i + 1)
+                    .filter(pag => pag === 1 || pag === totalPaginas || Math.abs(pag - paginaActual) <= 1)
+                    .map((pag, index, arr) => {
+                      const showEllipsis = index > 0 && pag - arr[index - 1] > 1;
+                      return (
+                        <React.Fragment key={pag}>
+                          {showEllipsis && <span className="text-slate-400 font-bold self-center px-1">...</span>}
+                          <button
+                            onClick={() => setPaginaActual(pag)}
+                            className={`w-8 h-8 flex items-center justify-center rounded-xl text-xxs font-black transition-all cursor-pointer ${
+                              paginaActual === pag
+                                ? 'bg-gradient-to-r from-cyan-500 to-indigo-500 text-white shadow shadow-cyan-500/20'
+                                : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-650'
+                            }`}
+                          >
+                            {pag}
+                          </button>
+                        </React.Fragment>
+                      );
+                    });
+                })()}
+                <button
+                  onClick={() => {
+                    const totalPaginas = Math.ceil(listaFiltrada.length / itemsPorPagina) || 1;
+                    setPaginaActual(prev => Math.min(prev + 1, totalPaginas));
+                  }}
+                  disabled={paginaActual === (Math.ceil(listaFiltrada.length / itemsPorPagina) || 1)}
+                  className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 disabled:opacity-50 text-slate-800 rounded-xl text-xxs font-bold uppercase transition-all cursor-pointer shadow-sm flex items-center gap-1"
+                >
+                  Siguiente <i className="fas fa-chevron-right text-cyan-500"></i>
+                </button>
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
+
+      {/* MODAL DE SELECCIÓN DE FECHA POR MES */}
+      {modalSeleccionMes.open && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 animate-fade-in no-print">
+          <div className="bg-white/95 backdrop-blur-xl border border-slate-200/80 rounded-3xl p-6 md:p-8 w-full max-w-sm shadow-2xl space-y-6 relative shadow-neon-cyan/20">
+            {/* Tech Corners */}
+            <div className="absolute top-2 left-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+            <div className="absolute top-2 right-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+
+            <h2 className="text-lg font-black uppercase text-indigo-955 tracking-tight flex items-center gap-2">
+              <i className="fas fa-calendar-alt text-cyan-600"></i> Consultar {nombresMesesLargos[modalSeleccionMes.mesIndex]}
+            </h2>
+            
+            <p className="text-xs text-slate-500 font-medium">
+              Por favor, selecciona la fecha exacta dentro de este mes para consultar la asistencia:
+            </p>
+
+            <div className="space-y-4">
+              <div className="flex flex-col gap-2">
+                <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">FECHA_CONSULTA</label>
+                <input
+                  type="date"
+                  value={tempFecha}
+                  onChange={(e) => setTempFecha(e.target.value)}
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm font-semibold cursor-pointer"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setModalSeleccionMes({ open: false, mesIndex: null })}
+                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black uppercase text-xs tracking-wider rounded-xl transition-all cursor-pointer active:scale-95"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  if (tempFecha) {
+                    setFechaReferencia(new Date(tempFecha + "T12:00:00"));
+                    setVista("mensual");
+                  }
+                  setModalSeleccionMes({ open: false, mesIndex: null });
+                }}
+                className="flex-1 py-3 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-white font-black uppercase text-xs tracking-wider rounded-xl shadow-lg shadow-indigo-500/20 transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-1"
+              >
+                <i className="fas fa-search"></i> Consultar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

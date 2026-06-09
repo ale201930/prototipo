@@ -40,7 +40,14 @@ export default function EditarUsuario() {
     setCargando(true);
     try {
       const docRef = doc(db, "usuarios", userId);
-      await updateDoc(docRef, formData);
+      
+      // Aseguramos de computar y guardar el username derivado del correo
+      const datosActualizados = { ...formData };
+      if (datosActualizados.correo) {
+        datosActualizados.username = datosActualizados.correo.trim().toLowerCase().split("@")[0];
+      }
+      
+      await updateDoc(docRef, datosActualizados);
       await registrarAccion(
         null, 
         null, 
@@ -113,7 +120,13 @@ export default function EditarUsuario() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="flex flex-col gap-2">
                 <label className="text-xxs font-bold uppercase tracking-wider text-slate-500">CORREO INSTITUCIONAL</label>
-                <input name="correo" type="email" value={formData.correo || ""} disabled className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 font-semibold text-sm cursor-not-allowed shadow-sm" />
+                <input 
+                  name="correo" 
+                  type="email" 
+                  value={formData.correo || ""} 
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 font-semibold text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200" 
+                />
               </div>
               <div className="flex flex-col gap-2">
                 <label className="text-xxs font-bold uppercase tracking-wider text-slate-500">UID DE SISTEMA</label>

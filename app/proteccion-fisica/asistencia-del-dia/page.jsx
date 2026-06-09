@@ -69,21 +69,39 @@ export default function AsistenciaContratas() {
     const { default: autoTable } = await import("jspdf-autotable");
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
 
-    // Header
-    doc.setFillColor(6, 182, 212);
-    doc.rect(0, 0, 297, 18, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(13);
-    doc.setFont("helvetica", "bold");
-    doc.text("INVECEM — Control de Asistencia Diaria", 14, 11);
-    doc.setFontSize(8);
-    doc.text(`Fecha: ${fechaHoyStr}`, 297 - 14, 11, { align: "right" });
+    const loadImage = (url) => new Promise((resolve) => {
+      const img = new Image();
+      img.src = url;
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+    });
+    const imgLogo = await loadImage('/logo.png');
 
-    // Subheader info
-    doc.setTextColor(100, 116, 139);
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Personal en planta: ${resumen.presentes}   |   Total registrados: ${resumen.totalNomina}`, 14, 24);
+    doc.setFillColor(248, 250, 252);
+    doc.rect(0, 0, 297, 40, "F");
+    doc.setDrawColor(226, 232, 240);
+    doc.line(0, 40, 297, 40);
+
+    if (imgLogo) {
+      doc.addImage(imgLogo, 'PNG', 15, 5, 30, 30);
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.text("INVECEM — Control de Asistencia Diaria", 50, 20);
+      doc.setFontSize(10);
+      doc.setTextColor(71, 85, 105);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Fecha: ${fechaHoyStr} | Personal en planta: ${resumen.presentes} / ${resumen.totalNomina}`, 50, 30);
+    } else {
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.text("INVECEM — Control de Asistencia Diaria", 15, 20);
+      doc.setFontSize(10);
+      doc.setTextColor(71, 85, 105);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Fecha: ${fechaHoyStr} | Personal en planta: ${resumen.presentes} / ${resumen.totalNomina}`, 15, 30);
+    }
 
     // Table
     const filas = jsonFiltrada.map((r, i) => [
@@ -98,11 +116,11 @@ export default function AsistenciaContratas() {
     ]);
 
     autoTable(doc, {
-      startY: 28,
+      startY: 45,
       head: [["#", "CÉDULA", "NOMBRE COMPLETO", "EMPRESA / CONTRATA", "ÁREA", "ENTRADA", "SALIDA", "ESTADO"]],
       body: filas,
       styles: { fontSize: 8, font: "helvetica", cellPadding: 3 },
-      headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7.5 },
+      headStyles: { fillColor: [6, 182, 212], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7.5 },
       alternateRowStyles: { fillColor: [248, 250, 252] },
       columnStyles: {
         0: { halign: "center", cellWidth: 8 },
@@ -170,8 +188,23 @@ export default function AsistenciaContratas() {
       {/* CONTENEDOR CENTRAL */}
       <div className="max-w-7xl mx-auto px-6 py-10 z-10 relative">
         
+      {/* ENCABEZADO DE IMPRESIÓN */}
+        <div className="hidden print:flex items-center justify-between border-b-2 border-slate-300 pb-4 mb-6 w-full">
+          <div className="flex items-center gap-4">
+            <img src="/logo.png" alt="Logo Invecem" className="h-16 w-auto object-contain" />
+            <div>
+              <h1 className="text-2xl font-black uppercase text-indigo-955 tracking-tight">INVECEM</h1>
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Control de Acceso - Asistencia Diaria</p>
+            </div>
+          </div>
+          <div className="text-right text-xs font-mono text-slate-500">
+            <div>Fecha: {fechaHoyStr}</div>
+            <div>Personal en Planta: {resumen.presentes}</div>
+          </div>
+        </div>
+
         {/* ENCABEZADO DE REPORTE */}
-        <header className="mb-8 border-l-6 border-cyan-500 pl-5 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+        <header className="mb-8 border-l-6 border-cyan-500 pl-5 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 print:hidden">
           <div>
             <h1 className="text-3xl font-black tracking-tight text-indigo-950 uppercase">
               Control de Acceso

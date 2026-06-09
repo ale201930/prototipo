@@ -926,3 +926,388 @@ button:has(.fa-print):hover {
 button:has(.fa-print) i {
   color: #ef4444 !important;
 }
+
+/* ==========================================================================
+   ── SECTION 10: PREMIUM STATISTICS BOXES (DASHBOARD) ───────────────────────
+   ========================================================================== */
+
+.stat-box-premium {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 1.5rem 1.75rem;
+  position: relative;
+  overflow: hidden;
+  transition: all var(--transition);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 150px;
+}
+
+.stat-box-premium:hover {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+}
+
+.stat-box-premium::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 6px;
+  height: 100%;
+  border-radius: 99px 0 0 99px;
+  transition: width 0.3s ease;
+}
+
+.stat-box-premium:hover::before {
+  width: 8px;
+}
+
+/* Accent versions with custom gradients and hover glow effects */
+.stat-box-premium-cyan::before { background: linear-gradient(180deg, var(--cyan), var(--blue)); }
+.stat-box-premium-cyan:hover {
+  border-color: rgba(6, 182, 212, 0.35);
+  box-shadow: 0 12px 30px rgba(6, 182, 212, 0.12) !important;
+}
+
+.stat-box-premium-emerald::before { background: linear-gradient(180deg, var(--emerald), #059669); }
+.stat-box-premium-emerald:hover {
+  border-color: rgba(16, 185, 129, 0.35);
+  box-shadow: 0 12px 30px rgba(16, 185, 129, 0.12) !important;
+}
+
+.stat-box-premium-purple::before { background: linear-gradient(180deg, #a855f7, #7c3aed); }
+.stat-box-premium-purple:hover {
+  border-color: rgba(168, 85, 247, 0.35);
+  box-shadow: 0 12px 30px rgba(168, 85, 247, 0.12) !important;
+}
+
+.stat-box-premium-indigo::before { background: linear-gradient(180deg, #6366f1, #4f46e5); }
+.stat-box-premium-indigo:hover {
+  border-color: rgba(99, 102, 241, 0.35);
+  box-shadow: 0 12px 30px rgba(99, 102, 241, 0.12) !important;
+}
+
+/* Background floating icons for stats */
+.stat-box-icon-bg {
+  position: absolute;
+  right: -10px;
+  bottom: -15px;
+  font-size: 6rem;
+  opacity: 0.05;
+  transform: rotate(-15deg);
+  pointer-events: none;
+  transition: all 0.3s ease;
+}
+
+.stat-box-premium:hover .stat-box-icon-bg {
+  transform: rotate(-5deg) scale(1.1);
+  opacity: 0.08;
+}
+
+/* Stat Box Header Icon Circle */
+.stat-box-icon-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  margin-bottom: 0.75rem;
+  transition: transform 0.3s ease;
+}
+
+.stat-box-premium:hover .stat-box-icon-circle {
+  transform: scale(1.1) rotate(5deg);
+}
+
+.stat-box-icon-circle-cyan {
+  background: rgba(6, 182, 212, 0.08);
+  color: var(--cyan);
+}
+.stat-box-icon-circle-emerald {
+  background: rgba(16, 185, 129, 0.08);
+  color: var(--emerald);
+}
+.stat-box-icon-circle-purple {
+  background: rgba(168, 85, 247, 0.08);
+  color: #a855f7;
+}
+.stat-box-icon-circle-indigo {
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--blue);
+}
+
+/* Dark mode theme adjustments */
+.theme-dark .stat-box-premium {
+  background: var(--bg-card);
+  border-color: var(--border);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+}
+
+.theme-dark .stat-box-premium:hover {
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+}
+
+.theme-dark .stat-box-icon-bg {
+  opacity: 0.03;
+}
+
+.theme-dark .stat-box-premium:hover .stat-box-icon-bg {
+  opacity: 0.06;
+}
+
+.theme-dark .stat-box-icon-circle-cyan { background: rgba(6, 182, 212, 0.15); }
+.theme-dark .stat-box-icon-circle-emerald { background: rgba(16, 185, 129, 0.15); }
+.theme-dark .stat-box-icon-circle-purple { background: rgba(168, 85, 247, 0.15); }
+.theme-dark .stat-box-icon-circle-indigo { background: rgba(99, 102, 241, 0.15); }
+
+/* ==========================================================================
+   ── SECTION 11: PREMIUM CHART CONTAINERS ─────────────────────────────────
+   ========================================================================== */
+
+.chart-box-premium {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 1.75rem;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+  transition: all var(--transition);
+}
+
+.chart-box-premium:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+}
+
+.chart-box-premium::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 5px;
+  height: 100%;
+  border-radius: 99px 0 0 99px;
+  transition: width 0.3s ease;
+}
+
+.chart-box-premium:hover::before {
+  width: 7px;
+}
+
+/* Color Accents */
+.chart-box-premium-cyan::before { background: linear-gradient(180deg, var(--cyan), var(--blue)); }
+.chart-box-premium-cyan:hover {
+  border-color: rgba(6, 182, 212, 0.35);
+  box-shadow: 0 10px 25px rgba(6, 182, 212, 0.08) !important;
+}
+
+.chart-box-premium-emerald::before { background: linear-gradient(180deg, var(--emerald), #059669); }
+.chart-box-premium-emerald:hover {
+  border-color: rgba(16, 185, 129, 0.35);
+  box-shadow: 0 10px 25px rgba(16, 185, 129, 0.08) !important;
+}
+
+.chart-box-premium-purple::before { background: linear-gradient(180deg, #a855f7, #7c3aed); }
+.chart-box-premium-purple:hover {
+  border-color: rgba(168, 85, 247, 0.35);
+  box-shadow: 0 10px 25px rgba(168, 85, 247, 0.08) !important;
+}
+
+.chart-box-premium-amber::before { background: linear-gradient(180deg, var(--amber), #d97706); }
+.chart-box-premium-amber:hover {
+  border-color: rgba(245, 158, 11, 0.35);
+  box-shadow: 0 10px 25px rgba(245, 158, 11, 0.08) !important;
+}
+
+/* Dark mode theme chart container adjustments */
+.theme-dark .chart-box-premium {
+  background: var(--bg-card);
+  border-color: var(--border);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+}
+
+.theme-dark .chart-box-premium:hover {
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+}
+
+/* ==========================================================================
+   ── SECTION 12: DARK MODE SIDEBAR & GLOBAL OVERRIDES ─────────────────────
+   Cancels the light-mode .page-dashboard aside rules when theme-dark is on
+   ========================================================================== */
+
+/* Sidebar container — restore dark gradient */
+.theme-dark .page-dashboard aside {
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important;
+  border-right: 1px solid rgba(96, 165, 250, 0.1) !important;
+  box-shadow: 4px 0 32px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Sidebar inner dividers */
+.theme-dark .page-dashboard aside > div {
+  border-color: rgba(96, 165, 250, 0.08) !important;
+}
+
+/* Sidebar brand title */
+.theme-dark .page-dashboard aside h2 {
+  color: #f8fafc !important;
+}
+
+/* Sidebar ACTIVE item — restore dark-mode red accent on dark bg */
+.theme-dark .page-dashboard aside li[style*="color: rgb(255, 255, 255)"],
+.theme-dark .page-dashboard aside li[style*="color: #ffffff"] {
+  background: rgba(239, 68, 68, 0.15) !important;
+  color: #f87171 !important;
+  font-weight: 800 !important;
+  border-left: 3px solid #ef4444 !important;
+  padding-left: 13px !important;
+}
+
+/* Sidebar INACTIVE items — restore light text on dark bg */
+.theme-dark .page-dashboard aside li[style*="color: rgb(148, 163, 184)"],
+.theme-dark .page-dashboard aside li[style*="color: #94a3b8"],
+.theme-dark .page-dashboard aside li[style*="inherit"] {
+  color: #cbd5e1 !important;
+  border-left-color: transparent !important;
+}
+
+/* Sidebar hover on dark bg */
+.theme-dark .page-dashboard aside li:hover {
+  background: rgba(239, 68, 68, 0.1) !important;
+  color: #fca5a5 !important;
+  border-left-color: rgba(239, 68, 68, 0.4) !important;
+}
+
+/* User profile card in sidebar footer */
+.theme-dark .page-dashboard aside div.flex.items-center {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+/* User name in sidebar footer */
+.theme-dark .page-dashboard aside p.text-white {
+  color: #f8fafc !important;
+}
+
+/* User role label in sidebar footer */
+.theme-dark .page-dashboard aside p.text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+/* Logout button in dark mode */
+.theme-dark .page-dashboard aside button[style*="color: #f87171"],
+.theme-dark .page-dashboard aside button[style*="color: rgb(248, 113, 113)"] {
+  background: rgba(244, 63, 94, 0.1) !important;
+  border-color: rgba(244, 63, 94, 0.25) !important;
+  color: #f87171 !important;
+}
+
+.theme-dark .page-dashboard aside button[style*="color: #f87171"]:hover,
+.theme-dark .page-dashboard aside button[style*="color: rgb(248, 113, 113)"]:hover {
+  background: rgba(244, 63, 94, 0.2) !important;
+  color: #fca5a5 !important;
+}
+
+/* Mobile menu toggle button on dark mode */
+.theme-dark .page-dashboard > button.md\:hidden {
+  background: #1e293b !important;
+  border-color: rgba(96, 165, 250, 0.12) !important;
+  color: #f8fafc !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Form inputs in dark mode */
+.theme-dark .form-input {
+  background: var(--navy-soft) !important;
+  border-color: var(--border) !important;
+  color: var(--text-base) !important;
+}
+
+.theme-dark .form-input::placeholder {
+  color: #64748b !important;
+}
+
+/* Button secondary in dark mode */
+.theme-dark .btn-secondary {
+  background: var(--bg-card) !important;
+  color: var(--text-base) !important;
+  border-color: var(--border) !important;
+}
+
+.theme-dark .btn-secondary:hover {
+  background: var(--navy-soft) !important;
+  color: var(--cyan) !important;
+  border-color: var(--cyan) !important;
+}
+
+/* Data table cells in dark mode */
+.theme-dark .data-table thead th {
+  background: var(--navy-soft) !important;
+  color: var(--text-muted) !important;
+  border-bottom-color: var(--border) !important;
+}
+
+.theme-dark .data-table tbody tr {
+  border-bottom-color: var(--border) !important;
+}
+
+.theme-dark .data-table tbody td {
+  color: var(--text-base) !important;
+}
+
+/* Cards in dark mode — ensure bg-card variable is applied */
+.theme-dark .card {
+  background: var(--bg-card) !important;
+  border-color: var(--border) !important;
+}
+
+/* Metric cards in dark mode */
+.theme-dark .metric-card {
+  background: var(--bg-card) !important;
+  border-color: var(--border) !important;
+}
+
+/* Generic bg-slate-50 / bg-slate-100 overrides for dark mode */
+.theme-dark .bg-slate-50,
+.theme-dark .bg-slate-100 {
+  background-color: var(--navy-soft) !important;
+}
+
+/* Text overrides for commonly hard-coded dark text in dark mode */
+.theme-dark .text-slate-900 {
+  color: #f8fafc !important;
+}
+
+.theme-dark .text-slate-800 {
+  color: #e2e8f0 !important;
+}
+
+.theme-dark .text-slate-700 {
+  color: #cbd5e1 !important;
+}
+
+.theme-dark .text-slate-600 {
+  color: #94a3b8 !important;
+}
+
+/* Border overrides */
+.theme-dark .border-slate-100,
+.theme-dark .border-slate-200,
+.theme-dark .border-slate-300 {
+  border-color: rgba(96, 165, 250, 0.1) !important;
+}
+
+/* Background section containers */
+.theme-dark .bg-white {
+  background-color: var(--bg-card) !important;
+}
+
+/* Scrollbar thumbs adapt to dark mode */
+.theme-dark ::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #334155, #1e293b);
+}

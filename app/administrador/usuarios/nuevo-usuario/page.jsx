@@ -56,12 +56,15 @@ export default function NuevoUsuario() {
       }
 
       // 3. Crear usuario en Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(auth, formData.correo, formData.clave);
+      const emailLimpio = formData.correo.trim().toLowerCase();
+      const userCredential = await createUserWithEmailAndPassword(auth, emailLimpio, formData.clave);
       const uid = userCredential.user.uid;
 
       // 4. Preparar datos para Firestore
       const datosParaGuardar = { ...formData };
       delete datosParaGuardar.clave;
+      datosParaGuardar.correo = emailLimpio;
+      datosParaGuardar.username = emailLimpio.split("@")[0];
 
       // 5. Guardar en la colección de usuarios
       await setDoc(doc(db, "usuarios", uid), {

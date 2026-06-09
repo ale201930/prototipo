@@ -1,7 +1,6 @@
 "use client";
 import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import Cookies from 'js-cookie';
 import { db } from '../../lib/firebase';
 import { collection, query, onSnapshot, orderBy, limit } from 'firebase/firestore';
 
@@ -10,7 +9,6 @@ export default function MonitoreoPage() {
   const [auditoria, setAuditoria] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
-  const [usuarioActual, setUsuarioActual] = useState(null);
   const [agruparAsistencia, setAgruparAsistencia] = useState(true);
   const [expandedDays, setExpandedDays] = useState({});
 
@@ -63,12 +61,7 @@ export default function MonitoreoPage() {
     }));
   };
 
-  // Leer sesión activa desde cookies (solo en cliente)
-  useEffect(() => {
-    const nombre = Cookies.get('user_name') || null;
-    const rol    = Cookies.get('user_role')  || '';
-    if (nombre) setUsuarioActual({ nombre, rol });
-  }, []);
+
 
   useEffect(() => {
     const q = query(

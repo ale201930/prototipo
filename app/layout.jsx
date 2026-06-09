@@ -1,13 +1,7 @@
-import { Inter } from "next/font/google";
 import "./globals.css";
 import GlobalToast from "./lib/GlobalToast";
-
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800", "900"],
-  variable: "--font-inter",
-  display: "swap",
-});
+import ThemeToggle from "./lib/ThemeToggle";
+import Script from "next/script";
 
 export const metadata = {
   title: "INVECEM — Sistema de Gestión de Planta",
@@ -22,8 +16,14 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="es" className={`${inter.variable} antialiased`} data-scroll-behavior="smooth">
+    <html lang="es" className="antialiased" data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#0f172a" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <link rel="apple-touch-icon" href="/img/logo-pwa-192.png" />
         <link
           rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
@@ -31,14 +31,40 @@ export default function RootLayout({ children }) {
           crossOrigin="anonymous"
           referrerPolicy="no-referrer"
         />
+        <Script id="theme-loader" strategy="beforeInteractive">
+          {`
+            try {
+              var theme = localStorage.getItem('theme');
+              if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('theme-dark');
+              } else {
+                document.documentElement.classList.remove('theme-dark');
+              }
+            } catch (e) {}
+          `}
+        </Script>
+        <Script id="sw-register" strategy="afterInteractive">
+          {`
+            if ('serviceWorker' in navigator) {
+              window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js').then(function(reg) {
+                  console.log('Service Worker registrado con éxito:', reg.scope);
+                }, function(err) {
+                  console.log('Error al registrar el Service Worker:', err);
+                });
+              });
+            }
+          `}
+        </Script>
       </head>
-      <body className="m-0 p-0 min-h-screen overflow-x-hidden selection:bg-cyan-500/20 selection:text-cyan-900" style={{ fontFamily: "'Inter', sans-serif" }}>
+      <body className="m-0 p-0 min-h-screen overflow-x-hidden selection:bg-cyan-500/20 selection:text-cyan-900" style={{ fontFamily: "'Inter', sans-serif" }} suppressHydrationWarning>
         <div className="flex flex-col min-h-screen">
           <main className="flex-grow w-full">
             {children}
           </main>
         </div>
         <GlobalToast />
+        <ThemeToggle />
       </body>
     </html>
   );

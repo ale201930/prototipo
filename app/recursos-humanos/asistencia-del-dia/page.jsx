@@ -11,8 +11,6 @@ import {
   orderBy,
   doc,
   updateDoc,
-  setDoc,
-  getDoc,
   or
 } from "firebase/firestore";
 
@@ -23,6 +21,10 @@ export default function AsistenciaDiariaRRHH() {
   const [filtroArea, setFiltroArea] = useState("TODAS");
   const [filtroTipo, setFiltroTipo] = useState("TODOS");
   const [filtroEstadoClic, setFiltroEstadoClic] = useState("PRESENTES");
+
+  // Paginación
+  const [paginaActual, setPaginaActual] = useState(1);
+  const itemsPorPagina = 30;
 
   const [asistencias, setAsistencias] = useState([]);
   const [nominaTotalData, setNominaTotalData] = useState([]);
@@ -112,6 +114,11 @@ export default function AsistenciaDiariaRRHH() {
 
     return () => { unsubscribeNomina(); unsubscribeAsist(); };
   }, []);
+
+  // Reiniciar paginación al cambiar filtros de búsqueda o categoría
+  useEffect(() => {
+    setPaginaActual(1);
+  }, [filtro, filtroArea, filtroTipo, filtroEstadoClic]);
 
   const obtenerListaFinal = () => {
     const hoy = new Date();
@@ -218,6 +225,21 @@ export default function AsistenciaDiariaRRHH() {
       {/* CONTENEDOR CENTRAL */}
       <div className="max-w-7xl mx-auto px-6 py-10 z-10 relative">
 
+        {/* ENCABEZADO DE IMPRESIÓN */}
+        <div className="hidden print:flex items-center justify-between border-b-2 border-slate-300 pb-4 mb-6 w-full">
+          <div className="flex items-center gap-4">
+            <img src="/logo.png" alt="Logo Invecem" className="h-16 w-auto object-contain" />
+            <div>
+              <h1 className="text-2xl font-black uppercase text-indigo-955 tracking-tight">INVECEM</h1>
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Asistencia Diaria - Recursos Humanos</p>
+            </div>
+          </div>
+          <div className="text-right text-xs font-mono text-slate-500">
+            <div>Fecha: {fechaHoyStr}</div>
+            <div>Tipo: Asistencia General</div>
+          </div>
+        </div>
+
         {/* NAV ACCIONES SECUNDARIAS */}
         <div className="flex justify-end mb-6 print:hidden">
           <button
@@ -237,7 +259,7 @@ export default function AsistenciaDiariaRRHH() {
           <div className="absolute bottom-3 right-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
 
           {/* HEADER INTERNO */}
-          <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 border-b border-slate-200/60 pb-6">
+          <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 border-b border-slate-200/60 pb-6 print:hidden">
             <div>
               <h1 className={`text-3xl font-black tracking-tight text-indigo-950 uppercase flex items-center gap-3 ${haySolicitudPendiente ? "animate-pulse text-red-600" : ""}`}>
                 <i className="fas fa-clock text-cyan-500"></i> Asistencia Diaria
@@ -374,14 +396,24 @@ export default function AsistenciaDiariaRRHH() {
                 </tr>
               </thead>
               <tbody>
-                {listaFiltradaParaTabla().length === 0 ? (
-                  <tr>
-                    <td colSpan="7" className="py-8 text-center text-slate-400 font-bold italic text-sm font-mono">
-                      Sin registros encontrados
-                    </td>
-                  </tr>
-                ) : (
-                  listaFiltradaParaTabla().map((reg) => {
+                {(() => {
+                  const listadoCompleto = listaFiltradaParaTabla();
+                  if (listadoCompleto.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan="7" className="py-8 text-center text-slate-400 font-bold italic text-sm font-mono">
+                          Sin registros encontrados
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  const totalPaginas = Math.ceil(listadoCompleto.length / itemsPorPagina) || 1;
+                  const indexInicio = (paginaActual - 1) * itemsPorPagina;
+                  const indexFin = paginaActual * itemsPorPagina;
+                  const itemsPaginados = listadoCompleto.slice(indexInicio, indexFin);
+
+                  return itemsPaginados.map((reg) => {
                     const est = getEstadoEstilo(reg);
                     const isPending = reg.solicitudSalida === "PENDIENTE";
 
@@ -473,11 +505,62 @@ export default function AsistenciaDiariaRRHH() {
                         </td>
                       </tr>
                     );
-                  })
-                )}
+                  });
+                })()}
               </tbody>
             </table>
           </div>
+
+          {/* Paginación */}
+          {(() => {
+            const listadoCompleto = listaFiltradaParaTabla();
+            if (listadoCompleto.length <= itemsPorPagina) return null;
+            const totalPaginas = Math.ceil(listadoCompleto.length / itemsPorPagina) || 1;
+
+            return (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-200/60 print:hidden">
+                <span className="text-xxs font-bold text-slate-500 uppercase tracking-widest font-mono">
+                  Mostrando {((paginaActual - 1) * itemsPorPagina) + 1} - {Math.min(paginaActual * itemsPorPagina, listadoCompleto.length)} de {listadoCompleto.length} colaboradores
+                </span>
+                <div className="flex gap-1.5 flex-wrap">
+                  <button
+                    onClick={() => setPaginaActual(prev => Math.max(prev - 1, 1))}
+                    disabled={paginaActual === 1}
+                    className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 disabled:opacity-50 text-slate-800 rounded-xl text-xxs font-bold uppercase transition-all cursor-pointer shadow-sm flex items-center gap-1"
+                  >
+                    <i className="fas fa-chevron-left text-cyan-500"></i> Anterior
+                  </button>
+                  {Array.from({ length: totalPaginas }, (_, i) => i + 1)
+                    .filter(pag => pag === 1 || pag === totalPaginas || Math.abs(pag - paginaActual) <= 1)
+                    .map((pag, index, arr) => {
+                      const showEllipsis = index > 0 && pag - arr[index - 1] > 1;
+                      return (
+                        <React.Fragment key={pag}>
+                          {showEllipsis && <span className="text-slate-400 font-bold self-center px-1">...</span>}
+                          <button
+                            onClick={() => setPaginaActual(pag)}
+                            className={`w-8 h-8 flex items-center justify-center rounded-xl text-xxs font-black transition-all cursor-pointer ${
+                              paginaActual === pag
+                                ? 'bg-gradient-to-r from-cyan-500 to-indigo-500 text-white shadow shadow-cyan-500/20'
+                                : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-650'
+                            }`}
+                          >
+                            {pag}
+                          </button>
+                        </React.Fragment>
+                      );
+                    })}
+                  <button
+                    onClick={() => setPaginaActual(prev => Math.min(prev + 1, totalPaginas))}
+                    disabled={paginaActual === totalPaginas}
+                    className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 disabled:opacity-50 text-slate-800 rounded-xl text-xxs font-bold uppercase transition-all cursor-pointer shadow-sm flex items-center gap-1"
+                  >
+                    Siguiente <i className="fas fa-chevron-right text-cyan-500"></i>
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
 
         </div>
 

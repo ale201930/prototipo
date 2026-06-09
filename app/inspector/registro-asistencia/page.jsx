@@ -18,6 +18,14 @@ export default function RegistroAsistencia() {
   const [cargando, setCargando] = useState(false);
   const [fechaHoy, setFechaHoy] = useState("");
 
+  // Paginación
+  const [paginaActual, setPaginaActual] = useState(1);
+  const itemsPorPagina = 30;
+
+  useEffect(() => {
+    setPaginaActual(1);
+  }, [asistenciasHoy.length]);
+
   const [mostrarModalBeneficio, setMostrarModalBeneficio] = useState(false);
   const [trabajadorEspecial, setTrabajadorEspecial] = useState(null);
 
@@ -299,12 +307,11 @@ export default function RegistroAsistencia() {
     }
   }, [identificador, cargando, asistenciasHoy]);
 
-  useEffect(() => {
-    if (identificador.length >= 4) {
-      const timeoutId = setTimeout(() => procesarRegistro(), 400);
-      return () => clearTimeout(timeoutId);
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      procesarRegistro();
     }
-  }, [identificador, procesarRegistro]);
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 relative overflow-hidden font-sans pb-10 cyber-grid">
@@ -398,7 +405,8 @@ export default function RegistroAsistencia() {
                   type="text"
                   value={identificador}
                   onChange={(e) => setIdentificador(e.target.value)}
-                  placeholder={mostrarModalBeneficio ? "BLOQUEADO" : "AGUARDANDO CÓDIGO..."}
+                  onKeyDown={handleKeyDown}
+                  placeholder={mostrarModalBeneficio ? "BLOQUEADO" : "INGRESE FICHA Y PRESIONE ENTER"}
                   className="w-full px-5 py-4 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:shadow-neon-cyan/40 focus:border-transparent transition-all duration-200 text-base font-black tracking-widest text-center uppercase shadow-sm"
                   autoComplete="off"
                   disabled={mostrarModalBeneficio}
@@ -421,9 +429,24 @@ export default function RegistroAsistencia() {
                 </tr>
               </thead>
               <tbody>
-                {asistenciasHoy
-                  .filter(a => (a.nombreCompleto || "").toLowerCase().includes(filtro.toLowerCase()))
-                  .map(reg => {
+                {(() => {
+                  const listaFiltrada = asistenciasHoy.filter(a => (a.nombreCompleto || "").toLowerCase().includes(filtro.toLowerCase()));
+                  if (listaFiltrada.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan="6" className="py-8 text-center text-slate-400 font-bold italic text-sm font-mono">
+                          Sin registros encontrados
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  const totalPaginas = Math.ceil(listaFiltrada.length / itemsPorPagina) || 1;
+                  const indexInicio = (paginaActual - 1) * itemsPorPagina;
+                  const indexFin = paginaActual * itemsPorPagina;
+                  const asistenciasPaginadas = listaFiltrada.slice(indexInicio, indexFin);
+
+                  return asistenciasPaginadas.map(reg => {
                     const isRetraso = reg.estatus === "RETRASO";
                     const isBeneficio = reg.estatus === "BENEFICIO";
                     return (
@@ -466,10 +489,62 @@ export default function RegistroAsistencia() {
                         </td>
                       </tr>
                     );
-                  })}
+                  });
+                })()}
               </tbody>
             </table>
           </div>
+
+          {/* Paginación */}
+          {(() => {
+            const listaFiltrada = asistenciasHoy.filter(a => (a.nombreCompleto || "").toLowerCase().includes(filtro.toLowerCase()));
+            if (listaFiltrada.length <= itemsPorPagina) return null;
+            const totalPaginas = Math.ceil(listaFiltrada.length / itemsPorPagina) || 1;
+
+            return (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-200/60 print:hidden">
+                <span className="text-xxs font-bold text-slate-500 uppercase tracking-widest font-mono">
+                  Mostrando {((paginaActual - 1) * itemsPorPagina) + 1} - {Math.min(paginaActual * itemsPorPagina, listaFiltrada.length)} de {listaFiltrada.length} registros
+                </span>
+                <div className="flex gap-1.5 flex-wrap">
+                  <button
+                    onClick={() => setPaginaActual(prev => Math.max(prev - 1, 1))}
+                    disabled={paginaActual === 1}
+                    className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 disabled:opacity-50 text-slate-800 rounded-xl text-xxs font-bold uppercase transition-all cursor-pointer shadow-sm flex items-center gap-1"
+                  >
+                    <i className="fas fa-chevron-left text-cyan-500"></i> Anterior
+                  </button>
+                  {Array.from({ length: totalPaginas }, (_, i) => i + 1)
+                    .filter(pag => pag === 1 || pag === totalPaginas || Math.abs(pag - paginaActual) <= 1)
+                    .map((pag, index, arr) => {
+                      const showEllipsis = index > 0 && pag - arr[index - 1] > 1;
+                      return (
+                        <React.Fragment key={pag}>
+                          {showEllipsis && <span className="text-slate-400 font-bold self-center px-1">...</span>}
+                          <button
+                            onClick={() => setPaginaActual(pag)}
+                            className={`w-8 h-8 flex items-center justify-center rounded-xl text-xxs font-black transition-all cursor-pointer ${
+                              paginaActual === pag
+                                ? 'bg-gradient-to-r from-cyan-500 to-indigo-500 text-white shadow shadow-cyan-500/20'
+                                : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-650'
+                            }`}
+                          >
+                            {pag}
+                          </button>
+                        </React.Fragment>
+                      );
+                    })}
+                  <button
+                    onClick={() => setPaginaActual(prev => Math.min(prev + 1, totalPaginas))}
+                    disabled={paginaActual === totalPaginas}
+                    className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 disabled:opacity-50 text-slate-800 rounded-xl text-xxs font-bold uppercase transition-all cursor-pointer shadow-sm flex items-center gap-1"
+                  >
+                    Siguiente <i className="fas fa-chevron-right text-cyan-500"></i>
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
 
         </div>
       </div>

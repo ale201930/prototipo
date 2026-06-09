@@ -163,10 +163,25 @@ export default function PersonalContratas() {
       {/* CONTENEDOR CENTRAL */}
       <div className="max-w-7xl mx-auto px-6 py-10 z-10 relative">
 
+        {/* ENCABEZADO DE IMPRESIÓN */}
+        <div className="hidden print:flex items-center justify-between border-b-2 border-slate-300 pb-4 mb-6 w-full">
+          <div className="flex items-center gap-4">
+            <img src="/logo.png" alt="Logo Invecem" className="h-16 w-auto object-contain" />
+            <div>
+              <h1 className="text-2xl font-black uppercase text-indigo-955 tracking-tight">INVECEM</h1>
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Listado de Personal de Contratas</p>
+            </div>
+          </div>
+          <div className="text-right text-xs font-mono text-slate-500">
+            <div>Fecha Emisión: {new Date().toLocaleDateString()}</div>
+            <div>Total: {usuariosFiltrados.length} contratistas</div>
+          </div>
+        </div>
+
         {/* ENCABEZADO DE REPORTE */}
-        <header className="mb-8 border-l-6 border-cyan-500 pl-5 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+        <header className="mb-8 border-l-6 border-cyan-500 pl-5 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 print:hidden">
           <div>
-            <h1 className="text-3xl font-black tracking-tight text-indigo-950 uppercase">
+            <h1 className="text-3xl font-black tracking-tight text-indigo-955 uppercase">
               Personal de Contratas
             </h1>
             <div className="mt-2 inline-flex px-3 py-1 bg-cyan-500/10 border border-cyan-500/25 text-cyan-600 rounded-xl text-xxs font-black tracking-wider uppercase">

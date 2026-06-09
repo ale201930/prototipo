@@ -26,23 +26,50 @@ export async function generarPDFAuditoria(agrupadosPorDia, registrosFiltrados) {
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
-  // ── Encabezado oscuro
-  doc.setFillColor(15, 23, 42);
-  doc.rect(0, 0, 297, 28, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(16);
-  doc.setFont('helvetica', 'bold');
-  doc.text('INVECEM \u2014 Auditor\u00eda del Sistema', 14, 12);
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(148, 163, 184);
-  doc.text(
-    `Generado el ${new Date().toLocaleString('es-VE')}  |  Total: ${registrosFiltrados.length} registros`,
-    14,
-    21
-  );
+  const loadImage = (url) => new Promise((resolve) => {
+    const img = new Image();
+    img.src = url;
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+  });
+  const imgLogo = await loadImage('/logo.png');
 
-  let startY = 32;
+  // ── Encabezado claro
+  doc.setFillColor(248, 250, 252);
+  doc.rect(0, 0, 297, 40, 'F');
+  doc.setDrawColor(226, 232, 240);
+  doc.line(0, 40, 297, 40);
+
+  if (imgLogo) {
+    doc.addImage(imgLogo, 'PNG', 15, 5, 30, 30);
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('INVECEM \u2014 Auditor\u00eda del Sistema', 50, 20);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(71, 85, 105);
+    doc.text(
+      `Generado el ${new Date().toLocaleString('es-VE')}  |  Total: ${registrosFiltrados.length} registros`,
+      50,
+      30
+    );
+  } else {
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('INVECEM \u2014 Auditor\u00eda del Sistema', 15, 20);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(71, 85, 105);
+    doc.text(
+      `Generado el ${new Date().toLocaleString('es-VE')}  |  Total: ${registrosFiltrados.length} registros`,
+      15,
+      30
+    );
+  }
+
+  let startY = 45;
 
   for (const grupo of agrupadosPorDia) {
     // Etiqueta del día

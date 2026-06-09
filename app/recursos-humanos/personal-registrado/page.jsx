@@ -1,8 +1,9 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { db, registrarAccion } from "../../lib/firebase";
+import { db, storage, registrarAccion } from "../../lib/firebase";
 import Cookies from "js-cookie";
 import {
   collection,
@@ -15,6 +16,7 @@ import {
   arrayUnion,
   arrayRemove
 } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 const ESTADOS_NOMINALES = [
   "Activo (En funciones)",
@@ -41,10 +43,8 @@ export default function PersonalRegistrado() {
   const [tipoSeleccionado, setTipoSeleccionado] = useState("");
   const [usuarioParaEstado, setUsuarioParaEstado] = useState(null);
   const [fechas, setFechas] = useState({ inicio: "", fin: "" });
-
   const [showExpediente, setShowExpediente] = useState(false);
   const [usuarioExpediente, setUsuarioExpediente] = useState(null);
-  const [notaAmonestacion, setNotaAmonestacion] = useState("");
 
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
@@ -52,6 +52,33 @@ export default function PersonalRegistrado() {
     message: "",
     onConfirm: null
   });
+
+  // Nuevos estados para archivos y modales
+  const [pdfFile, setPdfFile] = useState(null);
+  const [subiendoArchivo, setSubiendoArchivo] = useState(false);
+
+  // Estados para modal de PIN y Alertas personalizadas
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinIngresado, setPinIngresado] = useState("");
+  const [usuarioPendienteExpediente, setUsuarioPendienteExpediente] = useState(null);
+  const [errorPin, setErrorPin] = useState("");
+
+  const [alertDialog, setAlertDialog] = useState({
+    isOpen: false,
+    title: "",
+    message: ""
+  });
+
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [previewTipo, setPreviewTipo] = useState("");
+
+  const mostrarAlerta = (title, message) => {
+    setAlertDialog({
+      isOpen: true,
+      title,
+      message
+    });
+  };
 
   const usuarioExpedienteActual = usuarios.find(u => u.id === usuarioExpediente?.id) || usuarioExpediente;
 
@@ -146,6 +173,7 @@ export default function PersonalRegistrado() {
     return asistenciasHoy.some(valorMarcado => (fichaUser && valorMarcado === fichaUser) || (cedulaUser && valorMarcado === cedulaUser) || (u4 && valorMarcado === u4) || (u5 && valorMarcado === u5));
   };
 
+
   const verificarSiDebeMarcarFalta = (usuario) => {
     const ahora = new Date();
     const horaActual = ahora.getHours();
@@ -153,24 +181,7 @@ export default function PersonalRegistrado() {
     return horaActual >= horaSalidaDefinida;
   };
 
-  const guardarIncidencia = async (tipo, descripcion) => {
-    if (!descripcion) return alert("⚠️ Por favor, escriba el detalle.");
-    try {
-      const userRef = doc(db, "personal", usuarioExpediente.id);
-      const operador = Cookies.get("user_name") || "Admin RRHH";
-      const nuevaIncidencia = { id: Date.now(), tipo: tipo, descripcion: descripcion, fecha: new Date().toLocaleString('es-ES'), registradoPor: operador };
-      await updateDoc(userRef, { historialIncidencias: arrayUnion(nuevaIncidencia) });
-      setNotaAmonestacion("");
-      setUsuarioExpediente(prev => ({ ...prev, historialIncidencias: prev.historialIncidencias ? [...prev.historialIncidencias, nuevaIncidencia] : [nuevaIncidencia] }));
-      
-      registrarAccion(
-        null, 
-        null, 
-        `Incidencia guardada para ${usuarioExpediente.nombres} ${usuarioExpediente.apellidos}: ${tipo} - ${descripcion}`, 
-        "Personal Registrado"
-      );
-    } catch (error) { alert("Error: " + error.message); }
-  };
+
 
   const registrarInasistenciaAutomatica = async (usuario) => {
     const d = new Date();
@@ -179,52 +190,128 @@ export default function PersonalRegistrado() {
     if (!yaRegistrada && !verificarPresenciaHoy(usuario) && verificarSiDebeMarcarFalta(usuario)) {
       try {
         const userRef = doc(db, "personal", usuario.id);
-        const nuevaFalta = { id: Date.now(), tipo: "FALTA", descripcion: `Inasistencia ${hoyStr} - AUSENCIA TOTAL JORNADA`, fecha: new Date().toLocaleString('es-ES'), registradoPor: "SISTEMA AUTOMÁTICO" };
+        const nuevaFalta = { id: Date.now(), tipo: "FALTA", descripcion: `Inasistencia ${hoyStr} - INJUSTIFICADA`, fecha: new Date().toLocaleString('es-ES'), registradoPor: "SISTEMA AUTOMÁTICO" };
         await updateDoc(userRef, { historialIncidencias: arrayUnion(nuevaFalta) });
         setUsuarioExpediente(prev => ({ ...prev, historialIncidencias: prev.historialIncidencias ? [...prev.historialIncidencias, nuevaFalta] : [nuevaFalta] }));
       } catch (error) { console.error("Error en registro automático:", error); }
     }
   };
 
-  const manejarFaltaHoy = async (tipoFalta) => {
-    const d = new Date();
-    const hoyStr = `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+
+
+  const handleSubirAmonestacion = async () => {
+    if (!pdfFile) return mostrarAlerta("Atención", "⚠️ Por favor, seleccione un archivo PDF.");
+    setSubiendoArchivo(true);
+    try {
+      const fileRef = ref(storage, `amonestaciones/${usuarioExpediente.id}/${Date.now()}_${pdfFile.name}`);
+      const snapshot = await uploadBytes(fileRef, pdfFile);
+      const url = await getDownloadURL(snapshot.ref);
+      
+      const userRef = doc(db, "personal", usuarioExpediente.id);
+      const operador = Cookies.get("user_name") || "Admin RRHH";
+      const nuevaIncidencia = {
+        id: Date.now(),
+        tipo: "AMONESTACIÓN",
+        descripcion: `Amonestación PDF: ${pdfFile.name}`,
+        fecha: new Date().toLocaleString('es-ES'),
+        registradoPor: operador,
+        url: url
+      };
+      
+      await updateDoc(userRef, { historialIncidencias: arrayUnion(nuevaIncidencia) });
+      setPdfFile(null);
+      setUsuarioExpediente(prev => ({
+        ...prev,
+        historialIncidencias: prev.historialIncidencias ? [...prev.historialIncidencias, nuevaIncidencia] : [nuevaIncidencia]
+      }));
+
+      registrarAccion(
+        null,
+        null,
+        `Amonestación PDF subida para ${usuarioExpediente.nombres} ${usuarioExpediente.apellidos}: ${pdfFile.name}`,
+        "Personal Registrado"
+      );
+      mostrarAlerta("Éxito", "✅ Amonestación guardada correctamente.");
+    } catch (error) {
+      mostrarAlerta("Error", "Error al subir archivo: " + error.message);
+    } finally {
+      setSubiendoArchivo(false);
+    }
+  };
+
+  const cambiarEstatusFaltaItem = async (item, nuevoEstatus, urlJustificativo = null) => {
     try {
       const userRef = doc(db, "personal", usuarioExpediente.id);
       const userActual = usuarios.find(u => u.id === usuarioExpediente.id) || usuarioExpediente;
       let historial = userActual.historialIncidencias ? [...userActual.historialIncidencias] : [];
-      const indexFaltaHoy = historial.findIndex(inc => inc.tipo === "FALTA" && inc.descripcion.includes(hoyStr));
-      const nuevaDescripcion = `Inasistencia ${hoyStr} - ${tipoFalta}`;
+      
+      const idx = historial.findIndex(inc => inc.id === item.id);
+      if (idx === -1) return;
+
       const operador = Cookies.get("user_name") || "Admin RRHH";
-      if (indexFaltaHoy !== -1) {
-        historial[indexFaltaHoy] = {
-          ...historial[indexFaltaHoy],
-          descripcion: nuevaDescripcion,
-          fecha: new Date().toLocaleString('es-ES'),
-          registradoPor: operador
-        };
+      const descOriginal = historial[idx].descripcion;
+      let descNueva = descOriginal;
+      if (descOriginal.includes(" - ")) {
+        const parts = descOriginal.split(" - ");
+        descNueva = `${parts[0]} - ${nuevoEstatus}`;
       } else {
-        const nuevaFalta = {
-          id: Date.now(),
-          tipo: "FALTA",
-          descripcion: nuevaDescripcion,
-          fecha: new Date().toLocaleString('es-ES'),
-          registradoPor: operador
-        };
-        historial.push(nuevaFalta);
+        descNueva = `${descOriginal} - ${nuevoEstatus}`;
       }
+
+      historial[idx] = {
+        ...historial[idx],
+        descripcion: descNueva,
+        registradoPor: operador,
+        url: urlJustificativo || null
+      };
+
       await updateDoc(userRef, { historialIncidencias: historial });
       setUsuarioExpediente(prev => ({ ...prev, historialIncidencias: historial }));
       
       registrarAccion(
         null, 
         null, 
-        `Inasistencia marcada para ${usuarioExpediente.nombres} ${usuarioExpediente.apellidos} como ${tipoFalta}`, 
+        `Estatus de inasistencia actualizado para ${usuarioExpediente.nombres} ${usuarioExpediente.apellidos} a ${nuevoEstatus} ${urlJustificativo ? `(Récipe adjunto)` : ''}`, 
         "Personal Registrado"
       );
-      alert(`✅ Inasistencia marcada como ${tipoFalta.toLowerCase()}.`);
+
+      mostrarAlerta("Éxito", `✅ Inasistencia modificada a ${nuevoEstatus.toLowerCase()}.`);
     } catch (error) {
-      alert("Error: " + error.message);
+      mostrarAlerta("Error", "Error: " + error.message);
+    }
+  };
+
+  const handleSubirJustificativoParaItem = async (e, item) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSubiendoArchivo(true);
+    try {
+      const fileRef = ref(storage, `justificaciones/${usuarioExpediente.id}/${Date.now()}_${file.name}`);
+      const snapshot = await uploadBytes(fileRef, file);
+      const url = await getDownloadURL(snapshot.ref);
+      await cambiarEstatusFaltaItem(item, "JUSTIFICADA", url);
+    } catch (error) {
+      mostrarAlerta("Error", "Error al subir justificativo: " + error.message);
+    } finally {
+      setSubiendoArchivo(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleCambioEstatusFalta = (item, valor) => {
+    if (valor === "JUSTIFICADA") {
+      const fileInput = document.getElementById(`input-justificar-${item.id}`);
+      if (fileInput) {
+        fileInput.click();
+      }
+    } else {
+      setConfirmDialog({
+        isOpen: true,
+        title: "Cambiar Estatus a Injustificada",
+        message: "¿Estás seguro de cambiar el estatus a INJUSTIFICADA? Esto eliminará el récipe médico/soporte adjunto si existe.",
+        onConfirm: () => cambiarEstatusFaltaItem(item, "INJUSTIFICADA", null)
+      });
     }
   };
 
@@ -246,29 +333,42 @@ export default function PersonalRegistrado() {
             "Personal Registrado"
           );
         } catch (error) {
-          alert("Error al eliminar: " + error.message);
+          mostrarAlerta("Error", "Error al eliminar: " + error.message);
         }
       }
     });
   };
 
   const actualizarClaveMaestra = async () => {
-    if (!confirmarVieja || !nuevaClave) { alert("⚠️ Debes completar ambos campos."); return; }
-    if (confirmarVieja !== claveMaestra) { alert("❌ La clave actual es incorrecta."); return; }
+    if (!confirmarVieja || !nuevaClave) { mostrarAlerta("Atención", "⚠️ Debes completar ambos campos."); return; }
+    if (confirmarVieja !== claveMaestra) { mostrarAlerta("Error", "❌ La clave actual es incorrecta."); return; }
     try {
       await updateDoc(doc(db, "configuracion", "seguridad"), { claveExpedientes: nuevaClave });
-      alert("🔐 Clave Maestra actualizada.");
+      mostrarAlerta("Éxito", "🔐 Clave de expedientes actualizada correctamente.");
       setNuevaClave(""); setConfirmarVieja(""); setEditandoClave(false);
-    } catch (error) { alert(error.message); }
+    } catch (error) { mostrarAlerta("Error", error.message); }
   };
 
   const manejarAccesoExpediente = (user) => {
-    const pin = prompt("🔐 SEGURIDAD INVECEM: Ingrese clave de Recursos Humanos:");
-    if (pin === claveMaestra) {
-      setUsuarioExpediente(user);
+    setUsuarioPendienteExpediente(user);
+    setPinIngresado("");
+    setErrorPin("");
+    setShowPinModal(true);
+  };
+
+  const confirmarAccesoExpediente = () => {
+    if (pinIngresado === claveMaestra) {
+      setUsuarioExpediente(usuarioPendienteExpediente);
       setShowExpediente(true);
-      if (!verificarPresenciaHoy(user)) registrarInasistenciaAutomatica(user);
-    } else if (pin !== null) { alert("❌ Clave incorrecta."); }
+      setShowPinModal(false);
+      if (!verificarPresenciaHoy(usuarioPendienteExpediente)) {
+        registrarInasistenciaAutomatica(usuarioPendienteExpediente);
+      }
+      setPinIngresado("");
+      setErrorPin("");
+    } else {
+      setErrorPin("❌ Clave incorrecta. Por favor, intente de nuevo.");
+    }
   };
 
   const handleEliminar = (id, nombre) => {
@@ -324,13 +424,13 @@ export default function PersonalRegistrado() {
       );
     } catch (error) {
       console.error(error);
-      alert("Error al actualizar el estatus.");
+      mostrarAlerta("Error", "Error al actualizar el estatus.");
     }
   };
 
   const confirmarAusenciaModulo = async () => {
     if (!fechas.inicio || !fechas.fin) {
-      alert("⚠️ Debe rellenar la fecha de inicio y de regreso.");
+      mostrarAlerta("Atención", "⚠️ Debe rellenar la fecha de inicio y de regreso.");
       return;
     }
     await cambiarEstatusFirebase(usuarioParaEstado.id, tipoSeleccionado, fechas.inicio, fechas.fin);
@@ -354,25 +454,52 @@ export default function PersonalRegistrado() {
       const { jsPDF } = await import("jspdf");
       const { default: autoTable } = await import("jspdf-autotable");
       const docPdf = new jsPDF('l', 'mm', 'a4');
-      docPdf.setFontSize(18);
-      docPdf.setTextColor(0, 51, 102);
-      docPdf.text(`REPORTE DE PERSONAL - INVECEM`, 14, 20);
-      docPdf.setFontSize(10);
-      docPdf.setTextColor(100);
-      docPdf.text(`Fecha de emisión: ${new Date().toLocaleDateString()}`, 14, 28);
+
+      const loadImage = (url) => new Promise((resolve) => {
+        const img = new Image();
+        img.src = url;
+        img.onload = () => resolve(img);
+        img.onerror = () => resolve(null);
+      });
+      const imgLogo = await loadImage('/logo.png');
+
+      docPdf.setFillColor(248, 250, 252); docPdf.rect(0, 0, 297, 40, 'F');
+      docPdf.setDrawColor(226, 232, 240); docPdf.line(0, 40, 297, 40);
+
+      if (imgLogo) {
+        docPdf.addImage(imgLogo, 'PNG', 15, 5, 30, 30);
+        docPdf.setFontSize(18);
+        docPdf.setTextColor(15, 23, 42);
+        docPdf.text(`REPORTE DE PERSONAL - INVECEM`, 50, 20);
+        docPdf.setFontSize(10);
+        docPdf.setTextColor(71, 85, 105);
+        docPdf.text(`Fecha de emisión: ${new Date().toLocaleDateString()} | Tipo: ${filtroTipo}`, 50, 30);
+      } else {
+        docPdf.setFontSize(18);
+        docPdf.setTextColor(15, 23, 42);
+        docPdf.text(`REPORTE DE PERSONAL - INVECEM`, 15, 20);
+        docPdf.setFontSize(10);
+        docPdf.setTextColor(71, 85, 105);
+        docPdf.text(`Fecha de emisión: ${new Date().toLocaleDateString()} | Tipo: ${filtroTipo}`, 15, 30);
+      }
+
       const tableRows = usuariosFiltrados.map(u => [
         u.ficha || "---", u.cedula || "N/A", `${u.nombres} ${u.apellidos}`.toUpperCase(), u.tipoPersonal || "INVECEM", u.cargo || "N/A", u.area || "N/A", u.estatus || "Activo"
       ]);
+
       autoTable(docPdf, {
         head: [['Ficha', 'Cédula', 'Nombre Completo', 'Tipo', 'Cargo', 'Área', 'Estado']],
         body: tableRows,
-        startY: 35,
-        headStyles: { fillColor: [0, 51, 102], fontStyle: 'bold' },
+        startY: 45,
+        headStyles: { fillColor: [6, 182, 212], fontStyle: 'bold' },
         styles: { fontSize: 8, cellPadding: 3 },
         alternateRowStyles: { fillColor: [245, 247, 250] }
       });
       docPdf.save(`Reporte_Personal_${filtroTipo}.pdf`);
-    } catch { alert("Error al generar PDF."); }
+    } catch (e) {
+      console.error(e);
+      mostrarAlerta("Error", "Error al generar PDF.");
+    }
   };
 
   if (!isClient) return null;
@@ -547,64 +674,40 @@ export default function PersonalRegistrado() {
                     )}
                   </div>
 
-                  {/* Input Amonestación */}
-                  <div className="space-y-3">
-                    <label className="text-xxs font-black uppercase text-red-600 tracking-wider flex items-center gap-1.5 font-mono">
-                      <i className="fas fa-exclamation-triangle"></i> SYS_OBSERVACION // AMONESTACIÓN
+                  {/* Input Amonestación (Subir PDF) */}
+                  <div className="space-y-3 p-4 bg-red-500/5 border border-red-500/10 rounded-2xl">
+                    <label className="text-xxs font-black uppercase text-red-650 tracking-wider flex items-center gap-1.5 font-mono">
+                      <i className="fas fa-file-pdf"></i> SYS_ADJUNTAR // AMONESTACIÓN (PDF)
                     </label>
-                    <textarea
-                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:shadow-neon-cyan/40 text-sm font-semibold h-24 resize-none"
-                      placeholder="Escriba aquí los detalles y motivos específicos..."
-                      value={notaAmonestacion}
-                      onChange={(e) => setNotaAmonestacion(e.target.value)}
-                    />
+                    <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-xl p-4 bg-white hover:border-cyan-500/50 transition-colors relative cursor-pointer group">
+                      <input
+                        type="file"
+                        accept="application/pdf"
+                        onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
+                        className="absolute inset-0 opacity-0 cursor-pointer"
+                        disabled={subiendoArchivo}
+                      />
+                      <i className="fas fa-file-pdf text-red-500 text-2xl mb-2 group-hover:scale-110 transition-transform"></i>
+                      <span className="text-xs font-bold text-slate-700 truncate max-w-full">
+                        {pdfFile ? pdfFile.name : "Seleccionar archivo PDF..."}
+                      </span>
+                      <span className="text-[10px] text-slate-400 mt-1">Haga clic para buscar</span>
+                    </div>
                     <button
-                      className="w-full py-3.5 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-650 hover:from-cyan-400 hover:to-purple-500 text-white font-extrabold uppercase text-xs tracking-wider rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-neon-cyan transition-all duration-200 cursor-pointer"
-                      onClick={() => guardarIncidencia("AMONESTACIÓN", notaAmonestacion)}
+                      className="w-full py-3.5 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-655 hover:from-cyan-400 hover:to-purple-500 text-white font-extrabold uppercase text-xs tracking-wider rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-neon-cyan transition-all duration-200 cursor-pointer flex items-center justify-center gap-2"
+                      onClick={handleSubirAmonestacion}
+                      disabled={subiendoArchivo || !pdfFile}
                     >
-                      Guardar en Historial
-                    </button>
-                  </div>
-
-                  {/* Estatus Hoy box */}
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl">
-                    <p className="text-xxs font-black text-slate-500 uppercase tracking-widest mb-3">Asistencia de Hoy</p>
-
-                    {verificarPresenciaHoy(usuarioExpedienteActual) ? (
-                      <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-center shadow-sm">
-                        <p className="text-xs font-black text-emerald-600 uppercase tracking-wider">
-                          <i className="fas fa-check-circle mr-1.5"></i> Presente: Registro confirmado en sistema.
-                        </p>
-                      </div>
-                    ) : (
-                      verificarSiDebeMarcarFalta(usuarioExpedienteActual) ? (
-                        <div className="space-y-3">
-                          <p className="text-xs font-black text-red-650 uppercase tracking-wider text-center bg-red-50 border border-red-200 p-2 rounded-xl">
-                            <i className="fas fa-times-circle mr-1.5"></i> Inasistencia: No se detectó presencia hoy.
-                          </p>
-                          <div className="flex gap-2">
-                            <button
-                              className="flex-1 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white text-xxs font-black tracking-wider uppercase rounded-xl transition-all cursor-pointer shadow-sm hover:shadow-neon-cyan"
-                              onClick={() => manejarFaltaHoy("JUSTIFICADA")}
-                            >
-                              Justificar
-                            </button>
-                            <button
-                              className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white text-xxs font-black tracking-wider uppercase rounded-xl transition-all cursor-pointer shadow-sm hover:shadow-neon-red"
-                              onClick={() => manejarFaltaHoy("INJUSTIFICADA")}
-                            >
-                              Injustificada
-                            </button>
-                          </div>
-                        </div>
+                      {subiendoArchivo ? (
+                        <>
+                          <i className="fas fa-spinner fa-spin"></i> Subiendo PDF...
+                        </>
                       ) : (
-                        <div className="bg-cyan-50 border border-cyan-205 p-3 rounded-xl text-center">
-                          <p className="text-xs font-bold text-cyan-650 uppercase tracking-wider">
-                            <i className="fas fa-hourglass-half mr-1.5"></i> Jornada en curso: Esperando registro.
-                          </p>
-                        </div>
-                      )
-                    )}
+                        <>
+                          <i className="fas fa-save"></i> Guardar Amonestación PDF
+                        </>
+                      )}
+                    </button>
                   </div>
 
                 </div>
@@ -635,11 +738,65 @@ export default function PersonalRegistrado() {
                             <div className="flex justify-between items-center mb-1">
                               <span className="text-3xs font-black text-slate-450 font-mono">{item.fecha}</span>
                               <span className={`text-4xs font-black tracking-widest uppercase px-1.5 py-0.5 rounded font-mono ${esJustificada ? "bg-cyan-50 text-cyan-600 border border-cyan-200" : (isFalta ? "bg-red-50 text-red-650 border border-red-200" : "bg-purple-50 text-purple-600 border border-purple-200")}`}>
-                                {item.tipo}
+                                {isFalta ? (esJustificada ? "JUSTIFICADA" : "INJUSTIFICADA") : item.tipo}
                               </span>
                             </div>
 
                             <p className="text-xs font-semibold text-slate-700 mt-2">{item.descripcion}</p>
+                            
+                            {isFalta ? (
+                              <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">Estatus:</span>
+                                  <select
+                                    value={esJustificada ? "JUSTIFICADA" : "INJUSTIFICADA"}
+                                    onChange={(e) => handleCambioEstatusFalta(item, e.target.value)}
+                                    className={`px-2 py-1 bg-white border rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer focus:outline-none transition-all ${esJustificada ? "border-emerald-500/40 text-emerald-600 font-bold" : "border-red-500/40 text-red-600 font-bold"}`}
+                                    disabled={subiendoArchivo}
+                                  >
+                                    <option value="INJUSTIFICADA" className="text-red-600 font-bold">INJUSTIFICADA</option>
+                                    <option value="JUSTIFICADA" className="text-emerald-600 font-bold">JUSTIFICADA</option>
+                                  </select>
+                                </div>
+
+                                <input
+                                  type="file"
+                                  id={`input-justificar-${item.id}`}
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => handleSubirJustificativoParaItem(e, item)}
+                                  disabled={subiendoArchivo}
+                                />
+
+                                {item.url && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPreviewUrl(item.url);
+                                      setPreviewTipo(item.tipo);
+                                    }}
+                                    className="inline-flex items-center gap-1.5 text-[9px] font-black text-cyan-600 hover:text-cyan-700 uppercase tracking-widest font-mono bg-cyan-50 border border-cyan-200 px-2 py-1 rounded-lg cursor-pointer transition-colors"
+                                  >
+                                    <i className="fas fa-file-medical"></i> Ver Récipe
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              item.url && (
+                                <div className="mt-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPreviewUrl(item.url);
+                                      setPreviewTipo(item.tipo);
+                                    }}
+                                    className="inline-flex items-center gap-1.5 text-[10px] font-black text-cyan-600 hover:text-cyan-700 uppercase tracking-widest font-mono bg-cyan-50 border border-cyan-200 px-2 py-1 rounded-lg cursor-pointer transition-colors"
+                                  >
+                                    <i className="fas fa-paperclip"></i> Ver Documento / Foto
+                                  </button>
+                                </div>
+                              )
+                            )}
                             <p className="text-4xs text-slate-500 text-right mt-1.5 italic font-bold font-mono">OPERATOR: {item.registradoPor}</p>
                           </div>
                         );
@@ -669,6 +826,21 @@ export default function PersonalRegistrado() {
           </div>
         )}
 
+        {/* ENCABEZADO DE IMPRESIÓN */}
+        <div className="hidden print:flex items-center justify-between border-b-2 border-slate-300 pb-4 mb-6 w-full">
+          <div className="flex items-center gap-4">
+            <img src="/logo.png" alt="Logo Invecem" className="h-16 w-auto object-contain" />
+            <div>
+              <h1 className="text-2xl font-black uppercase text-indigo-955 tracking-tight">INVECEM</h1>
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Reporte de Personal Registrado</p>
+            </div>
+          </div>
+          <div className="text-right text-xs font-mono text-slate-500">
+            <div>Fecha Emisión: {new Date().toLocaleDateString()}</div>
+            <div>Total: {usuariosFiltrados.length} colaboradores</div>
+          </div>
+        </div>
+
         {/* ENCABEZADO PRINCIPAL DE LA VISTA */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 pb-6 border-b border-slate-200/60 no-print">
           <div>
@@ -681,44 +853,17 @@ export default function PersonalRegistrado() {
           </div>
 
           {/* Gestión Clave de Expedientes */}
-          <div className="p-4 bg-white/80 backdrop-blur-md border border-slate-200 rounded-2xl w-full md:w-80 shadow-md">
-            {!editandoClave ? (
-              <button
-                onClick={() => setEditandoClave(true)}
-                className="w-full text-left text-xxs font-black uppercase text-slate-500 hover:text-indigo-950 transition-colors flex items-center gap-2 cursor-pointer font-mono"
-              >
-                <i className="fas fa-key text-cyan-500"></i> KEY_MANAGEMENT // EXPEDIENTES
-              </button>
-            ) : (
-              <div className="space-y-2.5">
-                <input
-                  type="password"
-                  placeholder="Clave ACTUAL..."
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-cyan-500"
-                  onChange={(e) => setConfirmarVieja(e.target.value)}
-                />
-                <input
-                  type="password"
-                  placeholder="Nueva Clave..."
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-cyan-500"
-                  onChange={(e) => setNuevaClave(e.target.value)}
-                />
-                <div className="flex gap-2">
-                  <button
-                    className="flex-1 py-1.5 bg-gradient-to-r from-cyan-500 to-indigo-500 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer hover:shadow-neon-cyan"
-                    onClick={actualizarClaveMaestra}
-                  >
-                    Confirmar
-                  </button>
-                  <button
-                    className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-lg text-[10px] font-black cursor-pointer"
-                    onClick={() => setEditandoClave(false)}
-                  >
-                    X
-                  </button>
-                </div>
-              </div>
-            )}
+          <div className="no-print">
+            <button
+              onClick={() => {
+                setConfirmarVieja("");
+                setNuevaClave("");
+                setEditandoClave(true);
+              }}
+              className="px-4 py-2.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-650 hover:text-indigo-950 font-black uppercase text-xxs tracking-wider rounded-xl shadow-md transition-all duration-200 cursor-pointer flex items-center gap-2 font-mono"
+            >
+              <i className="fas fa-key text-cyan-500"></i> CLAVE DE ACCESO // EXPEDIENTES
+            </button>
           </div>
         </div>
 
@@ -971,6 +1116,194 @@ export default function PersonalRegistrado() {
                   }}
                 >
                   Confirmar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showPinModal && usuarioPendienteExpediente && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 animate-fade-in no-print">
+            <div className="bg-white/95 backdrop-blur-xl border border-cyan-500/30 rounded-3xl p-6 md:p-8 w-full max-w-md shadow-2xl space-y-6 relative shadow-neon-cyan/10 text-slate-800 animate-slide-up">
+              {/* Tech Corners */}
+              <div className="absolute top-2 left-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+              <div className="absolute top-2 right-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+
+              <h2 className="text-xl font-black uppercase text-indigo-950 tracking-tight flex items-center gap-2">
+                <i className="fas fa-lock text-cyan-500"></i> Control de Acceso
+              </h2>
+              <p className="text-sm font-semibold text-slate-655 leading-relaxed">
+                Ingrese la clave de Recursos Humanos para ver el expediente de <span className="font-extrabold text-cyan-600 uppercase">{usuarioPendienteExpediente.nombres} {usuarioPendienteExpediente.apellidos}</span>:
+              </p>
+
+              <div className="space-y-2">
+                <input
+                  type="password"
+                  autoFocus
+                  autoComplete="new-password"
+                  placeholder="Clave de acceso..."
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm font-semibold"
+                  value={pinIngresado}
+                  onChange={(e) => setPinIngresado(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') confirmarAccesoExpediente();
+                  }}
+                />
+                {errorPin && (
+                  <p className="text-xs font-bold text-red-500 mt-1">{errorPin}</p>
+                )}
+              </div>
+
+              <div className="flex gap-3 justify-end pt-2">
+                <button
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-650 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer"
+                  onClick={() => {
+                    setShowPinModal(false);
+                    setPinIngresado("");
+                    setErrorPin("");
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  className="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-indigo-500 hover:from-cyan-400 hover:to-indigo-400 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-indigo-500/20 transition-all duration-200 cursor-pointer hover:shadow-neon-cyan"
+                  onClick={confirmarAccesoExpediente}
+                >
+                  Ver Expediente
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {editandoClave && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 animate-fade-in no-print">
+            <div className="bg-white/95 backdrop-blur-xl border border-cyan-500/30 rounded-3xl p-6 md:p-8 w-full max-w-md shadow-2xl space-y-6 relative shadow-neon-cyan/10 text-slate-800 animate-slide-up">
+              {/* Tech Corners */}
+              <div className="absolute top-2 left-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+              <div className="absolute top-2 right-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+
+              <h2 className="text-xl font-black uppercase text-indigo-950 tracking-tight flex items-center gap-2">
+                <i className="fas fa-key text-cyan-500"></i> Modificar Clave de Expedientes
+              </h2>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest pb-4 border-b border-slate-100 font-mono">
+                SEGURIDAD // RECURSOS_HUMANOS
+              </p>
+
+              <div className="space-y-4">
+                <div className="flex flex-col gap-2">
+                  <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">Clave de Expedientes Actual</label>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="Clave actual..."
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm font-semibold"
+                    value={confirmarVieja}
+                    onChange={(e) => setConfirmarVieja(e.target.value)}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">Nueva Clave de Seguridad</label>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="Nueva clave..."
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm font-semibold"
+                    value={nuevaClave}
+                    onChange={(e) => setNuevaClave(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 justify-end pt-2">
+                <button
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-650 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer"
+                  onClick={() => setEditandoClave(false)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  className="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-indigo-500 hover:from-cyan-400 hover:to-indigo-400 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-indigo-500/20 transition-all duration-200 cursor-pointer hover:shadow-neon-cyan"
+                  onClick={actualizarClaveMaestra}
+                >
+                  Actualizar Clave
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {alertDialog.isOpen && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[99999] p-4 animate-fade-in no-print">
+            <div className="bg-white/95 backdrop-blur-xl border border-indigo-500/30 rounded-3xl p-6 md:p-8 w-full max-w-md shadow-2xl space-y-6 relative shadow-neon-cyan/10 text-slate-800 animate-slide-up">
+              {/* Tech Corners */}
+              <div className="absolute top-2 left-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+              <div className="absolute top-2 right-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+
+              <h2 className="text-xl font-black uppercase text-indigo-950 tracking-tight flex items-center gap-2">
+                <i className="fas fa-info-circle text-cyan-500"></i> {alertDialog.title}
+              </h2>
+              <p className="text-sm font-semibold text-slate-650 leading-relaxed font-sans">
+                {alertDialog.message}
+              </p>
+
+              <div className="flex justify-end pt-2">
+                <button
+                  className="px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-indigo-500 hover:from-cyan-400 hover:to-indigo-400 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-indigo-500/20 transition-all duration-200 cursor-pointer hover:shadow-neon-cyan"
+                  onClick={() => setAlertDialog({ ...alertDialog, isOpen: false })}
+                >
+                  Aceptar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL LIGHTBOX DE VISTA PREVIA (FOTOS Y PDFS) */}
+        {previewUrl && (
+          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-[99999] p-4 animate-fade-in no-print">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 w-full max-w-3xl shadow-2xl relative flex flex-col max-h-[90vh] text-slate-800">
+              <button
+                className="absolute right-4 top-4 text-slate-400 hover:text-red-500 transition-colors text-lg font-black cursor-pointer z-10 animate-pulse-glow"
+                onClick={() => { setPreviewUrl(null); setPreviewTipo(""); }}
+              >
+                <i className="fas fa-times"></i>
+              </button>
+              
+              <h3 className="text-lg font-black uppercase text-indigo-955 tracking-tight mb-4 flex items-center gap-2">
+                <i className="fas fa-eye text-cyan-500"></i> Vista Previa de Soporte
+              </h3>
+
+              <div className="flex-1 overflow-auto flex items-center justify-center bg-slate-50 rounded-2xl p-4 min-h-[300px]">
+                {previewTipo === "AMONESTACIÓN" || previewUrl.startsWith("data:application/pdf") || previewUrl.toLowerCase().includes(".pdf") ? (
+                  <embed
+                    src={previewUrl}
+                    type="application/pdf"
+                    className="w-full h-[60vh] rounded-xl border border-slate-205"
+                  />
+                ) : (
+                  <img
+                    src={previewUrl}
+                    alt="Vista previa"
+                    className="max-w-full max-h-[60vh] object-contain rounded-xl shadow-md border border-slate-100"
+                  />
+                )}
+              </div>
+              
+              <div className="mt-4 flex justify-between items-center">
+                <a
+                  href={previewUrl}
+                  download="soporte_documento"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <i className="fas fa-download"></i> Descargar Archivo
+                </a>
+                <button
+                  className="px-5 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer hover:shadow-neon-cyan"
+                  onClick={() => { setPreviewUrl(null); setPreviewTipo(""); }}
+                >
+                  Cerrar
                 </button>
               </div>
             </div>

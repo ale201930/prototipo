@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import { auth, db } from "../lib/firebase"; 
 import { signOut } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, orderBy, limit, onSnapshot } from "firebase/firestore";
 
 /* ── Sidebar item component ── */
 function SidebarItem({ icon, label, active, onClick, accent = "#06b6d4" }) {
@@ -45,6 +45,10 @@ export default function Dashboard() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [nombreUsuario, setNombreUsuario] = useState("Administrador");
+  
+  // Real-time states
+  const [stats, setStats] = useState({ usuariosTotal: 0, auditoriaHoy: 0, personalTotal: 0, contratistasPlanta: 0 });
+
   const router = useRouter();
 
   useEffect(() => {
@@ -63,11 +67,66 @@ export default function Dashboard() {
             setNombreUsuario(docSnap.data().nombres);
           }
         }
-        setCargando(false);
       };
       obtenerDatos();
     }
   }, [router]);
+
+  useEffect(() => {
+    // 1. Escuchar usuarios
+    const unsubUsuarios = onSnapshot(collection(db, "usuarios"), (snap) => {
+      const uCount = snap.docs.length;
+      setStats(prev => ({ ...prev, usuariosTotal: uCount }));
+    });
+
+    // 2. Escuchar personal
+    const unsubPersonal = onSnapshot(collection(db, "personal"), (snap) => {
+      const pCount = snap.docs.filter(d => d.data().estatus === "Activo (En funciones)").length;
+      setStats(prev => ({ ...prev, personalTotal: pCount }));
+    });
+
+    // 3. Escuchar contratistas/asistencias hoy
+    const inicioHoy = new Date();
+    inicioHoy.setHours(0, 0, 0, 0);
+
+    const qContratistas = query(
+      collection(db, "asistencias"),
+      where("fechaHora", ">=", inicioHoy),
+      where("tipoPersonal", "==", "CONTRATISTA")
+    );
+
+    const unsubContratistas = onSnapshot(qContratistas, (snap) => {
+      const adentro = snap.docs.filter(d => d.data().entrada && (!d.data().salida || d.data().salida === "--:--")).length;
+      setStats(prev => ({ ...prev, contratistasPlanta: adentro }));
+    });
+
+    // 4. Escuchar auditoria (actividad de hoy, alertas y logs recientes)
+    const qAuditoria = query(
+      collection(db, "auditoria"),
+      orderBy("fecha", "desc"),
+      limit(50)
+    );
+
+    const unsubAuditoria = onSnapshot(qAuditoria, (snap) => {
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      // Activity of today
+      const hoyDocs = docs.filter(d => {
+        const f = d.fecha?.toDate ? d.fecha.toDate() : new Date(d.fecha || 0);
+        return f >= inicioHoy;
+      });
+
+      setStats(prev => ({ ...prev, auditoriaHoy: hoyDocs.length }));
+      setCargando(false);
+    });
+
+    return () => {
+      unsubUsuarios();
+      unsubPersonal();
+      unsubContratistas();
+      unsubAuditoria();
+    };
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -102,15 +161,11 @@ export default function Dashboard() {
         <div className="md:hidden fixed inset-0 z-30 bg-black/50 backdrop-blur-sm" onClick={() => setMenuOpen(false)} />
       )}
 
-      {/* ═══════════════════════════════════════
-          SIDEBAR NAVY
-      ═══════════════════════════════════════ */}
+      {/* SIDEBAR */}
       <aside
         className={`fixed md:relative top-0 bottom-0 left-0 z-40 flex flex-col transition-transform duration-300 md:translate-x-0 ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}
         style={{ width: 272, background: 'linear-gradient(180deg, #0d1117 0%, #161b27 100%)', borderRight: '1px solid rgba(255,255,255,0.06)' }}
       >
-
-        {/* Logo */}
         <div className="p-6 flex flex-col items-center gap-2 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-1"
             style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)', boxShadow: '0 4px 14px rgba(6,182,212,0.35)' }}>
@@ -123,7 +178,6 @@ export default function Dashboard() {
           </span>
         </div>
 
-        {/* Navigation */}
         <nav className="flex-grow px-3 py-4 overflow-y-auto space-y-0.5">
           <SidebarItem icon="fa-home" label="Inicio" active={true} onClick={() => router.push("/administrador")} />
           <SidebarItem icon="fa-user-gear" label="Mi Perfil" onClick={() => router.push("/perfil")} />
@@ -138,9 +192,7 @@ export default function Dashboard() {
           <SidebarItem icon="fa-desktop" label="Monitoreo" onClick={() => router.push("/administrador/monitoreo")} />
         </nav>
 
-        {/* User footer */}
         <div className="p-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-          {/* User info */}
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl mb-3"
             style={{ background: 'rgba(255,255,255,0.04)' }}>
             <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-sm font-black text-white"
@@ -164,16 +216,12 @@ export default function Dashboard() {
         </div>
       </aside>
 
-      {/* ═══════════════════════════════════════
-          MAIN CONTENT
-      ═══════════════════════════════════════ */}
+      {/* MAIN CONTENT */}
       <main className="page-main animate-fade-in">
 
         {/* Bienvenida */}
         <div className="welcome-card p-8 mb-8 text-white">
           <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-6">
-
-            {/* Avatar */}
             <div className="w-20 h-20 rounded-2xl flex items-center justify-center flex-shrink-0 animate-float"
               style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)', boxShadow: '0 8px 24px rgba(6,182,212,0.4)' }}>
               <i className="fas fa-user-tie text-3xl text-white" />
@@ -193,7 +241,6 @@ export default function Dashboard() {
               </p>
             </div>
 
-            {/* Status badge */}
             <div className="md:ml-auto flex items-center gap-2 px-4 py-2 rounded-xl"
               style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)' }}>
               <span className="live-dot" />
@@ -202,67 +249,74 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Quick actions grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {[
-            { icon: 'fa-user-shield', label: 'Inspector', sub: 'Registro de asistencia', route: '/inspector', color: '#06b6d4', bg: 'rgba(6,182,212,0.08)' },
-            { icon: 'fa-users-cog', label: 'Recursos Humanos', sub: 'Personal y reportes', route: '/recursos-humanos', color: '#3b82f6', bg: 'rgba(59,130,246,0.08)' },
-            { icon: 'fa-shield-halved', label: 'Protección Física', sub: 'Control de contratas', route: '/proteccion-fisica', color: '#22d3ee', bg: 'rgba(34,211,238,0.08)' },
-            { icon: 'fa-desktop', label: 'Monitoreo', sub: 'Estado del sistema', route: '/administrador/monitoreo', color: '#10b981', bg: 'rgba(16,185,129,0.08)' },
-          ].map(item => (
-            <button
-              key={item.label}
-              onClick={() => router.push(item.route)}
-              className="card p-5 text-left cursor-pointer group animate-slide-up"
-              style={{ border: `1px solid ${item.color}20` }}
-            >
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4 transition-transform duration-200 group-hover:scale-110"
-                style={{ background: item.bg, border: `1px solid ${item.color}25` }}>
-                <i className={`fas ${item.icon} text-lg`} style={{ color: item.color }} />
-              </div>
-              <p className="font-black text-slate-800 text-sm">{item.label}</p>
-              <p className="text-slate-500 text-xs mt-0.5 font-medium">{item.sub}</p>
-              <div className="mt-3 flex items-center gap-1 text-xs font-bold transition-all duration-200 group-hover:gap-2" style={{ color: item.color }}>
-                Acceder <i className="fas fa-arrow-right text-[10px]" />
-              </div>
-            </button>
-          ))}
-        </div>
+        <div className="space-y-8 animate-slide-up">
+          
+          {/* SECCIÓN 1: MÉTRICAS GLOBALES DEL SISTEMA */}
+          <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-md relative overflow-hidden">
+            <div className="border-l-4 border-cyan-500 pl-4 mb-6">
+              <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">Estadísticas del Sistema</h2>
+              <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mt-0.5">Indicadores generales y uso de recursos de la plataforma</p>
+            </div>
 
-        {/* System links */}
-        <div className="card p-6">
-          <h2 className="font-black text-slate-800 text-sm uppercase tracking-wider mb-4 flex items-center gap-2">
-            <i className="fas fa-cog text-cyan-500 text-base" />
-            Configuración del Sistema
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {[
-              { icon: 'fa-users-gear', label: 'Gestión de Usuarios', sub: 'Alta, baja y modificación', route: '/administrador/usuarios' },
-              { icon: 'fa-user-circle', label: 'Mi Perfil', sub: 'Datos y contraseña', route: '/perfil' },
-            ].map(item => (
-              <button
-                key={item.label}
-                onClick={() => router.push(item.route)}
-                className="flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all duration-200 text-left"
-                style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}
-                onMouseEnter={e => { e.currentTarget.style.background='#f0f9ff'; e.currentTarget.style.borderColor='rgba(6,182,212,0.3)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background='#f8fafc'; e.currentTarget.style.borderColor='#e2e8f0'; }}
-              >
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: 'rgba(6,182,212,0.1)' }}>
-                  <i className={`fas ${item.icon} text-cyan-600 text-sm`} />
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* KPI 1: Usuarios Registrados */}
+              <div className="stat-box-premium stat-box-premium-cyan cursor-pointer" onClick={() => router.push("/administrador/usuarios")}>
+                <i className="fas fa-users-gear stat-box-icon-bg"></i>
                 <div>
-                  <p className="font-bold text-slate-800 text-sm">{item.label}</p>
-                  <p className="text-slate-400 text-xs font-medium">{item.sub}</p>
+                  <div className="stat-box-icon-circle stat-box-icon-circle-cyan">
+                    <i className="fas fa-users-gear"></i>
+                  </div>
+                  <p className="text-[11px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Usuarios del Sistema</p>
+                  <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mt-1">{stats.usuariosTotal}</h3>
                 </div>
-                <i className="fas fa-chevron-right text-slate-300 text-xs ml-auto" />
-              </button>
-            ))}
-          </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 font-medium">Cuentas activas/inactivas</p>
+              </div>
+
+              {/* KPI 2: Actividad del Día */}
+              <div className="stat-box-premium stat-box-premium-purple cursor-pointer" onClick={() => router.push("/administrador/monitoreo")}>
+                <i className="fas fa-desktop stat-box-icon-bg"></i>
+                <div>
+                  <div className="stat-box-icon-circle stat-box-icon-circle-purple">
+                    <i className="fas fa-desktop"></i>
+                  </div>
+                  <p className="text-[11px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Actividades Hoy</p>
+                  <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mt-1">{stats.auditoriaHoy}</h3>
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 font-medium">Eventos de auditoría de hoy</p>
+              </div>
+
+              {/* KPI 3: Personal Registrado */}
+              <div className="stat-box-premium stat-box-premium-emerald cursor-pointer" onClick={() => router.push("/recursos-humanos")}>
+                <i className="fas fa-id-card stat-box-icon-bg"></i>
+                <div>
+                  <div className="stat-box-icon-circle stat-box-icon-circle-emerald">
+                    <i className="fas fa-id-card"></i>
+                  </div>
+                  <p className="text-[11px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Personal Activo</p>
+                  <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mt-1">{stats.personalTotal}</h3>
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 font-medium">Colaboradores en funciones</p>
+              </div>
+
+              {/* KPI 4: Contratistas en Planta */}
+              <div className="stat-box-premium stat-box-premium-cyan cursor-pointer" onClick={() => router.push("/proteccion-fisica")}>
+                <i className="fas fa-shield-halved stat-box-icon-bg"></i>
+                <div>
+                  <div className="stat-box-icon-circle stat-box-icon-circle-cyan">
+                    <i className="fas fa-shield-halved"></i>
+                  </div>
+                  <p className="text-[11px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Contratas en Planta</p>
+                  <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mt-1">{stats.contratistasPlanta}</h3>
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 font-medium">Personal externo hoy</p>
+              </div>
+            </div>
+          </section>
+
         </div>
 
       </main>
     </div>
   );
 }
+
