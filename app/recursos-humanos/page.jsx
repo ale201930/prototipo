@@ -129,7 +129,7 @@ export default function PanelRecursosHumanos() {
               if (procesadosRef.current.has(bdayKey)) continue;
 
               const yaFelicitadoEsteAño = correosEnviados.some(c => 
-                c.destinatario === emp.correo && 
+                (c.trabajadorId === emp.id || (c.destinatario === emp.correo && c.trabajadorNombre === `${emp.nombres} ${emp.apellidos || ""}`)) && 
                 c.tipo === "CUMPLEAÑOS" && 
                 new Date(c.fecha).getFullYear() === currentYear
               );
@@ -140,6 +140,7 @@ export default function PanelRecursosHumanos() {
                   await addDoc(collection(db, "correos_enviados"), {
                     fecha: new Date().toISOString(),
                     destinatario: emp.correo,
+                    trabajadorId: emp.id,
                     trabajadorNombre: `${emp.nombres} ${emp.apellidos || ""}`,
                     tipo: "CUMPLEAÑOS",
                     asunto: `🎉 ¡Feliz Cumpleaños de parte de INVECEM Corporación Socialista del Cemento! 🎂`,
@@ -216,7 +217,7 @@ export default function PanelRecursosHumanos() {
             if (procesadosRef.current.has(attKey)) continue;
 
             const yaEnviadoAsistenciaEsteMes = correosEnviados.some(c => 
-              c.destinatario === emp.correo && 
+              (c.trabajadorId === emp.id || (c.destinatario === emp.correo && c.trabajadorNombre === `${emp.nombres} ${emp.apellidos || ""}`)) && 
               c.tipo === "ASISTENCIA_PERFECTA" && 
               c.periodo === currentPeriod
             );
@@ -227,6 +228,7 @@ export default function PanelRecursosHumanos() {
                 await addDoc(collection(db, "correos_enviados"), {
                   fecha: new Date().toISOString(),
                   destinatario: emp.correo,
+                  trabajadorId: emp.id,
                   trabajadorNombre: `${emp.nombres} ${emp.apellidos || ""}`,
                   tipo: "ASISTENCIA_PERFECTA",
                   periodo: currentPeriod,

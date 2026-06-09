@@ -21,6 +21,9 @@ export const auth = getAuth(app);
 auth.languageCode = "es"; // Configura el idioma de los correos de Firebase en español
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+// Limitar el tiempo de reintento de subidas a 10 segundos para evitar que la interfaz se congele si falla la conexión o el bucket
+storage.maxUploadRetryTime = 10000; 
+storage.maxOperationRetryTime = 10000;
 
 // --- FUNCIÓN PARA EL MONITOREO Y AUDITORÍA ---
 // Esta función guardará quién hizo qué, en qué módulo, a qué hora y desde qué IP.

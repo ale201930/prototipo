@@ -201,11 +201,23 @@ export default function PersonalRegistrado() {
 
   const handleSubirAmonestacion = async () => {
     if (!pdfFile) return mostrarAlerta("Atención", "⚠️ Por favor, seleccione un archivo PDF.");
+    
+    // Validar tamaño máximo de 1MB solo en Firebase (por límites de documento Firestore)
+    const useFirebase = process.env.NEXT_PUBLIC_USE_FIREBASE === "true";
+    if (useFirebase && pdfFile.size > 1048576) {
+      return mostrarAlerta("Error", "❌ El archivo es demasiado grande. El tamaño máximo permitido en la versión gratuita de Firebase es de 1 MB.");
+    }
+
     setSubiendoArchivo(true);
     try {
-      const fileRef = ref(storage, `amonestaciones/${usuarioExpediente.id}/${Date.now()}_${pdfFile.name}`);
-      const snapshot = await uploadBytes(fileRef, pdfFile);
-      const url = await getDownloadURL(snapshot.ref);
+      // Convertir archivo PDF a base64
+      const toBase64 = file => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+      });
+      const url = await toBase64(pdfFile);
       
       const userRef = doc(db, "personal", usuarioExpediente.id);
       const operador = Cookies.get("user_name") || "Admin RRHH";
@@ -233,7 +245,7 @@ export default function PersonalRegistrado() {
       );
       mostrarAlerta("Éxito", "✅ Amonestación guardada correctamente.");
     } catch (error) {
-      mostrarAlerta("Error", "Error al subir archivo: " + error.message);
+      mostrarAlerta("Error", "Error al procesar archivo: " + error.message);
     } finally {
       setSubiendoArchivo(false);
     }
@@ -285,14 +297,26 @@ export default function PersonalRegistrado() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validar tamaño máximo de 1MB solo en Firebase (por límites de documento Firestore)
+    const useFirebase = process.env.NEXT_PUBLIC_USE_FIREBASE === "true";
+    if (useFirebase && file.size > 1048576) {
+      e.target.value = "";
+      return mostrarAlerta("Error", "❌ El archivo es demasiado grande. El tamaño máximo permitido en la versión gratuita de Firebase es de 1 MB.");
+    }
+
     setSubiendoArchivo(true);
     try {
-      const fileRef = ref(storage, `justificaciones/${usuarioExpediente.id}/${Date.now()}_${file.name}`);
-      const snapshot = await uploadBytes(fileRef, file);
-      const url = await getDownloadURL(snapshot.ref);
+      // Convertir archivo (imagen o PDF) a base64
+      const toBase64 = f => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(f);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+      });
+      const url = await toBase64(file);
       await cambiarEstatusFaltaItem(item, "JUSTIFICADA", url);
     } catch (error) {
-      mostrarAlerta("Error", "Error al subir justificativo: " + error.message);
+      mostrarAlerta("Error", "Error al procesar justificativo: " + error.message);
     } finally {
       setSubiendoArchivo(false);
       e.target.value = "";
@@ -719,7 +743,7 @@ export default function PersonalRegistrado() {
                   <div className="flex-1 overflow-y-auto space-y-3 pr-1">
                     {usuarioExpedienteActual.historialIncidencias?.length > 0 ? (
                       usuarioExpedienteActual.historialIncidencias.slice().reverse().map((item, index) => {
-                        const esJustificada = item.descripcion.includes('JUSTIFICADA');
+                        const esJustificada = item.descripcion.includes('JUSTIFICADA') && !item.descripcion.includes('INJUSTIFICADA');
                         const isFalta = item.tipo === 'FALTA';
 
                         return (
