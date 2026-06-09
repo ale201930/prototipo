@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { auth, db } from "../lib/firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { updatePassword, reauthenticateWithCredential, EmailAuthProvider, updateEmail } from "firebase/auth";
+import { updatePassword, reauthenticateWithCredential, EmailAuthProvider, verifyBeforeUpdateEmail } from "firebase/auth";
 import { useRouter } from "next/navigation";
 
 export default function PerfilUsuario() {
@@ -37,10 +37,33 @@ export default function PerfilUsuario() {
   useEffect(() => {
     const unsub = auth.onAuthStateChanged(async (user) => {
       if (user) {
+        if (typeof user.reload === "function") {
+          try {
+            await user.reload();
+          } catch (reloadErr) {
+            console.warn("No se pudo recargar el estado del usuario Auth:", reloadErr);
+          }
+        }
         const docRef = doc(db, "usuarios", user.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          const data = docSnap.data();
+          let data = docSnap.data();
+          
+          // Sincronizar el correo en Firestore si se cambió y verificó en Firebase Auth
+          if (user.email && data.correo !== user.email) {
+            const emailLimpio = user.email.toLowerCase();
+            const usernameExtracted = emailLimpio.split("@")[0];
+            try {
+              await updateDoc(docRef, {
+                correo: emailLimpio,
+                username: usernameExtracted
+              });
+              data = { ...data, correo: emailLimpio, username: usernameExtracted };
+            } catch (syncErr) {
+              console.error("Error al sincronizar correo verificado:", syncErr);
+            }
+          }
+
           setUserData(data);
           
           // Inicializar username si no existe en Firestore
@@ -126,26 +149,11 @@ export default function PerfilUsuario() {
       // Reautenticar al usuario antes del cambio de correo
       await reauthenticateWithCredential(user, credential);
       
-      // Actualizar en Firebase Auth
+      // Enviar correo de verificación para el cambio en Firebase Auth
       const emailLimpio = nuevoCorreo.trim().toLowerCase();
-      await updateEmail(user, emailLimpio);
+      await verifyBeforeUpdateEmail(user, emailLimpio);
       
-      // Actualizar en Firestore
-      const userRef = doc(db, "usuarios", user.uid);
-      const usernameExtracted = emailLimpio.split("@")[0];
-      
-      await updateDoc(userRef, {
-        correo: emailLimpio,
-        username: usernameExtracted
-      });
-      
-      setUserData(prev => prev ? {
-        ...prev,
-        correo: emailLimpio,
-        username: usernameExtracted
-      } : null);
-      
-      alert("✅ Correo de recuperación actualizado correctamente.");
+      alert("✉️ Se ha enviado un enlace de verificación a " + emailLimpio + ". El correo se actualizará en el sistema una vez que verifiques el enlace desde tu bandeja de entrada.");
       setNuevoCorreo("");
       setClaveParaCorreo("");
     } catch (error) {

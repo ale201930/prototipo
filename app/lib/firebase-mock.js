@@ -212,6 +212,10 @@ export async function updateEmail(user, newEmail) {
   mockAuthInstance.notifyListeners();
 }
 
+export async function verifyBeforeUpdateEmail(user, newEmail) {
+  return updateEmail(user, newEmail);
+}
+
 export async function sendPasswordResetEmail(authInstance, email) {
   // 1. Buscar el uid en la base de datos de usuarios
   const resUser = await fetch("/api/db", {

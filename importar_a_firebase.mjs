@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, createUserWithEmailAndPassword, signOut } from "firebase/auth";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { getFirestore, doc, setDoc } from "firebase/firestore";
 import fs from "fs";
 
@@ -27,6 +27,21 @@ async function main() {
   const dbData = JSON.parse(fs.readFileSync("db_export.json", "utf8"));
   
   console.log("🚀 Iniciando migración de datos hacia Firebase en la nube...");
+
+  console.log("🔑 Iniciando sesión en Firebase Auth para obtener permisos de escritura...");
+  try {
+    await signInWithEmailAndPassword(auth, "testadmin@invecem.com", "admin123");
+    console.log("✅ Sesión iniciada como testadmin@invecem.com");
+  } catch (err) {
+    console.warn("⚠️ No se pudo iniciar sesión como testadmin@invecem.com. Intentando con alexander@invecem.com...");
+    try {
+      await signInWithEmailAndPassword(auth, "alexander@invecem.com", "201980");
+      console.log("✅ Sesión iniciada como alexander@invecem.com");
+    } catch (err2) {
+      console.warn("⚠️ No se pudo iniciar sesión de forma automática. Intentando continuar sin autenticación...");
+    }
+  }
+
 
   // 1. Subir Colecciones Estándar
   const collectionsToUpload = ["personal", "contratistas", "asistencias", "visitantes", "configuracion", "auditoria"];

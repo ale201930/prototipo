@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { auth, db, registrarAccion } from "../lib/firebase"; 
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs, updateDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 
@@ -94,8 +94,24 @@ export default function Login() {
           return;
         }
 
-        registrarAccion(userData.nombres || userData.correo, userData.rol, "Inicio de sesión exitoso", "Acceso");
-        iniciarSesionExitosa(userData.rol, userData.nombres || userData.correo);
+        let finalCorreo = userData.correo;
+        // Sincronizar el correo en Firestore si se cambió y verificó en Firebase Auth
+        if (user.email && userData.correo !== user.email) {
+          const emailLimpio = user.email.toLowerCase();
+          const usernameExtracted = emailLimpio.split("@")[0];
+          try {
+            await updateDoc(docRef, {
+              correo: emailLimpio,
+              username: usernameExtracted
+            });
+            finalCorreo = emailLimpio;
+          } catch (syncErr) {
+            console.error("Error al sincronizar correo verificado en login:", syncErr);
+          }
+        }
+
+        registrarAccion(userData.nombres || finalCorreo, userData.rol, "Inicio de sesión exitoso", "Acceso");
+        iniciarSesionExitosa(userData.rol, userData.nombres || finalCorreo);
       } else {
         registrarAccion(usuario, "Invitado", "Intento de inicio de sesión fallido: Perfil sin datos en sistema", "Acceso");
         setError("⚠️ Error de perfil: El usuario no tiene datos asignados.");
