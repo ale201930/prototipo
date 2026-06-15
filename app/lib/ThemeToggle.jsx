@@ -12,12 +12,12 @@ export default function ThemeToggle() {
     
     if (savedTheme === "dark" || (!savedTheme && htmlHasDark)) {
       setIsDark(true);
-      document.documentElement.classList.add("theme-dark");
-      document.body.classList.add("theme-dark");
+      document.documentElement.classList.add("theme-dark", "dark");
+      document.body.classList.add("theme-dark", "dark");
     } else {
       setIsDark(false);
-      document.documentElement.classList.remove("theme-dark");
-      document.body.classList.remove("theme-dark");
+      document.documentElement.classList.remove("theme-dark", "dark");
+      document.body.classList.remove("theme-dark", "dark");
     }
   }, []);
 
@@ -25,12 +25,12 @@ export default function ThemeToggle() {
     const nextDark = !isDark;
     setIsDark(nextDark);
     if (nextDark) {
-      document.documentElement.classList.add("theme-dark");
-      document.body.classList.add("theme-dark");
+      document.documentElement.classList.add("theme-dark", "dark");
+      document.body.classList.add("theme-dark", "dark");
       localStorage.setItem("theme", "dark");
     } else {
-      document.documentElement.classList.remove("theme-dark");
-      document.body.classList.remove("theme-dark");
+      document.documentElement.classList.remove("theme-dark", "dark");
+      document.body.classList.remove("theme-dark", "dark");
       localStorage.setItem("theme", "light");
     }
   };

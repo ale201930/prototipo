@@ -251,7 +251,7 @@ export default function Login() {
   };
 
   return (
-    <div className="theme-dark min-h-screen w-full flex" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="theme-dark dark min-h-screen w-full flex" style={{ fontFamily: "'Inter', sans-serif" }}>
 
       {/* ── PANEL IZQUIERDO — BRANDING ── */}
       <div className="hidden lg:flex lg:w-1/2 login-panel-left flex-col items-center justify-center p-12 relative">

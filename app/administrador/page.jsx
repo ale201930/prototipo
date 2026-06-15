@@ -91,13 +91,16 @@ export default function Dashboard() {
 
     const qContratistas = query(
       collection(db, "asistencias"),
-      where("fechaHora", ">=", inicioHoy),
-      where("tipoPersonal", "==", "CONTRATISTA")
+      where("fechaHora", ">=", inicioHoy)
     );
 
     const unsubContratistas = onSnapshot(qContratistas, (snap) => {
-      const adentro = snap.docs.filter(d => d.data().entrada && (!d.data().salida || d.data().salida === "--:--")).length;
+      const allAsist = snap.docs.map(d => d.data());
+      const contratistasAsist = allAsist.filter(a => a.tipoPersonal === "CONTRATISTA");
+      const adentro = contratistasAsist.filter(a => a.entrada && (!a.salida || a.salida === "--:--")).length;
       setStats(prev => ({ ...prev, contratistasPlanta: adentro }));
+    }, (error) => {
+      console.error("Error al cargar contratistas en planta:", error);
     });
 
     // 4. Escuchar auditoria (actividad de hoy, alertas y logs recientes)

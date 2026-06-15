@@ -591,7 +591,7 @@ export default function PanelRecursosHumanos() {
                 {/* KPI 1: Promedio de Asistencia */}
                 <div 
                   className="stat-box-premium stat-box-premium-cyan cursor-pointer"
-                  onClick={() => setActiveTab("retrasos")}
+                  onClick={() => setActiveTab("promedio_asistencia")}
                 >
                   <i className="fas fa-percent stat-box-icon-bg"></i>
                   <div>
@@ -607,17 +607,31 @@ export default function PanelRecursosHumanos() {
                 {/* KPI 2: Total Horas Extras */}
                 <div 
                   className="stat-box-premium stat-box-premium-emerald cursor-pointer"
-                  onClick={() => setActiveTab("horas_extras")}
+                  onClick={() => setActiveTab("horas_totales")}
                 >
-                  <i className="fas fa-clock stat-box-icon-bg"></i>
+                  <i className="fas fa-hourglass-half stat-box-icon-bg"></i>
                   <div>
                     <div className="stat-box-icon-circle stat-box-icon-circle-emerald">
-                      <i className="fas fa-user-clock"></i>
+                      <i className="fas fa-hourglass-half"></i>
                     </div>
                     <p className="text-[11px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Horas Extras Totales</p>
-                    <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mt-1">{totalHorasExtrasCompania}h</h3>
+                    <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mt-1">
+                      {totalHorasExtrasCompania}
+                      <span className="text-sm font-bold text-slate-400 ml-1">hrs</span>
+                    </h3>
                   </div>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 font-medium">Acumuladas por el personal</p>
+                  <div className="mt-2 space-y-1">
+                    <div className="flex justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                      <span>Empleados c/ sobretiempo</span>
+                      <span className="font-mono text-emerald-600 dark:text-emerald-400 font-extrabold">{trabajadoresHorasExtras.length}</span>
+                    </div>
+                    <div className="flex justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                      <span>Promedio por empleado</span>
+                      <span className="font-mono text-emerald-600 dark:text-emerald-400 font-extrabold">
+                        {trabajadoresHorasExtras.length > 0 ? (totalHorasExtrasCompania / trabajadoresHorasExtras.length).toFixed(1) : "0"}h
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 {/* KPI 3: Cumpleañeros */}
@@ -667,7 +681,7 @@ export default function PanelRecursosHumanos() {
                 {/* Presentismo de Hoy */}
                 <div 
                   className="stat-box-premium stat-box-premium-cyan cursor-pointer min-h-[290px] flex flex-col justify-between"
-                  onClick={() => setActiveTab("retrasos")}
+                  onClick={() => setActiveTab("presentismo")}
                 >
                   <i className="fas fa-percent stat-box-icon-bg"></i>
                   <div>
@@ -708,7 +722,10 @@ export default function PanelRecursosHumanos() {
                 </div>
 
                 {/* Distribución del Personal */}
-                <div className="stat-box-premium stat-box-premium-purple cursor-pointer min-h-[290px] flex flex-col justify-between">
+                <div
+                  className="stat-box-premium stat-box-premium-purple cursor-pointer min-h-[290px] flex flex-col justify-between"
+                  onClick={() => setActiveTab("distribucion")}
+                >
                   <i className="fas fa-users stat-box-icon-bg"></i>
                   <div>
                     <div className="stat-box-icon-circle stat-box-icon-circle-purple">
@@ -736,10 +753,10 @@ export default function PanelRecursosHumanos() {
                     </div>
                   </div>
                   
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Clasificación por contrato</p>
+                  <p className="text-[10px] text-purple-600 dark:text-purple-400 font-bold uppercase tracking-wider">Ver detalle completo →</p>
                 </div>
 
-                {/* Trabajadores con Horas Extras */}
+                {/* Horas Extras por Empleado — Ranking */}
                 <div 
                   className="stat-box-premium stat-box-premium-emerald cursor-pointer min-h-[290px] flex flex-col justify-between"
                   onClick={() => setActiveTab("horas_extras")}
@@ -773,7 +790,7 @@ export default function PanelRecursosHumanos() {
                     )}
                   </div>
 
-                  <p className="text-[10px] text-emerald-600 dark:text-emerald-450 font-bold uppercase tracking-wider">Ver listado completo</p>
+                  <p className="text-[10px] text-emerald-600 dark:text-emerald-450 font-bold uppercase tracking-wider">Ver listado completo →</p>
                 </div>
 
                 {/* Rachas de Retrasos */}
@@ -834,7 +851,11 @@ export default function PanelRecursosHumanos() {
                 {activeTab === "asistencia_perfecta" && "Reconocimientos por Asistencia"}
                 {activeTab === "faltas" && "Inasistencias Recurrentes"}
                 {activeTab === "retrasos" && "Rachas de Retrasos Consecutivos"}
-                {activeTab === "horas_extras" && "Trabajadores con Horas Extras"}
+                {activeTab === "horas_extras" && "Horas Extras por Empleado"}
+                {activeTab === "horas_totales" && "Resumen de Horas Extras Totales"}
+                {activeTab === "promedio_asistencia" && "Promedio de Asistencia General"}
+                {activeTab === "presentismo" && "Presentismo del Día de Hoy"}
+                {activeTab === "distribucion" && "Distribución del Personal"}
               </h2>
             </div>
 
@@ -966,6 +987,229 @@ export default function PanelRecursosHumanos() {
                   )}
                 </div>
               )}
+
+              {/* Tab 6: Horas Extras Totales — Vista resumen */}
+              {activeTab === "horas_totales" && (
+                <div className="space-y-6">
+
+                  {/* Total grande destacado */}
+                  <div className="flex flex-col items-center justify-center py-8 gap-2">
+                    <div className="w-20 h-20 rounded-2xl flex items-center justify-center mb-2"
+                      style={{ background: 'linear-gradient(135deg, #10b981, #14b8a6)', boxShadow: '0 8px 24px rgba(16,185,129,0.35)' }}>
+                      <i className="fas fa-hourglass-half text-3xl text-white" />
+                    </div>
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-400">Total acumulado · toda la empresa</p>
+                    <h2 className="text-6xl font-black tracking-tight text-slate-900 dark:text-white">
+                      {totalHorasExtrasCompania}
+                      <span className="text-2xl font-bold text-slate-400 ml-2">hrs</span>
+                    </h2>
+                    <div className="flex items-center gap-6 mt-2">
+                      <div className="text-center">
+                        <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{trabajadoresHorasExtras.length}</p>
+                        <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Empleados c/ sobretiempo</p>
+                      </div>
+                      <div className="w-px h-10 bg-slate-200 dark:bg-slate-700" />
+                      <div className="text-center">
+                        <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                          {trabajadoresHorasExtras.length > 0 ? (totalHorasExtrasCompania / trabajadoresHorasExtras.length).toFixed(1) : "0"}h
+                        </p>
+                        <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Promedio por empleado</p>
+                      </div>
+                      <div className="w-px h-10 bg-slate-200 dark:bg-slate-700" />
+                      <div className="text-center">
+                        <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{personal.length}</p>
+                        <p className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Personal total</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Barra divisora */}
+                  <div className="border-t border-slate-100 dark:border-slate-800" />
+
+                  {/* Aporte por empleado con barras */}
+                  {trabajadoresHorasExtras.length > 0 ? (
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Contribución por empleado al total</p>
+                      <div className="space-y-3">
+                        {trabajadoresHorasExtras.map((emp) => {
+                          const pct = Math.max(4, Math.round((emp.totalHorasExtras / totalHorasExtrasCompania) * 100));
+                          return (
+                            <div key={emp.id} className="space-y-1">
+                              <div className="flex justify-between items-center">
+                                <div>
+                                  <span className="text-xs font-black uppercase text-slate-800 dark:text-white">{emp.nombres} {emp.apellidos}</span>
+                                  <span className="ml-2 text-[10px] font-bold text-slate-400 font-mono">FICHA: {emp.ficha}</span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 font-mono">{emp.totalHorasExtras}h</span>
+                                  <span className="ml-1 text-[10px] font-bold text-slate-400">({pct}%)</span>
+                                </div>
+                              </div>
+                              <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                                <div
+                                  className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-500"
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs font-bold text-slate-400 uppercase text-center py-8 font-mono">Sin horas extras registradas en el sistema</p>
+                  )}
+
+                </div>
+              )}
+
+              {/* Tab 7: Promedio de Asistencia */}
+              {activeTab === "promedio_asistencia" && (
+                <div className="space-y-6">
+                  {/* Número grande */}
+                  <div className="flex flex-col items-center justify-center py-8 gap-2">
+                    <div className="w-20 h-20 rounded-2xl flex items-center justify-center mb-2"
+                      style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)', boxShadow: '0 8px 24px rgba(6,182,212,0.35)' }}>
+                      <i className="fas fa-chart-line text-3xl text-white" />
+                    </div>
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-400">Tasa global · registro acumulado</p>
+                    <h2 className="text-6xl font-black tracking-tight text-slate-900 dark:text-white">
+                      {averageAttendanceRate.toFixed(1)}<span className="text-3xl font-bold text-slate-400 ml-1">%</span>
+                    </h2>
+                    <div className="w-full max-w-xs bg-slate-100 dark:bg-slate-800 h-3 rounded-full overflow-hidden mt-2">
+                      <div
+                        className="bg-gradient-to-r from-cyan-500 to-blue-500 h-full rounded-full transition-all duration-700"
+                        style={{ width: `${averageAttendanceRate}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 9: Distribución del Personal */}
+              {activeTab === "distribucion" && (
+                <div className="space-y-6">
+                  {/* Encabezado */}
+                  <div className="flex flex-col items-center justify-center py-8 gap-2">
+                    <div className="w-20 h-20 rounded-2xl flex items-center justify-center mb-2"
+                      style={{ background: 'linear-gradient(135deg, #8b5cf6, #6366f1)', boxShadow: '0 8px 24px rgba(139,92,246,0.35)' }}>
+                      <i className="fas fa-chart-column text-3xl text-white" />
+                    </div>
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-400">Composición total del personal</p>
+                    <h2 className="text-6xl font-black tracking-tight text-slate-900 dark:text-white">
+                      {personal.length}
+                      <span className="text-2xl font-bold text-slate-400 ml-2">personas</span>
+                    </h2>
+                  </div>
+                  <div className="border-t border-slate-100 dark:border-slate-800" />
+                  {/* Barras de distribución */}
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Clasificación por tipo de contrato</p>
+                    <div className="space-y-4">
+                      {[
+                        { label: 'Personal INVECEM (Fijos)', count: countInvecem, color: 'from-cyan-500 to-blue-500', textColor: 'text-cyan-600 dark:text-cyan-400', icon: 'fa-id-badge' },
+                        { label: 'Estudiantes INCES', count: countInces, color: 'from-indigo-500 to-violet-500', textColor: 'text-indigo-600 dark:text-indigo-400', icon: 'fa-graduation-cap' },
+                        { label: 'Pasantes', count: countPasantes, color: 'from-purple-500 to-pink-500', textColor: 'text-purple-600 dark:text-purple-400', icon: 'fa-user-graduate' },
+                      ].map(({ label, count, color, textColor, icon }) => {
+                        const pct = countTotalPersonal > 0 ? Math.round((count / countTotalPersonal) * 100) : 0;
+                        return (
+                          <div key={label} className="p-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-xl space-y-2">
+                            <div className="flex justify-between items-center">
+                              <div className="flex items-center gap-2">
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br ${color} text-white text-xs`}>
+                                  <i className={`fas ${icon}`} />
+                                </div>
+                                <span className="text-xs font-black uppercase text-slate-700 dark:text-white">{label}</span>
+                              </div>
+                              <div className="text-right">
+                                <span className={`text-xl font-black font-mono ${textColor}`}>{count}</span>
+                                <span className="ml-1 text-[10px] font-bold text-slate-400">({pct}%)</span>
+                              </div>
+                            </div>
+                            <div className="w-full bg-slate-200 dark:bg-slate-700 h-3 rounded-full overflow-hidden">
+                              <div className={`bg-gradient-to-r ${color} h-full rounded-full transition-all duration-500`} style={{ width: `${Math.max(2, pct)}%` }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 8: Presentismo Diario */}
+              {activeTab === "presentismo" && (() => {
+                const asistentesHoy = asistencias.filter(a => {
+                  let fDoc = "";
+                  if (a.fecha) {
+                    const parts = a.fecha.split("/");
+                    fDoc = `${parseInt(parts[0],10)}/${parseInt(parts[1],10)}/${parseInt(parts[2],10)}`;
+                  } else if (a.fechaHora) {
+                    const f = a.fechaHora.toDate ? a.fechaHora.toDate() : new Date(a.fechaHora);
+                    fDoc = `${f.getDate()}/${f.getMonth()+1}/${f.getFullYear()}`;
+                  }
+                  return fDoc === hoyLimpio && a.tipoPersonal !== "CONTRATISTA";
+                });
+                return (
+                  <div className="space-y-6">
+                    {/* Resumen del día */}
+                    <div className="flex flex-col items-center justify-center py-6 gap-2">
+                      <div className="w-20 h-20 rounded-2xl flex items-center justify-center mb-2"
+                        style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)', boxShadow: '0 8px 24px rgba(6,182,212,0.35)' }}>
+                        <i className="fas fa-calendar-check text-3xl text-white" />
+                      </div>
+                      <p className="text-xs font-black uppercase tracking-widest text-slate-400">Registro de asistencia · hoy</p>
+                      <h2 className="text-6xl font-black tracking-tight text-slate-900 dark:text-white">
+                        {porcentajePresentesHoy}<span className="text-3xl font-bold text-slate-400 ml-1">%</span>
+                      </h2>
+                      <p className="text-sm font-bold text-slate-500">
+                        <span className="font-extrabold text-cyan-600 dark:text-cyan-400">{presentesHoyCount}</span> de <span className="font-extrabold text-slate-700 dark:text-slate-300">{totalActivos}</span> activos registraron asistencia hoy
+                      </p>
+                    </div>
+                    <div className="border-t border-slate-100 dark:border-slate-800" />
+                    {/* Listado de asistentes */}
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Empleados presentes hoy — {new Date().toLocaleDateString('es-VE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                      {asistentesHoy.length > 0 ? (
+                        <div className="space-y-2">
+                          {asistentesHoy.map((a, idx) => {
+                            const emp = personal.find(p => p.ficha === a.ficha);
+                            const esRetraso = a.estatus === "RETRASO" || (a.entrada && emp?.horaEntrada && a.entrada > emp.horaEntrada);
+                            return (
+                              <div key={a.id || idx} className="p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-xl flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-xs font-black ${
+                                    esRetraso ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600' : 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600'
+                                  }`}>
+                                    <i className={`fas ${esRetraso ? 'fa-clock' : 'fa-check'}`} />
+                                  </div>
+                                  <div>
+                                    <p className="text-xs font-black uppercase text-slate-900 dark:text-white">
+                                      {emp ? `${emp.nombres} ${emp.apellidos || ''}` : a.nombreCompleto || `Ficha ${a.ficha}`}
+                                    </p>
+                                    <p className="text-[10px] font-bold text-slate-400 font-mono">FICHA: {a.ficha} | CARGO: {emp?.cargo || 'N/A'}</p>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <span className={`px-2.5 py-0.5 text-xxs font-black uppercase rounded-lg font-mono border ${
+                                    esRetraso
+                                      ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 text-amber-600'
+                                      : 'bg-cyan-50 dark:bg-cyan-950/20 border-cyan-200 dark:border-cyan-800 text-cyan-600'
+                                  }`}>
+                                    {a.entrada || '--:--'} {esRetraso ? '· RETRASO' : '· PUNTUAL'}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-xs font-bold text-slate-400 uppercase text-center py-8 font-mono">No hay registros de asistencia para hoy</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
             </div>
           </div>

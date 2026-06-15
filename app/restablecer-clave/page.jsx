@@ -81,7 +81,7 @@ function RestablecerClaveContent() {
   };
 
   return (
-    <div className="theme-dark min-h-screen w-full flex items-center justify-center p-6 md:p-12" style={{ fontFamily: "'Inter', sans-serif", background: "var(--bg-main)" }}>
+    <div className="theme-dark dark min-h-screen w-full flex items-center justify-center p-6 md:p-12" style={{ fontFamily: "'Inter', sans-serif", background: "var(--bg-main)" }}>
       <div className="w-full max-w-md animate-fade-in">
         
         {/* Header */}

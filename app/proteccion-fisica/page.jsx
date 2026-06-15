@@ -64,56 +64,61 @@ export default function ProteccionFisica() {
     }
   }, []);
 
+  const totalContratistasRef = React.useRef(0);
+
   useEffect(() => {
-    // 1. Escuchar contratistas
+    const inicioHoy = new Date();
+    inicioHoy.setHours(0, 0, 0, 0);
+
+    // 1. Listener de contratistas (total registrados)
     const unsubContratistas = onSnapshot(collection(db, "contratistas"), (snapshot) => {
-      const listContratistas = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-      const totalCount = listContratistas.length;
-
-      // 2. Escuchar asistencias de contratistas hoy
-      const inicioHoy = new Date();
-      inicioHoy.setHours(0, 0, 0, 0);
-
-      const qAsistencias = query(
-        collection(db, "asistencias"),
-        where("fechaHora", ">=", inicioHoy),
-        where("tipoPersonal", "==", "CONTRATISTA")
-      );
-
-      const unsubAsistencias = onSnapshot(qAsistencias, (asistSnap) => {
-        const asistDocs = asistSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-        const enPlantaDocs = asistDocs.filter(a => a.entrada && (!a.salida || a.salida === "--:--"));
-        const entradasCount = asistDocs.filter(a => a.entrada).length;
-        const salidasCount = asistDocs.filter(a => a.salida && a.salida !== "--:--").length;
-
-        // Group by company for distribution
-        const compMap = {};
-        enPlantaDocs.forEach(a => {
-          const comp = a.nombreContrata || "Sin Empresa";
-          compMap[comp] = (compMap[comp] || 0) + 1;
-        });
-
-        const sortedComp = Object.keys(compMap).map(key => ({
-          empresa: key,
-          cantidad: compMap[key]
-        })).sort((a, b) => b.cantidad - a.cantidad);
-
-        setContratistasPlanta(enPlantaDocs);
-        setDistribucionEmpresas(sortedComp.slice(0, 5));
-        setStats({
-          enPlanta: enPlantaDocs.length,
-          totalRegistrados: totalCount,
-          entradasHoy: entradasCount,
-          salidasHoy: salidasCount
-        });
-        setLoading(false);
-      });
-
-      return () => unsubAsistencias();
+      totalContratistasRef.current = snapshot.docs.length;
     });
 
-    return () => unsubContratistas();
+    // 2. Listener de asistencias de hoy (contratistas) — independiente
+    const qAsistencias = query(
+      collection(db, "asistencias"),
+      where("fechaHora", ">=", inicioHoy)
+    );
+
+    const unsubAsistencias = onSnapshot(qAsistencias, (asistSnap) => {
+      const allAsist = asistSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const asistDocs = allAsist.filter(a => a.tipoPersonal === "CONTRATISTA");
+
+      const enPlantaDocs = asistDocs.filter(a => a.entrada && (!a.salida || a.salida === "--:--"));
+      const entradasCount = asistDocs.filter(a => a.entrada).length;
+      const salidasCount = asistDocs.filter(a => a.salida && a.salida !== "--:--").length;
+
+      // Group by company for distribution
+      const compMap = {};
+      enPlantaDocs.forEach(a => {
+        const comp = a.nombreContrata || "Sin Empresa";
+        compMap[comp] = (compMap[comp] || 0) + 1;
+      });
+
+      const sortedComp = Object.keys(compMap).map(key => ({
+        empresa: key,
+        cantidad: compMap[key]
+      })).sort((a, b) => b.cantidad - a.cantidad);
+
+      setContratistasPlanta(enPlantaDocs);
+      setDistribucionEmpresas(sortedComp.slice(0, 5));
+      setStats({
+        enPlanta: enPlantaDocs.length,
+        totalRegistrados: totalContratistasRef.current,
+        entradasHoy: entradasCount,
+        salidasHoy: salidasCount
+      });
+      setLoading(false);
+    }, (error) => {
+      console.error("Error al cargar asistencias de contratistas:", error);
+      setLoading(false);
+    });
+
+    return () => {
+      unsubContratistas();
+      unsubAsistencias();
+    };
   }, []);
 
   const handleLogout = async () => {

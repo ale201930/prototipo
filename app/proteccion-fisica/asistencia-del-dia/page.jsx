@@ -45,13 +45,20 @@ export default function AsistenciaContratas() {
 
     const q = query(
       collection(db, "asistencias"),
-      where("fechaHora", ">=", inicioHoy),
-      where("tipoPersonal", "==", "CONTRATISTA"), 
-      orderBy("fechaHora", "desc")
+      where("fechaHora", ">=", inicioHoy)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const lista = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const fullLista = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      const lista = fullLista
+        .filter(a => a.tipoPersonal === "CONTRATISTA")
+        .sort((a, b) => {
+          const dateA = a.fechaHora?.toDate ? a.fechaHora.toDate() : new Date(a.fechaHora || 0);
+          const dateB = b.fechaHora?.toDate ? b.fechaHora.toDate() : new Date(b.fechaHora || 0);
+          return dateB - dateA;
+        });
+
       setAsistencias(lista);
 
       const empresasSet = new Set(lista.map(a => a.nombreContrata || "Sin Empresa"));
@@ -59,6 +66,8 @@ export default function AsistenciaContratas() {
 
       const adentro = lista.filter(a => a.entrada && !a.salida).length;
       setResumen(prev => ({ ...prev, presentes: adentro }));
+    }, (error) => {
+      console.error("Error al cargar listado de asistencias de contratistas:", error);
     });
 
     return () => unsubscribe();
