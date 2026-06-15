@@ -123,7 +123,7 @@ export default function RecordFuncionalAsistencia() {
   };
 
   const obtenerDatosReales = (p, dia, mes, anio) => {
-    const { ficha, regimenLaboral } = p; 
+    const { ficha, regimenLaboral, fechaInicioCiclo } = p; 
     const key = `${ficha}_${anio}_${mes}_${dia}`;
     const registro = asistenciasMap[key];
 
@@ -147,10 +147,19 @@ export default function RecordFuncionalAsistencia() {
     const diaSemana = fechaActual.getDay();
 
     if (regimenLaboral === "TURNO_4X4") {
-        const fechaBase = new Date(2026, 0, 1); 
+        // Usar la fecha de inicio de ciclo propia del trabajador;
+        // si no tiene, usar el 1 de enero de 2026 como fallback global.
+        let fechaBase;
+        if (fechaInicioCiclo) {
+            const [y, m, d] = fechaInicioCiclo.split("-").map(Number);
+            fechaBase = new Date(y, m - 1, d);
+        } else {
+            fechaBase = new Date(2026, 0, 1);
+        }
         const diffTime = fechaActual - fechaBase;
-        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)); 
-        const ciclo = diffDays % 8; 
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        // Módulo siempre positivo para manejar fechas anteriores a la base
+        const ciclo = ((diffDays % 8) + 8) % 8;
         if (ciclo >= 4) return { clase: "status-descanso", extra: 0, label: "DESCANSO" };
     } else {
         if (diaSemana === 0 || diaSemana === 6) return { clase: "status-descanso", extra: 0, label: "DESCANSO" };

@@ -174,30 +174,6 @@ export default function PersonalRegistrado() {
   };
 
 
-  const verificarSiDebeMarcarFalta = (usuario) => {
-    const ahora = new Date();
-    const horaActual = ahora.getHours();
-    const horaSalidaDefinida = usuario.horaSalida ? parseInt(usuario.horaSalida.split(':')[0]) : 16;
-    return horaActual >= horaSalidaDefinida;
-  };
-
-
-
-  const registrarInasistenciaAutomatica = async (usuario) => {
-    const d = new Date();
-    const hoyStr = `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
-    const yaRegistrada = usuario.historialIncidencias?.some(inc => inc.tipo === "FALTA" && inc.descripcion.includes(hoyStr));
-    if (!yaRegistrada && !verificarPresenciaHoy(usuario) && verificarSiDebeMarcarFalta(usuario)) {
-      try {
-        const userRef = doc(db, "personal", usuario.id);
-        const nuevaFalta = { id: Date.now(), tipo: "FALTA", descripcion: `Inasistencia ${hoyStr} - INJUSTIFICADA`, fecha: new Date().toLocaleString('es-ES'), registradoPor: "SISTEMA AUTOMÁTICO" };
-        await updateDoc(userRef, { historialIncidencias: arrayUnion(nuevaFalta) });
-        setUsuarioExpediente(prev => ({ ...prev, historialIncidencias: prev.historialIncidencias ? [...prev.historialIncidencias, nuevaFalta] : [nuevaFalta] }));
-      } catch (error) { console.error("Error en registro automático:", error); }
-    }
-  };
-
-
 
   const handleSubirAmonestacion = async () => {
     if (!pdfFile) return mostrarAlerta("Atención", "⚠️ Por favor, seleccione un archivo PDF.");
@@ -385,9 +361,6 @@ export default function PersonalRegistrado() {
       setUsuarioExpediente(usuarioPendienteExpediente);
       setShowExpediente(true);
       setShowPinModal(false);
-      if (!verificarPresenciaHoy(usuarioPendienteExpediente)) {
-        registrarInasistenciaAutomatica(usuarioPendienteExpediente);
-      }
       setPinIngresado("");
       setErrorPin("");
     } else {
