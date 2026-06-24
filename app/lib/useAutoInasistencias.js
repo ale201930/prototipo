@@ -208,12 +208,31 @@ export function useAutoInasistencias() {
           }
         });
 
+        // ── 5b. Cargar todos los feriados ────────────────────────────────
+        const feriadosSnap = await getDocs(collection(db, "feriados"));
+        const feriadosLista = feriadosSnap.docs.map((d) => d.data());
+
         // ── 6. Procesar cada día candidato ────────────────────────────────
         const nuevasFechasProcesadas = [...fechasProcesadas];
         const promesasUpdate = [];
 
         for (const { fecha, fechaStr } of candidatos) {
           const esHoy = fecha.getTime() === hoy.getTime();
+
+          const dClean = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
+          const feriado = feriadosLista.find((f) => {
+            if (!f.fechaInicio || !f.fechaRegreso) return false;
+            const start = parseFechaIngreso(f.fechaInicio);
+            const end = parseFechaIngreso(f.fechaRegreso);
+            return start && end && dClean >= start && dClean < end;
+          });
+
+          if (feriado && feriado.tipo === "TODOS") {
+            if (!esHoy) {
+              nuevasFechasProcesadas.push(fechaStr);
+            }
+            continue;
+          }
 
           // ★ REGLA CLAVE: Si no hay ningún registro de asistencia ese día,
           //   el sistema no estaba activo → no registrar faltas.
@@ -240,6 +259,11 @@ export function useAutoInasistencias() {
 
             // Verificar si ese día era laboral para este trabajador
             if (!esDiaLaboral(fecha, worker)) continue;
+
+            // Verificar si el día es feriado parcial y el trabajador está exento (libra)
+            if (feriado && feriado.tipo === "PARCIAL" && feriado.trabajadoresLibran?.includes(worker.id)) {
+              continue;
+            }
 
             // Si es HOY, solo marcar si ya pasó la hora de salida
             if (esHoy) {

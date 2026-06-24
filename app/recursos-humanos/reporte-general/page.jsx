@@ -378,8 +378,25 @@ export default function ReportesGenerales() {
                           {r.ficha || "---"}
                         </td>
                         
-                        <td className="py-4 px-3 text-left font-extrabold text-indigo-950 text-sm uppercase">
-                          {r.nombreCompleto}
+                        <td className="py-4 px-3 text-left">
+                          <strong className="text-sm font-extrabold text-indigo-950 uppercase block">{r.nombreCompleto}</strong>
+                          {r.salidaAlmuerzo && (
+                            <div className="mt-1 flex flex-wrap gap-1.5 items-center">
+                              <span className="px-1.5 py-0.5 bg-slate-100 border border-slate-200 text-slate-500 rounded text-[9px] font-bold uppercase tracking-wider font-mono">
+                                🍱 Almuerzo: {r.salidaAlmuerzo} a {r.entradaAlmuerzo || "--:--"}
+                              </span>
+                              {r.minutosAlmuerzoTarde > 0 && (
+                                <span className="px-1.5 py-0.5 bg-red-50 border border-red-200 text-red-650 rounded text-[9px] font-black uppercase tracking-wider font-mono animate-pulse">
+                                  ⚠️ Demora: +{r.minutosAlmuerzoTarde}m
+                                </span>
+                              )}
+                              {r.salidaAlmuerzo && !r.entradaAlmuerzo && !r.salida && (
+                                <span className="px-1.5 py-0.5 bg-cyan-50 border border-cyan-200 text-cyan-600 rounded text-[9px] font-black uppercase tracking-wider font-mono">
+                                  ⏳ Almorzando
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </td>
                         
                         <td className="py-4 px-3 text-left">
@@ -396,7 +413,15 @@ export default function ReportesGenerales() {
                         </td>
                         
                         <td className="py-4 px-3 text-center">
-                          <span className={`px-2.5 py-0.5 rounded-lg text-xxs font-black tracking-wider uppercase inline-block border ${r.estatus === "Retraso" ? "bg-orange-50 text-orange-605 border-orange-200" : "bg-emerald-50 text-emerald-600 border-emerald-200"}`}>
+                          <span className={`px-2.5 py-0.5 rounded-lg text-xxs font-black tracking-wider uppercase inline-block border ${
+                            r.estatus === "ABANDONO DE TRABAJO"
+                              ? "bg-red-100 text-red-750 border-red-300 animate-pulse"
+                              : r.estatus === "Retraso" || r.estatus === "RETRASO"
+                              ? "bg-orange-50 text-orange-605 border-orange-200"
+                              : r.estatus === "BENEFICIO"
+                              ? "bg-cyan-50 text-cyan-600 border-cyan-200"
+                              : "bg-emerald-50 text-emerald-600 border-emerald-200"
+                          }`}>
                             {r.estatus || "PUNTUAL"}
                           </span>
                         </td>

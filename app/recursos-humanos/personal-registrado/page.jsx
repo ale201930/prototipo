@@ -649,7 +649,10 @@ export default function PersonalRegistrado() {
                       <p className="text-xxs font-bold text-slate-500 uppercase tracking-wider font-mono">HORARIO_TURNO</p>
                       <p className="text-xs font-black text-slate-700 uppercase mt-0.5">
                         {usuarioExpedienteActual.horaEntrada && usuarioExpedienteActual.horaSalida
-                          ? `${usuarioExpedienteActual.horaEntrada} a ${usuarioExpedienteActual.horaSalida}`
+                          ? (usuarioExpedienteActual.horaAlmuerzoInicio && usuarioExpedienteActual.horaAlmuerzoFin
+                              ? `${usuarioExpedienteActual.horaEntrada} a ${usuarioExpedienteActual.horaAlmuerzoInicio} y ${usuarioExpedienteActual.horaAlmuerzoFin} a ${usuarioExpedienteActual.horaSalida}`
+                              : `${usuarioExpedienteActual.horaEntrada} a ${usuarioExpedienteActual.horaSalida}`
+                            )
                           : (usuarioExpedienteActual.regimenLaboral || "No asignado")}
                       </p>
                     </div>

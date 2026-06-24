@@ -1,0 +1,12 @@
+# Configuración por defecto usando la dirección IP (solo HTTP)
+:80 {
+    reverse_proxy web:3000
+}
+
+# --- CONFIGURACIÓN CON DOMINIO (DESCOMENTAR CUANDO TENGAS UN DOMINIO) ---
+# Reemplaza 'tu-dominio.com' con tu dominio real (ej: invecem.tusistema.com)
+# Caddy obtendrá y renovará automáticamente el certificado SSL (HTTPS) de Let's Encrypt.
+#
+# tu-dominio.com {
+#     reverse_proxy web:3000
+# }

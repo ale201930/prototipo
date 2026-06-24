@@ -16,6 +16,7 @@ const estadoInicial = {
   regimenLaboral: "NORMAL",
   fechaInicioCiclo: "", 
   horaEntrada: "07:00", horaSalida: "16:00", esNocturno: false,
+  horaAlmuerzoInicio: "12:00", horaAlmuerzoFin: "13:00",
   estatus: "Activo (En funciones)", fechaIngreso: "",
   fechaEgreso: "", telefono: "", correo: "", fechaNacimiento: "",
 };
@@ -401,44 +402,95 @@ function FormularioRegistro() {
               </div>
 
               {formData.regimenLaboral === "TURNO_4X4" && (
-                <div className="flex flex-col gap-2 animate-pulse-glow">
-                  <label className="text-xxs font-bold uppercase tracking-wider text-cyan-600 font-mono">SINCRONIZACION_CICLO (INICIO)</label>
+                <div className="flex flex-col gap-2">
+                  <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">SINCRONIZACION_CICLO (INICIO)</label>
                   <input 
                     type="date" 
                     name="fechaInicioCiclo" 
                     value={formData.fechaInicioCiclo} 
                     onChange={handleChange} 
                     required 
-                    className="w-full px-4 py-3 bg-white border border-cyan-300 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-200 text-sm font-semibold cursor-pointer shadow-neon-cyan/10 shadow-sm"
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-200 text-sm font-semibold cursor-pointer shadow-sm"
                   />
+                  <span className="text-[10px] font-bold text-slate-400 block font-mono leading-relaxed">
+                    Establece el inicio del ciclo de 8 días: 2 días de Día, 2 días de Noche y 4 días de Descanso. Permite calcular el turno actual según la fecha.
+                  </span>
                 </div>
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              <div className="flex flex-col gap-2">
-                <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">HORA_ENTRADA</label>
-                <input 
-                  type="time" 
-                  name="horaEntrada" 
-                  value={formData.horaEntrada} 
-                  onChange={handleChange} 
-                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-200 text-sm font-semibold cursor-pointer"
-                />
-              </div>
+            <div className="border border-slate-200/80 rounded-2xl p-4 bg-slate-50/50 space-y-6">
+              <h4 className="text-xxs font-black text-slate-500 uppercase tracking-widest font-mono flex items-center gap-1.5">
+                <i className="fas fa-clock text-cyan-600"></i> Configuración de Horario
+              </h4>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Bloque 1 */}
+                <div className="p-4 bg-white border border-slate-100 rounded-xl space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 font-mono">Hora Entrada</label>
+                      <input 
+                        type="time" 
+                        name="horaEntrada" 
+                        value={formData.horaEntrada || ""} 
+                        onChange={handleChange} 
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 text-xs font-semibold cursor-pointer"
+                      />
+                    </div>
+                    
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 font-mono">Salida Almuerzo</label>
+                      <input 
+                        type="time" 
+                        name="horaAlmuerzoInicio" 
+                        value={formData.horaAlmuerzoInicio || ""} 
+                        onChange={handleChange} 
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 text-xs font-semibold cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-400 block font-mono">
+                    {formData.regimenLaboral === "TURNO_4X4" 
+                      ? "Ej. Turno Día: 07:00 a 12:00 | Ej. Turno Noche: 19:00 a 23:00" 
+                      : "Ejemplo Normal: 07:00 a 12:00"}
+                  </span>
+                </div>
 
-              <div className="flex flex-col gap-2">
-                <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">HORA_SALIDA</label>
-                <input 
-                  type="time" 
-                  name="horaSalida" 
-                  value={formData.horaSalida} 
-                  onChange={handleChange} 
-                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-200 text-sm font-semibold cursor-pointer"
-                />
+                {/* Bloque 2 */}
+                <div className="p-4 bg-white border border-slate-100 rounded-xl space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 font-mono">Regreso Almuerzo</label>
+                      <input 
+                        type="time" 
+                        name="horaAlmuerzoFin" 
+                        value={formData.horaAlmuerzoFin || ""} 
+                        onChange={handleChange} 
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 text-xs font-semibold cursor-pointer"
+                      />
+                    </div>
+                    
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 font-mono">Hora Salida</label>
+                      <input 
+                        type="time" 
+                        name="horaSalida" 
+                        value={formData.horaSalida || ""} 
+                        onChange={handleChange} 
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 text-xs font-semibold cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-400 block font-mono">
+                    {formData.regimenLaboral === "TURNO_4X4"
+                      ? "Ej. Turno Día: 13:00 a 19:00 | Ej. Turno Noche: 00:00 a 07:00"
+                      : "Ejemplo Normal: 13:00 a 16:00 (1:00 a 4:00)"}
+                  </span>
+                </div>
               </div>
-
-              <div className="flex items-center mt-6">
+              
+              <div className="flex items-center pt-2">
                 <label className="inline-flex items-center gap-3 cursor-pointer select-none">
                   <input 
                     type="checkbox" 

@@ -17,6 +17,14 @@ export default function RegistroAsistencia() {
   const [asistenciasHoy, setAsistenciasHoy] = useState([]);
   const [cargando, setCargando] = useState(false);
   const [fechaHoy, setFechaHoy] = useState("");
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTick(prev => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Paginación
   const [paginaActual, setPaginaActual] = useState(1);
@@ -41,6 +49,105 @@ export default function RegistroAsistencia() {
     return (hrs * 60) + mins;
   };
 
+  const estaEnRangoAlmuerzo = (horaActStr, inicioStr, finStr) => {
+    if (!inicioStr || !finStr) return false;
+    const minActual = convertirAMinutos(horaActStr);
+    let minInicio = convertirAMinutos(inicioStr);
+    let minFin = convertirAMinutos(finStr);
+
+    if (minFin < minInicio) {
+      // Cruza la medianoche, ej: de 23:00 a 00:30 (1380 a 30)
+      minFin += 1440;
+      if (minActual < 720) {
+        const minActualAjustado = minActual + 1440;
+        return minActualAjustado >= (minInicio - 30) && minActualAjustado <= (minFin + 60);
+      }
+    }
+
+    return minActual >= (minInicio - 30) && minActual <= (minFin + 60);
+  };
+
+  const obtenerCountdownAlmuerzo = (salidaAlmuerzoStr, finAlmuerzoStr) => {
+    if (!salidaAlmuerzoStr || !finAlmuerzoStr) return { texto: "--:--", esTarde: false };
+    
+    const [hrsSalida, minsSalida] = salidaAlmuerzoStr.split(":").map(Number);
+    const [hrsFin, minsFin] = finAlmuerzoStr.split(":").map(Number);
+    
+    const ahora = new Date();
+    
+    // Configurar la fecha de salida a almuerzo (hoy)
+    const fechaSalida = new Date();
+    fechaSalida.setHours(hrsSalida, minsSalida, 0, 0);
+    
+    // Configurar la fecha limite de regreso (hoy)
+    const fechaLimite = new Date();
+    fechaLimite.setHours(hrsFin, minsFin, 0, 0);
+    
+    // Si la hora de fin es menor que la de salida, cruza la medianoche (es el dia siguiente)
+    const salidaMinutos = hrsSalida * 60 + minsSalida;
+    const finMinutos = hrsFin * 60 + minsFin;
+    if (finMinutos < salidaMinutos) {
+      fechaLimite.setDate(fechaLimite.setDate() + 1);
+    }
+    
+    const diffMs = fechaLimite.getTime() - ahora.getTime();
+    const esTarde = diffMs < 0;
+    const diffAbs = Math.abs(diffMs);
+    
+    const totalSegundos = Math.floor(diffAbs / 1000);
+    const min = Math.floor(totalSegundos / 60);
+    const seg = totalSegundos % 60;
+    
+    const texto = `${min.toString().padStart(2, '0')}:${seg.toString().padStart(2, '0')}`;
+    return { texto, esTarde };
+  };
+
+  const chequearAbandonosHoy = async (listaAsistencias) => {
+    const ahora = new Date();
+    const horaActualMin = ahora.getHours() * 60 + ahora.getMinutes();
+
+    for (const reg of listaAsistencias) {
+      // Si salió a almorzar pero no regresó, no ha finalizado su jornada, y tiene hora de salida asignada
+      if (reg.entrada && reg.salidaAlmuerzo && !reg.entradaAlmuerzo && !reg.salida && reg.horaSalida) {
+        const minSalida = convertirAMinutos(reg.horaSalida);
+        let pasoHoraSalida = false;
+        const minEntrada = convertirAMinutos(reg.horaEntrada || "07:00");
+        
+        if (minSalida < minEntrada) {
+          // Turno nocturno (cruza medianoche)
+          if (horaActualMin >= minSalida && horaActualMin < minEntrada) {
+            pasoHoraSalida = true;
+          }
+        } else {
+          // Turno normal (mismo día)
+          if (horaActualMin >= minSalida) {
+            pasoHoraSalida = true;
+          }
+        }
+
+        if (pasoHoraSalida) {
+          try {
+            await updateDoc(doc(db, "asistencias", reg.id), {
+              salida: reg.horaSalida,
+              estatus: "ABANDONO DE TRABAJO",
+              estado: "FINALIZADO",
+              observacionAcceso: "AUTO-CIERRE: El trabajador salió a almorzar y no retornó antes de su hora de salida oficial."
+            });
+            
+            registrarAccion(
+              null,
+              null,
+              `Abandono de trabajo registrado automáticamente para ${reg.nombreCompleto} (Ficha: ${reg.ficha}) - No regresó de almuerzo`,
+              "Control de Asistencia"
+            );
+          } catch (err) {
+            console.error("Error al registrar abandono de puesto:", err);
+          }
+        }
+      }
+    }
+  };
+
   useEffect(() => {
     const opciones = { day: 'numeric', month: 'long', year: 'numeric' };
     setFechaHoy(new Date().toLocaleDateString('es-ES', opciones).toUpperCase());
@@ -55,7 +162,9 @@ export default function RegistroAsistencia() {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setAsistenciasHoy(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const lista = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setAsistenciasHoy(lista);
+      chequearAbandonosHoy(lista);
     });
 
     const mantenerFoco = () => {
@@ -250,16 +359,79 @@ export default function RegistroAsistencia() {
         }
 
         if (existe) {
+          const tieneAlmuerzo = existe.horaAlmuerzoInicio && existe.horaAlmuerzoFin;
+          
+          if (tieneAlmuerzo) {
+            if (!existe.salidaAlmuerzo) {
+              // Aún no ha marcado salida a almuerzo. ¿Está en el rango?
+              const enRango = estaEnRangoAlmuerzo(horaActual, existe.horaAlmuerzoInicio, existe.horaAlmuerzoFin);
+              if (enRango) {
+                await updateDoc(doc(db, "asistencias", existe.id), {
+                  salidaAlmuerzo: horaActual,
+                  observacionAcceso: "Salió a almorzar"
+                });
+                
+                registrarAccion(
+                  null,
+                  null,
+                  `Salida a almorzar registrada para ${trabajador.nombres} ${trabajador.apellidos} (Ficha: ${trabajador.ficha || trabajador.idAcceso || 'S/F'})`,
+                  "Control de Asistencia"
+                );
+                
+                alert(`🍱 Salida a Almuerzo registrada para ${trabajador.nombres.toUpperCase()} ${trabajador.apellidos.toUpperCase()}.\nHora límite de regreso: ${existe.horaAlmuerzoFin}`);
+                setCargando(false);
+                return;
+              }
+            } else if (existe.salidaAlmuerzo && !existe.entradaAlmuerzo) {
+              // Ya salió pero no ha regresado. Registrar Regreso de Almuerzo.
+              let minActual = convertirAMinutos(horaActual);
+              let minFin = convertirAMinutos(existe.horaAlmuerzoFin);
+              
+              if (minFin < convertirAMinutos(existe.salidaAlmuerzo)) {
+                minFin += 1440;
+                if (minActual < 720) minActual += 1440;
+              }
+              
+              const diffMinutos = minActual - minFin;
+              const retraso = diffMinutos > 0 ? diffMinutos : 0;
+              
+              await updateDoc(doc(db, "asistencias", existe.id), {
+                entradaAlmuerzo: horaActual,
+                minutosAlmuerzoTarde: retraso,
+                observacionAcceso: retraso > 0 ? `Regresó de almuerzo con retraso de ${retraso} min` : "Regresó de almuerzo a tiempo"
+              });
+              
+              registrarAccion(
+                null,
+                null,
+                `Regreso de almuerzo registrado para ${trabajador.nombres} ${trabajador.apellidos} (Ficha: ${trabajador.ficha || trabajador.idAcceso || 'S/F'})${retraso > 0 ? ` - Retraso: +${retraso} min` : " (A tiempo)"}`,
+                "Control de Asistencia"
+              );
+              
+              if (retraso > 0) {
+                alert(`⚠️ Regreso de almuerzo registrado con retraso de ${retraso} minutos.`);
+              } else {
+                alert(`✅ Regreso de almuerzo registrado a tiempo.`);
+              }
+              setCargando(false);
+              return;
+            }
+          }
+
+          // Salida definitiva
           await updateDoc(doc(db, "asistencias", existe.id), {
             salida: horaActual,
             estado: "FINALIZADO" 
           });
+          
           registrarAccion(
             null, 
             null, 
             `Salida registrada para ${trabajador.nombres} ${trabajador.apellidos} (Ficha: ${trabajador.ficha || trabajador.idAcceso || 'S/F'})`, 
             "Control de Asistencia"
           );
+          
+          alert(`👋 Salida definitiva registrada para ${trabajador.nombres.toUpperCase()} ${trabajador.apellidos.toUpperCase()}.`);
         } else {
           const minM = convertirAMinutos(horaActual);
           const minT = convertirAMinutos(trabajador.horaEntrada || "07:00");
@@ -275,7 +447,15 @@ export default function RegistroAsistencia() {
             entrada: horaActual,
             salida: null,
             estatus: estatusCalculado, 
-            fechaHora: serverTimestamp()
+            fechaHora: serverTimestamp(),
+            // Copia del horario
+            horaEntrada: trabajador.horaEntrada || "07:00",
+            horaSalida: trabajador.horaSalida || "16:00",
+            horaAlmuerzoInicio: trabajador.horaAlmuerzoInicio || "",
+            horaAlmuerzoFin: trabajador.horaAlmuerzoFin || "",
+            salidaAlmuerzo: null,
+            entradaAlmuerzo: null,
+            minutosAlmuerzoTarde: null
           });
 
           registrarAccion(
@@ -415,6 +595,74 @@ export default function RegistroAsistencia() {
             </div>
           </section>
 
+          {/* SECCIÓN PERSONAL EN ALMUERZO */}
+          {(() => {
+            const enAlmuerzo = asistenciasHoy.filter(a => a.entrada && a.salidaAlmuerzo && !a.entradaAlmuerzo && !a.salida);
+            
+            return (
+              <section className="p-6 bg-slate-50 border border-slate-200/80 rounded-2xl print:hidden space-y-4">
+                <div className="flex justify-between items-center border-b border-slate-200/60 pb-3">
+                  <h3 className="text-xs font-black uppercase text-indigo-950 tracking-wider flex items-center gap-2 font-mono">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+                    </span>
+                    ⏱️ Monitoreo de Almuerzo en Tiempo Real
+                  </h3>
+                  <span className="px-2 py-0.5 bg-slate-200 border border-slate-300 rounded text-[9px] font-black text-slate-600 tracking-wider font-mono uppercase">
+                    {enAlmuerzo.length} {enAlmuerzo.length === 1 ? "Trabajador fuera" : "Trabajadores fuera"}
+                  </span>
+                </div>
+
+                {enAlmuerzo.length === 0 ? (
+                  <p className="text-slate-400 font-bold italic text-xs font-mono text-center py-2 flex items-center justify-center gap-2">
+                    <i className="fas fa-check-circle text-emerald-500"></i> Todo el personal se encuentra en planta o completó su almuerzo.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {enAlmuerzo.map(reg => {
+                      const countdown = obtenerCountdownAlmuerzo(reg.salidaAlmuerzo, reg.horaAlmuerzoFin || "13:00");
+                      return (
+                        <div key={reg.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3 relative overflow-hidden group">
+                          {/* Top accent line */}
+                          <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${countdown.esTarde ? "from-red-500 to-pink-500 animate-pulse" : "from-cyan-500 to-blue-500"}`} />
+                          
+                          <div>
+                            <strong className="text-xs font-black text-indigo-950 uppercase block truncate">{reg.nombreCompleto}</strong>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block font-mono">Ficha: {reg.ficha}</span>
+                          </div>
+
+                          <div className="flex justify-between items-center text-[10px] font-mono border-t border-b border-slate-100 py-1.5">
+                            <div>
+                              <span className="text-slate-400 block">SALIÓ</span>
+                              <strong className="text-slate-700">{reg.salidaAlmuerzo}</strong>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-slate-400 block">LÍMITE</span>
+                              <strong className="text-slate-700">{reg.horaAlmuerzoFin || "13:00"}</strong>
+                            </div>
+                          </div>
+
+                          <div className="pt-1">
+                            {countdown.esTarde ? (
+                              <div className="w-full text-center px-3 py-2 bg-red-50 border border-red-200 text-red-650 rounded-lg text-xs font-black tracking-widest uppercase animate-pulse">
+                                🚨 LATE (+{countdown.texto})
+                              </div>
+                            ) : (
+                              <div className="w-full text-center px-3 py-2 bg-cyan-50 border border-cyan-200 text-cyan-600 rounded-lg text-xs font-black tracking-widest uppercase font-mono">
+                                ⏳ RESTA {countdown.texto}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            );
+          })()}
+
           {/* TABLA TELEMETRÍA */}
           <div className="overflow-x-auto w-full no-scrollbar">
             <table className="w-full border-collapse">
@@ -457,6 +705,23 @@ export default function RegistroAsistencia() {
                         <td className="py-4 px-3 text-left">
                           <strong className="text-sm font-extrabold text-indigo-950 uppercase block">{reg.nombreCompleto}</strong>
                           <span className="text-xxs font-bold text-slate-500 uppercase tracking-wider block mt-0.5 font-mono">{reg.cargo}</span>
+                          {reg.salidaAlmuerzo && (
+                            <div className="mt-1.5 flex flex-wrap gap-1.5 items-center">
+                              <span className="px-1.5 py-0.5 bg-slate-100 border border-slate-200 text-slate-600 rounded text-[9px] font-bold uppercase tracking-wider font-mono">
+                                🍱 Almuerzo: {reg.salidaAlmuerzo} a {reg.entradaAlmuerzo || "--:--"}
+                              </span>
+                              {reg.minutosAlmuerzoTarde > 0 && (
+                                <span className="px-1.5 py-0.5 bg-red-50 border border-red-200 text-red-600 rounded text-[9px] font-black uppercase tracking-wider font-mono animate-pulse">
+                                  ⚠️ Demora: +{reg.minutosAlmuerzoTarde}m
+                                </span>
+                              )}
+                              {reg.salidaAlmuerzo && !reg.entradaAlmuerzo && !reg.salida && (
+                                <span className="px-1.5 py-0.5 bg-cyan-50 border border-cyan-200 text-cyan-600 rounded text-[9px] font-black uppercase tracking-wider font-mono">
+                                  ⏳ Almorzando
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </td>
                          <td className="py-4 px-3 text-left text-xs font-semibold text-slate-500">
                           {reg.area}
@@ -477,7 +742,15 @@ export default function RegistroAsistencia() {
                         </td>
                         <td className="py-4 px-3 text-center">
                           <div className="flex flex-col items-center gap-1">
-                            <span className={`px-2.5 py-0.5 rounded-lg text-xxs font-black tracking-wider uppercase border inline-block ${isRetraso ? "bg-red-50 text-red-650 border-red-200 animate-pulse" : isBeneficio ? "bg-cyan-50 text-cyan-600 border-cyan-205" : "bg-emerald-50 text-emerald-600 border-emerald-200"}`}>
+                            <span className={`px-2.5 py-0.5 rounded-lg text-xxs font-black tracking-wider uppercase border inline-block ${
+                              reg.estatus === "ABANDONO DE TRABAJO"
+                                ? "bg-red-100 text-red-750 border-red-300 animate-pulse"
+                                : isRetraso
+                                ? "bg-red-50 text-red-650 border-red-200 animate-pulse"
+                                : isBeneficio
+                                ? "bg-cyan-50 text-cyan-600 border-cyan-205"
+                                : "bg-emerald-50 text-emerald-600 border-emerald-200"
+                            }`}>
                               {reg.estatus}
                             </span>
                             {reg.salida && (

@@ -9,6 +9,7 @@ export default function RecordFuncionalAsistencia() {
   const router = useRouter();
   const [personal, setPersonal] = useState([]);
   const [asistencias, setAsistencias] = useState([]);
+  const [feriados, setFeriados] = useState([]);
   const [filtro, setFiltro] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("TODOS"); 
   const [vista, setVista] = useState("semanal");
@@ -46,7 +47,10 @@ export default function RecordFuncionalAsistencia() {
     const unsubAsist = onSnapshot(query(collection(db, "asistencias"), orderBy("fechaHora", "desc")), (snap) => {
       setAsistencias(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
-    return () => { unsubPersonal(); unsubAsist(); };
+    const unsubFeriados = onSnapshot(collection(db, "feriados"), (snap) => {
+      setFeriados(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => { unsubPersonal(); unsubAsist(); unsubFeriados(); };
   }, []);
 
   // Reiniciar paginación al cambiar filtros o tipo de vista
@@ -146,6 +150,26 @@ export default function RecordFuncionalAsistencia() {
     const fechaActual = new Date(anio, mes, dia);
     const diaSemana = fechaActual.getDay();
 
+    const parseLocalDate = (dateStr) => {
+      if (!dateStr) return null;
+      const [y, m, d] = dateStr.split("-").map(Number);
+      return new Date(y, m - 1, d);
+    };
+
+    const dClean = new Date(fechaActual.getFullYear(), fechaActual.getMonth(), fechaActual.getDate());
+    const feriado = feriados.find(f => {
+      if (!f.fechaInicio || !f.fechaRegreso) return false;
+      const start = parseLocalDate(f.fechaInicio);
+      const end = parseLocalDate(f.fechaRegreso);
+      return start && end && dClean >= start && dClean < end;
+    });
+
+    if (feriado) {
+      if (feriado.tipo === "TODOS" || (feriado.tipo === "PARCIAL" && feriado.trabajadoresLibran?.includes(p.id))) {
+        return { clase: "status-feriado", extra: 0, label: "FERIADO" };
+      }
+    }
+
     if (regimenLaboral === "TURNO_4X4") {
         // Usar la fecha de inicio de ciclo propia del trabajador;
         // si no tiene, usar el 1 de enero de 2026 como fallback global.
@@ -179,7 +203,7 @@ export default function RecordFuncionalAsistencia() {
       if (info.label === "ASISTENCIA") {
         asistenciasCount++;
         extraSum += info.extra;
-      } else if (info.label === "DESCANSO") {
+      } else if (info.label === "DESCANSO" || info.label === "FERIADO") {
         descansosCount++;
       } else {
         faltasCount++;
@@ -191,7 +215,8 @@ export default function RecordFuncionalAsistencia() {
   const badgeStyles = {
     "status-presente": "bg-cyan-50 text-cyan-600 border-cyan-200",
     "status-descanso": "bg-slate-100 text-slate-500 border-slate-200/60",
-    "status-ausente": "bg-red-50 text-red-600 border-red-200"
+    "status-feriado": "bg-emerald-50 text-emerald-600 border-emerald-200 font-bold",
+    "status-ausente": "bg-red-50 text-red-650 border-red-200"
   };
 
   return (
@@ -452,7 +477,7 @@ export default function RecordFuncionalAsistencia() {
                                     className={`px-1.5 py-0.5 text-[8px] font-black tracking-tighter uppercase rounded border inline-block w-10 text-center ${badgeStyles[info.clase] || "bg-slate-100 text-slate-500"}`}
                                     title={info.label}
                                   >
-                                    {info.label === "ASISTENCIA" ? "ASIST" : info.label === "DESCANSO" ? "DESC" : "FALT"}
+                                    {info.label === "ASISTENCIA" ? "ASIST" : info.label === "DESCANSO" ? "DESC" : info.label === "FERIADO" ? "FERI" : "FALT"}
                                   </span>
                                 </td>
                               );

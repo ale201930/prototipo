@@ -518,6 +518,7 @@ export default function PanelRecursosHumanos() {
           <SidebarItem icon="fa-users" label="Personal Registrado" onClick={() => router.push("/recursos-humanos/personal-registrado")} accent="#ef4444" />
           <SidebarItem icon="fa-calendar-check" label="Asistencia del Día" onClick={() => router.push("/recursos-humanos/asistencia-del-dia")} accent="#ef4444" />
           <SidebarItem icon="fa-chart-bar" label="Reporte General" onClick={() => router.push("/recursos-humanos/reporte-general")} accent="#ef4444" />
+          <SidebarItem icon="fa-calendar-alt" label="Calendario Feriados" onClick={() => router.push("/recursos-humanos/calendario")} accent="#ef4444" />
 
           {isAdmin && (
             <>

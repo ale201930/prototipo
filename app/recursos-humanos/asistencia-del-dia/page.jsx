@@ -31,6 +31,8 @@ export default function AsistenciaDiariaRRHH() {
   const [areasDisponibles, setAreasDisponibles] = useState([]);
   const [fechaHoyStr, setFechaHoyStr] = useState("");
 
+  const [feriados, setFeriados] = useState([]);
+
   const [haySolicitudPendiente, setHaySolicitudPendiente] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [registroIdConfirmar, setRegistroIdConfirmar] = useState(null);
@@ -97,6 +99,10 @@ export default function AsistenciaDiariaRRHH() {
       setAreasDisponibles(Array.from(new Set(dataFiltrada.map(a => a.area || "No asignado"))).sort());
     });
 
+    const unsubscribeFeriados = onSnapshot(collection(db, "feriados"), (snapshot) => {
+      setFeriados(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
     const inicioHoy = new Date();
     inicioHoy.setHours(0, 0, 0, 0);
 
@@ -112,7 +118,7 @@ export default function AsistenciaDiariaRRHH() {
       setHaySolicitudPendiente(lista.some(a => a.alertaSalida === "ANTICIPADA" && a.solicitudSalida === "PENDIENTE"));
     });
 
-    return () => { unsubscribeNomina(); unsubscribeAsist(); };
+    return () => { unsubscribeNomina(); unsubscribeAsist(); unsubscribeFeriados(); };
   }, []);
 
   // Reiniciar paginación al cambiar filtros de búsqueda o categoría
@@ -147,7 +153,10 @@ export default function AsistenciaDiariaRRHH() {
         estatusAsistenciaHoy: registro?.estatus || null,
         estatus: estatusFinal,
         fechaRegreso: fechaRegresoCalculada,
-        fechaFinReposo: fechaFinReposoCalculada
+        fechaFinReposo: fechaFinReposoCalculada,
+        salidaAlmuerzo: registro?.salidaAlmuerzo || null,
+        entradaAlmuerzo: registro?.entradaAlmuerzo || null,
+        minutosAlmuerzoTarde: registro?.minutosAlmuerzoTarde || null
       };
     });
 
@@ -159,12 +168,36 @@ export default function AsistenciaDiariaRRHH() {
     });
   };
 
+  const getFeriadoHoy = () => {
+    const localHoy = new Date();
+    const dClean = new Date(localHoy.getFullYear(), localHoy.getMonth(), localHoy.getDate());
+
+    const parseLocalDate = (dateStr) => {
+      if (!dateStr) return null;
+      const [y, m, d] = dateStr.split("-").map(Number);
+      return new Date(y, m - 1, d);
+    };
+
+    return feriados.find(f => {
+      if (!f.fechaInicio || !f.fechaRegreso) return false;
+      const start = parseLocalDate(f.fechaInicio);
+      const end = parseLocalDate(f.fechaRegreso);
+      return start && end && dClean >= start && dClean < end;
+    });
+  };
+  const feriadoHoy = getFeriadoHoy();
+  const esFeriadoExento = (p) => feriadoHoy && (feriadoHoy.tipo === "TODOS" || (feriadoHoy.tipo === "PARCIAL" && feriadoHoy.trabajadoresLibran?.includes(p.id)));
+
   const listaCompleta = obtenerListaFinal();
 
   const resumen = {
     total: listaCompleta.length,
     presentes: listaCompleta.filter(p => p.asistioHoy && !p.salida).length,
-    inasistencias: listaCompleta.filter(p => !p.asistioHoy && (p.estatus === "Inasistente" || p.estatus?.includes("Activo") || !p.estatus)).length,
+    inasistencias: listaCompleta.filter(p => {
+      if (p.asistioHoy) return false;
+      if (esFeriadoExento(p)) return false;
+      return (p.estatus === "Inasistente" || p.estatus?.includes("Activo") || !p.estatus);
+    }).length,
     vacaciones: listaCompleta.filter(p => p.estatus === "Vacaciones").length,
     reposo: listaCompleta.filter(p => p.estatus === "Reposo Médico").length
   };
@@ -172,7 +205,7 @@ export default function AsistenciaDiariaRRHH() {
   const listaFiltradaParaTabla = () => {
     let data = [...listaCompleta];
     if (filtroEstadoClic === "PRESENTES") return data.filter(p => p.asistioHoy && !p.salida);
-    if (filtroEstadoClic === "INASISTENCIAS") return data.filter(p => !p.asistioHoy && (p.estatus === "Inasistente" || p.estatus?.includes("Activo") || !p.estatus));
+    if (filtroEstadoClic === "INASISTENCIAS") return data.filter(p => !p.asistioHoy && !esFeriadoExento(p) && (p.estatus === "Inasistente" || p.estatus?.includes("Activo") || !p.estatus));
     if (filtroEstadoClic === "VACACIONES") return data.filter(p => p.estatus === "Vacaciones" || (p.asistioHoy && p.estatusAsistenciaHoy === "BENEFICIO" && p.estatus === "Vacaciones"));
     if (filtroEstadoClic === "REPOSO") return data.filter(p => p.estatus === "Reposo Médico" || (p.asistioHoy && p.estatusAsistenciaHoy === "BENEFICIO" && p.estatus === "Reposo Médico"));
     return data.sort((a, b) => {
@@ -183,13 +216,19 @@ export default function AsistenciaDiariaRRHH() {
   };
 
   const getEstadoEstilo = (reg) => {
+    if (reg.asistioHoy && reg.estatusAsistenciaHoy === "ABANDONO DE TRABAJO") {
+      return { texto: "Abandono", clase: "bg-red-100 text-red-750 border-red-300 font-black animate-pulse" };
+    }
     if (reg.asistioHoy && reg.estatusAsistenciaHoy === "BENEFICIO") {
       if (reg.estatus === "Vacaciones") return { texto: "Vacaciones", clase: "bg-cyan-50 text-cyan-600 border-cyan-200", esBeneficio: true };
       return { texto: "Reposo Médico", clase: "bg-amber-50 text-amber-600 border-amber-200", esBeneficio: true };
     }
-    if (reg.estatus === "Inasistente") return { texto: "Inasistencia", clase: "bg-red-50 text-red-600 border-red-200" };
     if (reg.estatus === "Vacaciones") return { texto: "Vacaciones", clase: "bg-cyan-50 text-cyan-600 border-cyan-200" };
     if (reg.estatus === "Reposo Médico") return { texto: "Reposo Médico", clase: "bg-amber-50 text-amber-600 border-amber-200" };
+    if (!reg.asistioHoy && esFeriadoExento(reg)) {
+      return { texto: "Libró (Feriado)", clase: "bg-emerald-50 text-emerald-600 border-emerald-200 font-bold" };
+    }
+    if (reg.estatus === "Inasistente") return { texto: "Inasistencia", clase: "bg-red-50 text-red-600 border-red-200" };
     if (!reg.asistioHoy) return { texto: "Inasistencia", clase: "bg-red-50 text-red-600 border-red-200" };
     if (reg.alertaSalida === "ANTICIPADA" && reg.solicitudSalida === "PENDIENTE") return { texto: "ESPERANDO RRHH", clase: "bg-red-100 text-red-650 border-red-300 animate-pulse" };
     if (reg.salida) return { texto: "Finalizado", clase: "bg-slate-100 text-slate-500 border-slate-200" };
@@ -425,8 +464,25 @@ export default function AsistenciaDiariaRRHH() {
                         <td className="py-4 px-3 text-center font-black text-cyan-600 text-sm font-mono">
                           {reg.ficha || "---"}
                         </td>
-                        <td className="py-4 px-3 text-left font-extrabold text-indigo-950 text-sm uppercase">
-                          {reg.nombres} {reg.apellidos}
+                        <td className="py-4 px-3 text-left">
+                          <strong className="text-sm font-extrabold text-indigo-950 uppercase block">{reg.nombres} {reg.apellidos}</strong>
+                          {reg.salidaAlmuerzo && (
+                            <div className="mt-1 flex flex-wrap gap-1.5 items-center">
+                              <span className="px-1.5 py-0.5 bg-slate-100 border border-slate-200 text-slate-500 rounded text-[9px] font-bold uppercase tracking-wider font-mono">
+                                🍱 Almuerzo: {reg.salidaAlmuerzo} a {reg.entradaAlmuerzo || "--:--"}
+                              </span>
+                              {reg.minutosAlmuerzoTarde > 0 && (
+                                <span className="px-1.5 py-0.5 bg-red-50 border border-red-200 text-red-650 rounded text-[9px] font-black uppercase tracking-wider font-mono animate-pulse">
+                                  ⚠️ Demora: +{reg.minutosAlmuerzoTarde}m
+                                </span>
+                              )}
+                              {reg.salidaAlmuerzo && !reg.entradaAlmuerzo && !reg.salida && (
+                                <span className="px-1.5 py-0.5 bg-cyan-50 border border-cyan-200 text-cyan-600 rounded text-[9px] font-black uppercase tracking-wider font-mono">
+                                  ⏳ Almorzando
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </td>
                         <td className="py-4 px-3 text-left">
                           {reg.tipoPersonal === "Pasante" ? (
