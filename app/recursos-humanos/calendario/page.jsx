@@ -29,6 +29,12 @@ export default function CalendarioFeriados() {
   const [tipo, setTipo] = useState("TODOS");
   const [trabajadoresLibran, setTrabajadoresLibran] = useState([]);
 
+  // Modal de Personal Asignado a Feriado
+  const [modalPersonalFeriado, setModalPersonalFeriado] = useState(null);
+  const [pagModal, setPagModal] = useState(1);
+  const [busquedaModal, setBusquedaModal] = useState("");
+  const itemsPorPaginaModal = 10;
+
   // Filter states
   const [busqueda, setBusqueda] = useState("");
   const [filtroArea, setFiltroArea] = useState("TODAS");
@@ -120,6 +126,37 @@ export default function CalendarioFeriados() {
       return matchesSearch && matchesArea && matchesTipo;
     });
   }, [personal, busqueda, filtroArea, filtroTipo]);
+
+  const abrirListadoPersonal = (feriadoObj) => {
+    setModalPersonalFeriado(feriadoObj);
+    setPagModal(1);
+    setBusquedaModal("");
+  };
+
+  const trabajadoresAsignadosFeriado = useMemo(() => {
+    if (!modalPersonalFeriado) return [];
+    
+    let listaBase = [];
+    if (modalPersonalFeriado.tipo === "TODOS") {
+      listaBase = personal;
+    } else {
+      const exentosIds = modalPersonalFeriado.trabajadoresLibran || [];
+      listaBase = personal.filter(w => exentosIds.includes(w.id));
+    }
+
+    if (busquedaModal.trim() !== "") {
+      const q = busquedaModal.toLowerCase();
+      listaBase = listaBase.filter(w => 
+        (w.nombres?.toLowerCase() || "").includes(q) ||
+        (w.apellidos?.toLowerCase() || "").includes(q) ||
+        (w.ficha?.toLowerCase() || "").includes(q) ||
+        (w.cedula?.toLowerCase() || "").includes(q) ||
+        (w.area?.toLowerCase() || "").includes(q)
+      );
+    }
+
+    return listaBase;
+  }, [modalPersonalFeriado, personal, busquedaModal]);
 
   const handleToggleWorker = (workerId) => {
     if (trabajadoresLibran.includes(workerId)) {
@@ -723,11 +760,13 @@ export default function CalendarioFeriados() {
                           <span className={`text-[8px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded-lg border font-mono ${esGlobal ? "bg-cyan-50 dark:bg-cyan-950/20 text-cyan-600 dark:text-cyan-400 border-cyan-200 dark:border-cyan-800" : "bg-purple-50 dark:bg-purple-950/20 text-purple-650 dark:text-purple-400 border-purple-200 dark:border-purple-800"}`}>
                             {esGlobal ? "TODOS LIBRES" : "PARCIAL"}
                           </span>
-                          {!esGlobal && (
-                            <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 font-mono">
-                              Exentos: {f.trabajadoresLibran?.length || 0} p.
-                            </span>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => abrirListadoPersonal(f)}
+                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/60 dark:hover:bg-slate-700 border border-slate-200/50 dark:border-slate-700/50 text-slate-700 dark:text-slate-300 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer font-mono flex items-center gap-1 hover:scale-105 active:scale-95"
+                          >
+                            👁️ Ver {esGlobal ? "Todos" : `${f.trabajadoresLibran?.length || 0} p.`}
+                          </button>
                         </div>
                       </div>
                     );
@@ -793,6 +832,124 @@ export default function CalendarioFeriados() {
                 onClick={() => setAlertState({ ...alertState, isOpen: false })}
               >
                 Aceptar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL LISTADO PERSONAL FERIADO */}
+      {modalPersonalFeriado && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[99999] p-4 animate-fade-in font-sans">
+          <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-indigo-500/30 dark:border-indigo-500/20 rounded-3xl p-6 md:p-8 w-full max-w-2xl shadow-2xl space-y-6 relative text-slate-800 dark:text-slate-100 animate-slide-up">
+            <button
+              onClick={() => setModalPersonalFeriado(null)}
+              className="absolute right-4 top-4 text-slate-400 hover:text-red-500 transition-colors text-lg font-extrabold cursor-pointer"
+            >
+              <i className="fas fa-times"></i>
+            </button>
+
+            {/* Header */}
+            <div className="flex items-center gap-4 pb-4 border-b border-slate-200/60 dark:border-slate-800/60">
+              <div className="w-12 h-12 bg-cyan-50 dark:bg-cyan-950/20 border border-cyan-200 dark:border-cyan-800 rounded-2xl flex items-center justify-center text-cyan-600 dark:text-cyan-400 text-2xl">
+                <i className="fas fa-users font-sans text-cyan-500"></i>
+              </div>
+              <div>
+                <h2 className="text-lg font-black uppercase text-indigo-955 dark:text-white tracking-tight">Personal en Feriado/Asueto</h2>
+                <p className="text-3xs font-black text-cyan-600 dark:text-cyan-400 uppercase tracking-widest mt-0.5">
+                  Feriado: {modalPersonalFeriado.nombre} ({modalPersonalFeriado.tipo === "TODOS" ? "Global" : "Parcial"})
+                </p>
+              </div>
+            </div>
+
+            {/* Search Bar */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="BUSCAR COLABORADOR POR NOMBRE, FICHA, CEDULA..."
+                value={busquedaModal}
+                onChange={(e) => {
+                  setBusquedaModal(e.target.value);
+                  setPagModal(1);
+                }}
+                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs font-semibold uppercase"
+              />
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto w-full no-scrollbar max-h-[300px] border border-slate-200/60 dark:border-slate-800/60 rounded-2xl">
+              <table className="w-full border-collapse text-left">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200/60 dark:border-slate-800/60 text-xxs font-black text-slate-500 dark:text-slate-400 tracking-wider uppercase font-mono">
+                    <th className="py-3 px-4 text-center w-20">FICHA</th>
+                    <th className="py-3 px-4">COLABORADOR</th>
+                    <th className="py-3 px-4">CÉDULA</th>
+                    <th className="py-3 px-4">ÁREA / DPTO</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const totalPaginas = Math.ceil(trabajadoresAsignadosFeriado.length / itemsPorPaginaModal) || 1;
+                    const indexInicio = (pagModal - 1) * itemsPorPaginaModal;
+                    const indexFin = pagModal * itemsPorPaginaModal;
+                    const paginados = trabajadoresAsignadosFeriado.slice(indexInicio, indexFin);
+
+                    if (paginados.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan="4" className="py-8 text-center text-slate-400 dark:text-slate-500 font-bold italic text-xs font-mono">
+                            Ningún colaborador asignado o coincidente
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    return paginados.map(w => (
+                      <tr key={w.id} className="border-b border-slate-100 dark:border-slate-800/40 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors text-xs font-semibold">
+                        <td className="py-2.5 px-4 text-center font-bold text-cyan-600 dark:text-cyan-400 font-mono">{w.ficha}</td>
+                        <td className="py-2.5 px-4 font-black uppercase text-indigo-955 dark:text-slate-200">{w.nombres} {w.apellidos}</td>
+                        <td className="py-2.5 px-4 font-mono">{w.cedula}</td>
+                        <td className="py-2.5 px-4 text-slate-500 dark:text-slate-400 text-xxs font-bold uppercase">{w.area || "No asignado"}</td>
+                      </tr>
+                    ));
+                  })()}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination / Footer */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-t border-slate-200/60 dark:border-slate-800/60">
+              <span className="text-xxs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest font-mono">
+                Mostrando {Math.min(trabajadoresAsignadosFeriado.length, (pagModal - 1) * itemsPorPaginaModal + 1)} - {Math.min(trabajadoresAsignadosFeriado.length, pagModal * itemsPorPaginaModal)} de {trabajadoresAsignadosFeriado.length} exentos
+              </span>
+
+              {trabajadoresAsignadosFeriado.length > itemsPorPaginaModal && (
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => setPagModal(prev => Math.max(prev - 1, 1))}
+                    disabled={pagModal === 1}
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 disabled:opacity-40 text-slate-850 dark:text-slate-350 rounded-xl text-xxs font-black uppercase transition-all cursor-pointer flex items-center gap-1 border border-slate-200 dark:border-slate-700"
+                  >
+                    <i className="fas fa-chevron-left"></i> Ant.
+                  </button>
+                  <button
+                    onClick={() => setPagModal(prev => Math.min(prev + 1, Math.ceil(trabajadoresAsignadosFeriado.length / itemsPorPaginaModal)))}
+                    disabled={pagModal === Math.ceil(trabajadoresAsignadosFeriado.length / itemsPorPaginaModal)}
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 disabled:opacity-40 text-slate-850 dark:text-slate-350 rounded-xl text-xxs font-black uppercase transition-all cursor-pointer flex items-center gap-1 border border-slate-200 dark:border-slate-700"
+                  >
+                    Sig. <i className="fas fa-chevron-right"></i>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-black uppercase tracking-wider transition-colors cursor-pointer font-semibold"
+                onClick={() => setModalPersonalFeriado(null)}
+              >
+                Cerrar
               </button>
             </div>
           </div>

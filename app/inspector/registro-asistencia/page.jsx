@@ -15,6 +15,7 @@ export default function RegistroAsistencia() {
   const [identificador, setIdentificador] = useState("");
   const filtro = "";
   const [asistenciasHoy, setAsistenciasHoy] = useState([]);
+  const [feriados, setFeriados] = useState([]);
   const [cargando, setCargando] = useState(false);
   const [fechaHoy, setFechaHoy] = useState("");
   const [tick, setTick] = useState(0);
@@ -167,6 +168,11 @@ export default function RegistroAsistencia() {
       chequearAbandonosHoy(lista);
     });
 
+    const unsubFeriados = onSnapshot(collection(db, "feriados"), (snapshot) => {
+      const lista = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setFeriados(lista);
+    });
+
     const mantenerFoco = () => {
       if (!mostrarModalBeneficio) {
         inputRef.current?.focus();
@@ -176,6 +182,7 @@ export default function RegistroAsistencia() {
 
     return () => {
       unsubscribe();
+      unsubFeriados();
       clearInterval(interval);
     };
   }, [mostrarModalBeneficio]);
@@ -216,7 +223,15 @@ export default function RegistroAsistencia() {
         salida: null,
         estatus: "BENEFICIO",
         fechaHora: serverTimestamp(),
-        observacionAcceso: `INGRESO AUTORIZADO POR BENEFICIOS: Personal en ${trabajador.estatus.toUpperCase()}`
+        observacionAcceso: `INGRESO AUTORIZADO POR BENEFICIOS: Personal en ${trabajador.estatus.toUpperCase()}`,
+        // Copia del horario
+        horaEntrada: trabajador.horaEntrada || "07:00",
+        horaSalida: trabajador.horaSalida || "16:00",
+        horaAlmuerzoInicio: trabajador.horaAlmuerzoInicio || "12:00",
+        horaAlmuerzoFin: trabajador.horaAlmuerzoFin || "13:00",
+        salidaAlmuerzo: null,
+        entradaAlmuerzo: null,
+        minutosAlmuerzoTarde: null
       });
 
       registrarAccion(
@@ -350,6 +365,39 @@ export default function RegistroAsistencia() {
             }
           }
 
+          // Verificar si hoy es feriado para el trabajador
+          const hoy = new Date();
+          const dClean = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+          
+          const parseLocalDate = (dateStr) => {
+            if (!dateStr) return null;
+            const [y, m, d] = dateStr.split("-").map(Number);
+            return new Date(y, m - 1, d);
+          };
+
+          const feriadoHoy = feriados.find(f => {
+            if (!f.fechaInicio || !f.fechaRegreso) return false;
+            const start = parseLocalDate(f.fechaInicio);
+            const end = parseLocalDate(f.fechaRegreso);
+            return start && end && dClean >= start && dClean < end;
+          });
+
+          const esFeriadoParaTrabajador = feriadoHoy && (
+            feriadoHoy.tipo === "TODOS" || 
+            (feriadoHoy.tipo === "PARCIAL" && feriadoHoy.trabajadoresLibran?.includes(trabajador.id))
+          );
+
+          if (esFeriadoParaTrabajador) {
+            setTrabajadorEspecial({
+              ...trabajador,
+              motivoBloqueo: "FERIADO / ASUETO",
+              mensajeBloqueo: `Hoy es día Feriado/Asueto programado ("${feriadoHoy.nombre}"). No se permite el acceso a planta del trabajador para cumplir jornadas laborales ordinarias.`
+            });
+            setMostrarModalBeneficio(true);
+            setCargando(false);
+            return;
+          }
+
           if (trabajador.estatus === "Vacaciones" || trabajador.estatus === "Reposo Médico") {
             setTrabajadorEspecial(trabajador);
             setMostrarModalBeneficio(true);
@@ -359,12 +407,22 @@ export default function RegistroAsistencia() {
         }
 
         if (existe) {
-          const tieneAlmuerzo = existe.horaAlmuerzoInicio && existe.horaAlmuerzoFin;
+          const lunchInicio = existe.horaAlmuerzoInicio || "12:00";
+          const lunchFin = existe.horaAlmuerzoFin || "13:00";
+          const tieneAlmuerzo = true; // Todo trabajador tiene almuerzo asignado o por defecto
           
           if (tieneAlmuerzo) {
             if (!existe.salidaAlmuerzo) {
-              // Aún no ha marcado salida a almuerzo. ¿Está en el rango?
-              const enRango = estaEnRangoAlmuerzo(horaActual, existe.horaAlmuerzoInicio, existe.horaAlmuerzoFin);
+              // Aún no ha marcado salida a almuerzo. ¿Está en el rango o es un escaneo consecutivo rápido?
+              let minEntrada = convertirAMinutos(existe.entrada);
+              let minActual = convertirAMinutos(horaActual);
+              if (minActual < minEntrada) {
+                minActual += 1440;
+              }
+              const minutosTranscurridos = minActual - minEntrada;
+
+              const enRango = estaEnRangoAlmuerzo(horaActual, lunchInicio, lunchFin) || 
+                              (minutosTranscurridos >= 0 && minutosTranscurridos <= 15);
               if (enRango) {
                 await updateDoc(doc(db, "asistencias", existe.id), {
                   salidaAlmuerzo: horaActual,
@@ -378,14 +436,14 @@ export default function RegistroAsistencia() {
                   "Control de Asistencia"
                 );
                 
-                alert(`🍱 Salida a Almuerzo registrada para ${trabajador.nombres.toUpperCase()} ${trabajador.apellidos.toUpperCase()}.\nHora límite de regreso: ${existe.horaAlmuerzoFin}`);
+                alert(`🍱 Salida a Almuerzo registrada para ${trabajador.nombres.toUpperCase()} ${trabajador.apellidos.toUpperCase()}.\nHora límite de regreso: ${lunchFin}`);
                 setCargando(false);
                 return;
               }
             } else if (existe.salidaAlmuerzo && !existe.entradaAlmuerzo) {
               // Ya salió pero no ha regresado. Registrar Regreso de Almuerzo.
               let minActual = convertirAMinutos(horaActual);
-              let minFin = convertirAMinutos(existe.horaAlmuerzoFin);
+              let minFin = convertirAMinutos(lunchFin);
               
               if (minFin < convertirAMinutos(existe.salidaAlmuerzo)) {
                 minFin += 1440;
@@ -451,8 +509,8 @@ export default function RegistroAsistencia() {
             // Copia del horario
             horaEntrada: trabajador.horaEntrada || "07:00",
             horaSalida: trabajador.horaSalida || "16:00",
-            horaAlmuerzoInicio: trabajador.horaAlmuerzoInicio || "",
-            horaAlmuerzoFin: trabajador.horaAlmuerzoFin || "",
+            horaAlmuerzoInicio: trabajador.horaAlmuerzoInicio || "12:00",
+            horaAlmuerzoFin: trabajador.horaAlmuerzoFin || "13:00",
             salidaAlmuerzo: null,
             entradaAlmuerzo: null,
             minutosAlmuerzoTarde: null
