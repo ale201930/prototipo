@@ -366,16 +366,29 @@ export default function RegistroVisitantes() {
 
                 <div className="flex flex-col gap-2">
                   <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">AREA_DESTINO</label>
-                  <select 
+                  <input 
+                    list="areas-destino-sugeridas"
                     value={formData.area} 
                     onChange={e => setFormData({...formData, area: e.target.value})}
-                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs font-semibold cursor-pointer focus:shadow-neon-cyan/40"
-                  >
-                    <option>Producción</option>
-                    <option>Administración</option>
-                    <option>Plantas</option>
-                    <option>Mantenimiento</option>
-                  </select>
+                    placeholder="Escriba o seleccione destino..."
+                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs font-semibold focus:shadow-neon-cyan/40 transition-all duration-200"
+                  />
+                  <datalist id="areas-destino-sugeridas">
+                    <option value="Mantenimiento" />
+                    <option value="Almacén" />
+                    <option value="Producción" />
+                    <option value="Protección Física" />
+                    <option value="Compras" />
+                    <option value="Finanzas" />
+                    <option value="Tecnología" />
+                    <option value="Automatización" />
+                    <option value="Centro de Formación" />
+                    <option value="OAC" />
+                    <option value="Recursos Humanos" />
+                    <option value="Logística" />
+                    <option value="Administración" />
+                    <option value="Plantas" />
+                  </datalist>
                 </div>
 
                 <div className="flex flex-col gap-2">

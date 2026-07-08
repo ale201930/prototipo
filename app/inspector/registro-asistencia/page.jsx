@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { db, registrarAccion } from "@/app/lib/firebase";
 import { 
   collection, query, where, getDocs, addDoc, 
-  updateDoc, doc, serverTimestamp, onSnapshot, orderBy, deleteDoc, or
+  updateDoc, doc, serverTimestamp, onSnapshot, orderBy, or
 } from "firebase/firestore";
 
 export default function RegistroAsistencia() {
@@ -38,7 +38,6 @@ export default function RegistroAsistencia() {
   const [mostrarModalBeneficio, setMostrarModalBeneficio] = useState(false);
   const [trabajadorEspecial, setTrabajadorEspecial] = useState(null);
 
-  const MASTER_PIN = "1234"; 
 
   const obtenerHora24 = () => {
     return new Date().toLocaleTimeString('es-ES', { hour12: false, hour: '2-digit', minute: '2-digit' });
@@ -187,26 +186,6 @@ export default function RegistroAsistencia() {
     };
   }, [mostrarModalBeneficio]);
 
-  const handleLimpiarBase = async () => {
-    const pin = prompt("MODO DESARROLLADOR: Ingrese PIN para vaciar asistencias de hoy:");
-    if (pin === MASTER_PIN) {
-      setCargando(true);
-      try {
-        const snapshot = await getDocs(collection(db, "asistencias"));
-        const promesas = snapshot.docs.map(d => deleteDoc(doc(db, "asistencias", d.id)));
-        await Promise.all(promesas);
-        registrarAccion(
-          null, 
-          null, 
-          "Base de datos de asistencia diaria vaciada (Modo Desarrollador)", 
-          "Control de Asistencia"
-        );
-      } catch (error) {
-        console.error("Error al limpiar:", error);
-      }
-      setCargando(false);
-    }
-  };
 
   const ejecutarEntradaExcepcional = async (trabajador) => {
     setCargando(true);
@@ -585,12 +564,6 @@ export default function RegistroAsistencia() {
           </div>
           
           <div className="flex gap-2">
-            <button 
-              onClick={handleLimpiarBase}
-              className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-500 hover:text-indigo-950 rounded-lg text-xxs font-bold uppercase transition-all cursor-pointer shadow-sm"
-            >
-              🧹 Limpiar Base
-            </button>
             <button 
               onClick={() => window.print()}
               className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-555 hover:text-indigo-950 rounded-lg text-xxs font-bold uppercase transition-all cursor-pointer shadow-sm"

@@ -271,6 +271,17 @@ export default function ReportesGenerales() {
               >
                 <option value="TODOS">TODAS LAS ÁREAS</option>
                 <option value="MANTENIMIENTO">MANTENIMIENTO</option>
+                <option value="ALMACÉN">ALMACÉN</option>
+                <option value="PRODUCCIÓN">PRODUCCIÓN</option>
+                <option value="PROTECCIÓN FÍSICA">PROTECCIÓN FÍSICA</option>
+                <option value="COMPRAS">COMPRAS</option>
+                <option value="FINANZAS">FINANZAS</option>
+                <option value="TECNOLOGIA">TECNOLOGÍA</option>
+                <option value="AUTOMATIZACION">AUTOMATIZACIÓN</option>
+                <option value="CENTRO DE FORMACION">CENTRO DE FORMACIÓN</option>
+                <option value="OAC">OAC</option>
+                <option value="RECURSOS HUMANOS">RECURSOS HUMANOS</option>
+                <option value="LOGISTICA">LOGÍSTICA</option>
                 <option value="SEGURIDAD">SEGURIDAD</option>
                 <option value="OPERACIONES">OPERACIONES</option>
                 <option value="ADMINISTRACION">ADMINISTRACIÓN</option>
