@@ -32,7 +32,16 @@ export default function EditarUsuario() {
     cargarDatos();
   }, [userId, router]);
 
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    let val = value;
+    if (name === "cedula") {
+      val = val.replace(/\D/g, "").slice(0, 8);
+    } else if (name === "telefono") {
+      val = val.replace(/\D/g, "").slice(0, 11);
+    }
+    setFormData({ ...formData, [name]: val });
+  };
 
   // 2. GUARDAR LOS CAMBIOS EN FIRESTORE
   const handleActualizar = async (e) => {
@@ -147,13 +156,13 @@ export default function EditarUsuario() {
               </div>
               <div className="flex flex-col gap-2">
                 <label className="text-xxs font-bold uppercase tracking-wider text-slate-550">CÉDULA DE IDENTIDAD</label>
-                <input name="cedula" type="text" value={formData.cedula || ""} onChange={handleChange} required className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 text-sm font-semibold shadow-sm" />
+                <input name="cedula" type="text" value={formData.cedula || ""} maxLength={8} onChange={handleChange} required className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 text-sm font-semibold shadow-sm" />
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="flex flex-col gap-2">
                 <label className="text-xxs font-bold uppercase tracking-wider text-slate-550">TELÉFONO</label>
-                <input name="telefono" type="text" value={formData.telefono || ""} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 text-sm font-semibold shadow-sm" />
+                <input name="telefono" type="text" value={formData.telefono || ""} maxLength={11} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 text-sm font-semibold shadow-sm" />
               </div>
               <div className="flex flex-col gap-2">
                 <label className="text-xxs font-bold uppercase tracking-wider text-slate-550">FECHA NACIMIENTO</label>

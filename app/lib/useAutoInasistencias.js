@@ -257,6 +257,17 @@ export function useAutoInasistencias() {
             const ingreso = parseFechaIngreso(worker.fechaIngreso);
             if (ingreso && fecha < ingreso) continue;
 
+            // ★ Eximir de falta si el trabajador estaba de vacaciones o reposo médico en esta fecha
+            if (worker.estatus === "Vacaciones" || worker.estatus === "Reposo Médico") {
+              const salida = parseFechaIngreso(worker.fechaSalida);
+              const fin = parseFechaIngreso(worker.fechaFin || worker.fechaRegreso);
+              if (salida && fin) {
+                if (dClean >= salida && dClean <= fin) continue;
+              } else {
+                continue;
+              }
+            }
+
             // Verificar si ese día era laboral para este trabajador
             if (!esDiaLaboral(fecha, worker)) continue;
 

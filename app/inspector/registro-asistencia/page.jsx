@@ -248,6 +248,11 @@ export default function RegistroAsistencia() {
     const valor = identificador.trim();
     if (!valor || cargando) return;
 
+    if (valor.length < 4 || valor.length > 5) {
+      alert("⚠️ Debe ingresar un mínimo de 4 y un máximo de 5 dígitos.");
+      return;
+    }
+
     setCargando(true);
     setIdentificador(""); 
 
@@ -615,9 +620,10 @@ export default function RegistroAsistencia() {
                   ref={inputRef}
                   type="text"
                   value={identificador}
-                  onChange={(e) => setIdentificador(e.target.value)}
+                  onChange={(e) => setIdentificador(e.target.value.replace(/\D/g, "").slice(0, 5))}
                   onKeyDown={handleKeyDown}
                   placeholder={mostrarModalBeneficio ? "BLOQUEADO" : "INGRESE FICHA Y PRESIONE ENTER"}
+                  maxLength={5}
                   className="w-full px-5 py-4 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:shadow-neon-cyan/40 focus:border-transparent transition-all duration-200 text-base font-black tracking-widest text-center uppercase shadow-sm"
                   autoComplete="off"
                   disabled={mostrarModalBeneficio}

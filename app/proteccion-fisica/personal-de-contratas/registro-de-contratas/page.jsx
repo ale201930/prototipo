@@ -50,7 +50,7 @@ function RegistroFormContent() {
   }, [editId]);
 
   const handleCedulaChange = (e) => {
-    const val = e.target.value;
+    const val = e.target.value.replace(/\D/g, "").slice(0, 8);
     const ultimosCinco = val.slice(-5);
     setFormData({
       ...formData,
@@ -180,6 +180,7 @@ function RegistroFormContent() {
                 <input
                   type="text"
                   required
+                  maxLength={8}
                   placeholder="Ej: 25123456"
                   value={formData.cedula}
                   onChange={handleCedulaChange}

@@ -51,11 +51,26 @@ function FormularioRegistro() {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData({ ...formData, [name]: type === 'checkbox' ? checked : value });
+    let val = type === 'checkbox' ? checked : value;
+    if (name === "cedula") {
+      val = val.replace(/\D/g, "").slice(0, 8);
+    } else if (name === "telefono") {
+      val = val.replace(/\D/g, "").slice(0, 11);
+    } else if (name === "ficha") {
+      val = val.replace(/\D/g, "").slice(0, 5);
+    }
+    setFormData({ ...formData, [name]: val });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const fichaLimpia = formData.ficha.trim();
+    if (fichaLimpia.length < 4 || fichaLimpia.length > 5) {
+      alert("⚠️ El número de ficha debe ser de mínimo 4 y máximo 5 dígitos.");
+      return;
+    }
+
     setLoading(true);
     try {
       const personalRef = collection(db, "personal");
@@ -219,7 +234,8 @@ function FormularioRegistro() {
                   onChange={handleChange}
                   required
                   disabled={!!editId}
-                  placeholder="V-00000000"
+                  maxLength={8}
+                  placeholder="Ej. 25123456"
                   className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent focus:shadow-neon-cyan/40 transition-all duration-200 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
@@ -267,6 +283,7 @@ function FormularioRegistro() {
                   value={formData.ficha}
                   onChange={handleChange}
                   required
+                  maxLength={5}
                   placeholder="Ej. 12345"
                   className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent focus:shadow-neon-cyan/40 transition-all duration-200 text-sm font-semibold"
                 />
@@ -548,6 +565,7 @@ function FormularioRegistro() {
                   value={formData.telefono}
                   onChange={handleChange}
                   required
+                  maxLength={11}
                   placeholder="Ej. 04121234567"
                   className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent focus:shadow-neon-cyan/40 transition-all duration-200 text-sm font-semibold"
                 />
