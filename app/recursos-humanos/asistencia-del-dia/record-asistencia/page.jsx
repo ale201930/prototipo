@@ -134,9 +134,11 @@ export default function RecordFuncionalAsistencia() {
     if (registro) {
         let hExtra = 0;
         if (registro.salida && registro.salida !== "--:--" && registro.entrada) {
-            const horaEntradaNum = parseInt(registro.entrada.split(":")[0]);
+            const horaEntradaNum = parseInt(registro.entrada.split(":")[0], 10);
             const esNocturno = (horaEntradaNum >= 18 || horaEntradaNum < 5);
-            const horaSalidaOficial = esNocturno ? 7 : 16;
+            const horaSalidaOficial = (registro.horaSalida && registro.horaSalida.includes(":")) 
+                ? parseInt(registro.horaSalida.split(":")[0], 10) 
+                : (esNocturno ? 7 : 16);
             const [hS, mS] = registro.salida.replace(/AM|PM/gi, '').trim().split(":").map(Number);
             let minutosSalidaReal = (hS * 60) + mS;
             if (esNocturno && hS < 12) minutosSalidaReal += 1440; 
@@ -181,7 +183,7 @@ export default function RecordFuncionalAsistencia() {
             fechaBase = new Date(2026, 0, 1);
         }
         const diffTime = fechaActual - fechaBase;
-        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
         // Módulo siempre positivo para manejar fechas anteriores a la base
         const ciclo = ((diffDays % 8) + 8) % 8;
         if (ciclo >= 4) return { clase: "status-descanso", extra: 0, label: "DESCANSO" };

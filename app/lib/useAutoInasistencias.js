@@ -30,27 +30,41 @@ import {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function esDiaLaboral(fecha, worker) {
-  const diaSemana = fecha.getDay();
-  if (worker.regimenLaboral === "TURNO_4X4") {
-    let fechaBase;
-    if (worker.fechaInicioCiclo) {
-      const [y, m, d] = worker.fechaInicioCiclo.split("-").map(Number);
-      fechaBase = new Date(y, m - 1, d);
-    } else {
-      fechaBase = new Date(2026, 0, 1);
-    }
-    const diffDays = Math.floor((fecha - fechaBase) / (1000 * 60 * 60 * 24));
-    const ciclo = ((diffDays % 8) + 8) % 8;
-    return ciclo < 4;
+function obtenerHorario4x4(fecha, fechaInicioCiclo) {
+  let fechaBase;
+  if (fechaInicioCiclo) {
+    const [y, m, d] = fechaInicioCiclo.split("-").map(Number);
+    fechaBase = new Date(y, m - 1, d);
   } else {
-    return diaSemana >= 1 && diaSemana <= 5;
+    fechaBase = new Date(2026, 0, 1);
+  }
+  const diffDays = Math.round((fecha - fechaBase) / (1000 * 60 * 60 * 24));
+  const ciclo = ((diffDays % 8) + 8) % 8;
+
+  if (ciclo === 0 || ciclo === 1) {
+    return { horaEntrada: "07:00", horaSalida: "19:00", esNocturno: false, esLaboral: true };
+  } else if (ciclo === 2 || ciclo === 3) {
+    return { horaEntrada: "19:00", horaSalida: "07:00", esNocturno: true, esLaboral: true };
+  } else {
+    return { esLaboral: false };
   }
 }
 
-function horaSalidaNum(worker) {
-  if (worker.horaSalida) return parseInt(worker.horaSalida.split(":")[0], 10);
-  return worker.esNocturno ? 8 : 16;
+function obtenerHorarioDeFecha(fecha, worker) {
+  if (worker.regimenLaboral === "TURNO_4X4") {
+    return obtenerHorario4x4(fecha, worker.fechaInicioCiclo);
+  }
+  return {
+    horaEntrada: worker.horaEntrada || "07:00",
+    horaSalida: worker.horaSalida || "16:00",
+    esNocturno: worker.esNocturno === true || worker.esNocturno === "true",
+    esLaboral: fecha.getDay() >= 1 && fecha.getDay() <= 5
+  };
+}
+
+function esDiaLaboral(fecha, worker) {
+  const horario = obtenerHorarioDeFecha(fecha, worker);
+  return horario.esLaboral;
 }
 
 function fechaAStr(fecha) {
@@ -278,8 +292,15 @@ export function useAutoInasistencias() {
 
             // Si es HOY, solo marcar si ya pasó la hora de salida
             if (esHoy) {
+              const horario = obtenerHorarioDeFecha(fecha, worker);
+              if (horario.esNocturno) {
+                // Si hoy empieza su turno de noche (19:00), no podemos darlo por ausente hoy
+                // porque su salida oficial es mañana a las 07:00 AM.
+                continue;
+              }
+              const horaSalidaOficial = horario.horaSalida ? parseInt(horario.horaSalida.split(":")[0], 10) : 16;
               const horaActual = ahora.getHours();
-              if (horaActual < horaSalidaNum(worker)) continue;
+              if (horaActual < horaSalidaOficial) continue;
             }
 
             // Verificar si asistió

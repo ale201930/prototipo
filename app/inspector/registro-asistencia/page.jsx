@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { db, registrarAccion } from "@/app/lib/firebase";
-import { 
-  collection, query, where, getDocs, addDoc, 
+import {
+  collection, query, where, getDocs, addDoc,
   updateDoc, doc, serverTimestamp, onSnapshot, orderBy, or
 } from "firebase/firestore";
 
@@ -49,6 +49,33 @@ export default function RegistroAsistencia() {
     return (hrs * 60) + mins;
   };
 
+  const obtenerHorariosTurno = (trabajador, horaActual) => {
+    let entradaProg = trabajador.horaEntrada || "07:00";
+    let salidaProg = trabajador.horaSalida || "16:00";
+    let almuerzoInicioProg = trabajador.horaAlmuerzoInicio || "12:00";
+    let almuerzoFinProg = trabajador.horaAlmuerzoFin || "13:00";
+
+    if (trabajador.regimenLaboral === "TURNO_4X4") {
+      const hStr = horaActual.split(":")[0];
+      const hNum = parseInt(hStr, 10);
+      if (hNum >= 17 || hNum < 5) {
+        // Turno Nocturno (19:00 - 07:00 del día siguiente)
+        entradaProg = "19:00";
+        salidaProg = "07:00";
+        almuerzoInicioProg = "00:00";
+        almuerzoFinProg = "01:00";
+      } else {
+        // Turno Diurno (07:00 - 19:00)
+        entradaProg = "07:00";
+        salidaProg = "19:00";
+        almuerzoInicioProg = "12:00";
+        almuerzoFinProg = "13:00";
+      }
+    }
+
+    return { entradaProg, salidaProg, almuerzoInicioProg, almuerzoFinProg };
+  };
+
   const estaEnRangoAlmuerzo = (horaActStr, inicioStr, finStr) => {
     if (!inicioStr || !finStr) return false;
     const minActual = convertirAMinutos(horaActStr);
@@ -69,61 +96,65 @@ export default function RegistroAsistencia() {
 
   const obtenerCountdownAlmuerzo = (salidaAlmuerzoStr, finAlmuerzoStr) => {
     if (!salidaAlmuerzoStr || !finAlmuerzoStr) return { texto: "--:--", esTarde: false };
-    
+
     const [hrsSalida, minsSalida] = salidaAlmuerzoStr.split(":").map(Number);
     const [hrsFin, minsFin] = finAlmuerzoStr.split(":").map(Number);
-    
+
     const ahora = new Date();
-    
+
     // Configurar la fecha de salida a almuerzo (hoy)
     const fechaSalida = new Date();
     fechaSalida.setHours(hrsSalida, minsSalida, 0, 0);
-    
+
     // Configurar la fecha limite de regreso (hoy)
     const fechaLimite = new Date();
     fechaLimite.setHours(hrsFin, minsFin, 0, 0);
-    
+
     // Si la hora de fin es menor que la de salida, cruza la medianoche (es el dia siguiente)
     const salidaMinutos = hrsSalida * 60 + minsSalida;
     const finMinutos = hrsFin * 60 + minsFin;
     if (finMinutos < salidaMinutos) {
-      fechaLimite.setDate(fechaLimite.setDate() + 1);
+      fechaLimite.setDate(fechaLimite.getDate() + 1);
     }
-    
+
     const diffMs = fechaLimite.getTime() - ahora.getTime();
     const esTarde = diffMs < 0;
     const diffAbs = Math.abs(diffMs);
-    
+
     const totalSegundos = Math.floor(diffAbs / 1000);
     const min = Math.floor(totalSegundos / 60);
     const seg = totalSegundos % 60;
-    
+
     const texto = `${min.toString().padStart(2, '0')}:${seg.toString().padStart(2, '0')}`;
     return { texto, esTarde };
   };
 
   const chequearAbandonosHoy = async (listaAsistencias) => {
     const ahora = new Date();
-    const horaActualMin = ahora.getHours() * 60 + ahora.getMinutes();
 
     for (const reg of listaAsistencias) {
       // Si salió a almorzar pero no regresó, no ha finalizado su jornada, y tiene hora de salida asignada
       if (reg.entrada && reg.salidaAlmuerzo && !reg.entradaAlmuerzo && !reg.salida && reg.horaSalida) {
-        const minSalida = convertirAMinutos(reg.horaSalida);
-        let pasoHoraSalida = false;
-        const minEntrada = convertirAMinutos(reg.horaEntrada || "07:00");
-        
-        if (minSalida < minEntrada) {
-          // Turno nocturno (cruza medianoche)
-          if (horaActualMin >= minSalida && horaActualMin < minEntrada) {
-            pasoHoraSalida = true;
-          }
-        } else {
-          // Turno normal (mismo día)
-          if (horaActualMin >= minSalida) {
-            pasoHoraSalida = true;
-          }
+        const fHora = reg.fechaHora?.toDate ? reg.fechaHora.toDate() : (reg.fechaHora ? new Date(reg.fechaHora) : null);
+        if (!fHora) continue;
+
+        const [hrsSalida, minsSalida] = reg.horaSalida.split(":").map(Number);
+        const [hrsEntrada, minsEntrada] = (reg.horaEntrada || "07:00").split(":").map(Number);
+
+        // Definir inicio del turno basándose en el día del registro
+        const shiftStart = new Date(fHora);
+        shiftStart.setHours(hrsEntrada, minsEntrada, 0, 0);
+
+        // Definir fin del turno basándose en el inicio del turno
+        const shiftEnd = new Date(shiftStart);
+        shiftEnd.setHours(hrsSalida, minsSalida, 0, 0);
+
+        // Si el turno cruza la medianoche (nocturno)
+        if (convertirAMinutos(reg.horaSalida) < convertirAMinutos(reg.horaEntrada || "07:00")) {
+          shiftEnd.setDate(shiftEnd.getDate() + 1);
         }
+
+        const pasoHoraSalida = ahora >= shiftEnd;
 
         if (pasoHoraSalida) {
           try {
@@ -133,7 +164,7 @@ export default function RegistroAsistencia() {
               estado: "FINALIZADO",
               observacionAcceso: "AUTO-CIERRE: El trabajador salió a almorzar y no retornó antes de su hora de salida oficial."
             });
-            
+
             registrarAccion(
               null,
               null,
@@ -191,12 +222,14 @@ export default function RegistroAsistencia() {
     setCargando(true);
     try {
       const horaActual = obtenerHora24();
+      const { entradaProg, salidaProg, almuerzoInicioProg, almuerzoFinProg } = obtenerHorariosTurno(trabajador, horaActual);
+
       await addDoc(collection(db, "asistencias"), {
         nombreCompleto: `${trabajador.nombres} ${trabajador.apellidos}`.toUpperCase(),
         ficha: trabajador.idAcceso || trabajador.ficha || "S/F",
         cedula: trabajador.cedula,
         cargo: trabajador.nombreContrata || trabajador.cargo || (trabajador.tipoPersonal === "Pasante" ? (trabajador.carreraPasante || "PASANTE") : trabajador.tipoPersonal === "Estudiante INCES" ? (trabajador.programaInces || "ESTUDIANTE INCES") : "OPERARIO"),
-        area: trabajador.areaTrabajo || trabajador.area || (trabajador.tipoPersonal === "Pasante" ? (trabajador.universidadPasante || "PLANTA") : trabajador.tipoPersonal === "Estudiante INCES" ? ("INCES") : "PLANTA"), 
+        area: trabajador.areaTrabajo || trabajador.area || (trabajador.tipoPersonal === "Pasante" ? (trabajador.universidadPasante || "PLANTA") : trabajador.tipoPersonal === "Estudiante INCES" ? ("INCES") : "PLANTA"),
         tipoPersonal: trabajador.tipoPersonal || "INVECEM",
         entrada: horaActual,
         salida: null,
@@ -204,19 +237,19 @@ export default function RegistroAsistencia() {
         fechaHora: serverTimestamp(),
         observacionAcceso: `INGRESO AUTORIZADO POR BENEFICIOS: Personal en ${trabajador.estatus.toUpperCase()}`,
         // Copia del horario
-        horaEntrada: trabajador.horaEntrada || "07:00",
-        horaSalida: trabajador.horaSalida || "16:00",
-        horaAlmuerzoInicio: trabajador.horaAlmuerzoInicio || "12:00",
-        horaAlmuerzoFin: trabajador.horaAlmuerzoFin || "13:00",
+        horaEntrada: entradaProg,
+        horaSalida: salidaProg,
+        horaAlmuerzoInicio: almuerzoInicioProg,
+        horaAlmuerzoFin: almuerzoFinProg,
         salidaAlmuerzo: null,
         entradaAlmuerzo: null,
         minutosAlmuerzoTarde: null
       });
 
       registrarAccion(
-        null, 
-        null, 
-        `Ingreso por beneficio autorizado para ${trabajador.nombres} ${trabajador.apellidos} (Ficha: ${trabajador.ficha || trabajador.idAcceso || 'S/F'})`, 
+        null,
+        null,
+        `Ingreso por beneficio autorizado para ${trabajador.nombres} ${trabajador.apellidos} (Ficha: ${trabajador.ficha || trabajador.idAcceso || 'S/F'})`,
         "Control de Asistencia"
       );
 
@@ -224,7 +257,7 @@ export default function RegistroAsistencia() {
       const d = new Date();
       const hoyStr = `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
       if (trabajador.historialIncidencias && trabajador.historialIncidencias.length > 0) {
-        const historialFiltrado = trabajador.historialIncidencias.filter(inc => 
+        const historialFiltrado = trabajador.historialIncidencias.filter(inc =>
           !(inc.tipo === "FALTA" && inc.descripcion.includes(hoyStr))
         );
         if (historialFiltrado.length !== trabajador.historialIncidencias.length) {
@@ -254,7 +287,7 @@ export default function RegistroAsistencia() {
     }
 
     setCargando(true);
-    setIdentificador(""); 
+    setIdentificador("");
 
     try {
       const personalRef = collection(db, "personal");
@@ -289,12 +322,31 @@ export default function RegistroAsistencia() {
 
       if (trabajador) {
         const horaActual = obtenerHora24();
-        
-        const existe = asistenciasHoy.find(a => 
+
+        const existe = asistenciasHoy.find(a =>
           (a.cedula === trabajador.cedula || (trabajador.ficha && a.ficha === trabajador.ficha)) && !a.salida
         );
 
         if (!existe) {
+          // Verificar si ya tiene una asistencia finalizada hoy (mismo día calendario)
+          const yaFinalizadoHoy = asistenciasHoy.find(a => {
+            if ((a.cedula === trabajador.cedula || (trabajador.ficha && a.ficha === trabajador.ficha)) && a.salida) {
+              const fHora = a.fechaHora?.toDate ? a.fechaHora.toDate() : (a.fechaHora ? new Date(a.fechaHora) : null);
+              if (fHora) {
+                const hoy = new Date();
+                return fHora.getFullYear() === hoy.getFullYear() &&
+                  fHora.getMonth() === hoy.getMonth() &&
+                  fHora.getDate() === hoy.getDate();
+              }
+            }
+            return false;
+          });
+
+          if (yaFinalizadoHoy) {
+            alert(`⚠️ Este colaborador ya registró su salida definitiva hoy. Su jornada de hoy está FINALIZADA.`);
+            setCargando(false);
+            return;
+          }
           // Verificar si es un pasante y su pasantía ha culminado (para denegar ingreso)
           if (trabajador.tipoPersonal === "Pasante" && trabajador.fechaEgreso) {
             const hoy = new Date();
@@ -352,7 +404,7 @@ export default function RegistroAsistencia() {
           // Verificar si hoy es feriado para el trabajador
           const hoy = new Date();
           const dClean = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-          
+
           const parseLocalDate = (dateStr) => {
             if (!dateStr) return null;
             const [y, m, d] = dateStr.split("-").map(Number);
@@ -367,7 +419,7 @@ export default function RegistroAsistencia() {
           });
 
           const esFeriadoParaTrabajador = feriadoHoy && (
-            feriadoHoy.tipo === "TODOS" || 
+            feriadoHoy.tipo === "TODOS" ||
             (feriadoHoy.tipo === "PARCIAL" && feriadoHoy.trabajadoresLibran?.includes(trabajador.id))
           );
 
@@ -394,7 +446,7 @@ export default function RegistroAsistencia() {
           const lunchInicio = existe.horaAlmuerzoInicio || "12:00";
           const lunchFin = existe.horaAlmuerzoFin || "13:00";
           const tieneAlmuerzo = true; // Todo trabajador tiene almuerzo asignado o por defecto
-          
+
           if (tieneAlmuerzo) {
             if (!existe.salidaAlmuerzo) {
               // Aún no ha marcado salida a almuerzo. ¿Está en el rango o es un escaneo consecutivo rápido?
@@ -405,21 +457,21 @@ export default function RegistroAsistencia() {
               }
               const minutosTranscurridos = minActual - minEntrada;
 
-              const enRango = estaEnRangoAlmuerzo(horaActual, lunchInicio, lunchFin) || 
-                              (minutosTranscurridos >= 0 && minutosTranscurridos <= 15);
+              const enRango = estaEnRangoAlmuerzo(horaActual, lunchInicio, lunchFin) ||
+                (minutosTranscurridos >= 0 && minutosTranscurridos <= 15);
               if (enRango) {
                 await updateDoc(doc(db, "asistencias", existe.id), {
                   salidaAlmuerzo: horaActual,
                   observacionAcceso: "Salió a almorzar"
                 });
-                
+
                 registrarAccion(
                   null,
                   null,
                   `Salida a almorzar registrada para ${trabajador.nombres} ${trabajador.apellidos} (Ficha: ${trabajador.ficha || trabajador.idAcceso || 'S/F'})`,
                   "Control de Asistencia"
                 );
-                
+
                 alert(`🍱 Salida a Almuerzo registrada para ${trabajador.nombres.toUpperCase()} ${trabajador.apellidos.toUpperCase()}.\nHora límite de regreso: ${lunchFin}`);
                 setCargando(false);
                 return;
@@ -428,28 +480,28 @@ export default function RegistroAsistencia() {
               // Ya salió pero no ha regresado. Registrar Regreso de Almuerzo.
               let minActual = convertirAMinutos(horaActual);
               let minFin = convertirAMinutos(lunchFin);
-              
+
               if (minFin < convertirAMinutos(existe.salidaAlmuerzo)) {
                 minFin += 1440;
                 if (minActual < 720) minActual += 1440;
               }
-              
+
               const diffMinutos = minActual - minFin;
               const retraso = diffMinutos > 0 ? diffMinutos : 0;
-              
+
               await updateDoc(doc(db, "asistencias", existe.id), {
                 entradaAlmuerzo: horaActual,
                 minutosAlmuerzoTarde: retraso,
                 observacionAcceso: retraso > 0 ? `Regresó de almuerzo con retraso de ${retraso} min` : "Regresó de almuerzo a tiempo"
               });
-              
+
               registrarAccion(
                 null,
                 null,
                 `Regreso de almuerzo registrado para ${trabajador.nombres} ${trabajador.apellidos} (Ficha: ${trabajador.ficha || trabajador.idAcceso || 'S/F'})${retraso > 0 ? ` - Retraso: +${retraso} min` : " (A tiempo)"}`,
                 "Control de Asistencia"
               );
-              
+
               if (retraso > 0) {
                 alert(`⚠️ Regreso de almuerzo registrado con retraso de ${retraso} minutos.`);
               } else {
@@ -463,20 +515,21 @@ export default function RegistroAsistencia() {
           // Salida definitiva
           await updateDoc(doc(db, "asistencias", existe.id), {
             salida: horaActual,
-            estado: "FINALIZADO" 
+            estado: "FINALIZADO"
           });
-          
+
           registrarAccion(
-            null, 
-            null, 
-            `Salida registrada para ${trabajador.nombres} ${trabajador.apellidos} (Ficha: ${trabajador.ficha || trabajador.idAcceso || 'S/F'})`, 
+            null,
+            null,
+            `Salida registrada para ${trabajador.nombres} ${trabajador.apellidos} (Ficha: ${trabajador.ficha || trabajador.idAcceso || 'S/F'})`,
             "Control de Asistencia"
           );
-          
+
           alert(`👋 Salida definitiva registrada para ${trabajador.nombres.toUpperCase()} ${trabajador.apellidos.toUpperCase()}.`);
         } else {
+          const { entradaProg, salidaProg, almuerzoInicioProg, almuerzoFinProg } = obtenerHorariosTurno(trabajador, horaActual);
           const minM = convertirAMinutos(horaActual);
-          const minT = convertirAMinutos(trabajador.horaEntrada || "07:00");
+          const minT = convertirAMinutos(entradaProg);
           const estatusCalculado = minM > (minT + 15) ? "RETRASO" : "PUNTUAL";
 
           await addDoc(collection(db, "asistencias"), {
@@ -484,26 +537,26 @@ export default function RegistroAsistencia() {
             ficha: trabajador.idAcceso || trabajador.ficha || "S/F",
             cedula: trabajador.cedula,
             cargo: trabajador.nombreContrata || trabajador.cargo || (trabajador.tipoPersonal === "Pasante" ? (trabajador.carreraPasante || "PASANTE") : trabajador.tipoPersonal === "Estudiante INCES" ? (trabajador.programaInces || "ESTUDIANTE INCES") : "OPERARIO"),
-            area: trabajador.areaTrabajo || trabajador.area || (trabajador.tipoPersonal === "Pasante" ? (trabajador.universidadPasante || "PLANTA") : trabajador.tipoPersonal === "Estudiante INCES" ? ("INCES") : "PLANTA"), 
+            area: trabajador.areaTrabajo || trabajador.area || (trabajador.tipoPersonal === "Pasante" ? (trabajador.universidadPasante || "PLANTA") : trabajador.tipoPersonal === "Estudiante INCES" ? ("INCES") : "PLANTA"),
             tipoPersonal: trabajador.tipoPersonal || procedencia,
             entrada: horaActual,
             salida: null,
-            estatus: estatusCalculado, 
+            estatus: estatusCalculado,
             fechaHora: serverTimestamp(),
             // Copia del horario
-            horaEntrada: trabajador.horaEntrada || "07:00",
-            horaSalida: trabajador.horaSalida || "16:00",
-            horaAlmuerzoInicio: trabajador.horaAlmuerzoInicio || "12:00",
-            horaAlmuerzoFin: trabajador.horaAlmuerzoFin || "13:00",
+            horaEntrada: entradaProg,
+            horaSalida: salidaProg,
+            horaAlmuerzoInicio: almuerzoInicioProg,
+            horaAlmuerzoFin: almuerzoFinProg,
             salidaAlmuerzo: null,
             entradaAlmuerzo: null,
             minutosAlmuerzoTarde: null
           });
 
           registrarAccion(
-            null, 
-            null, 
-            `Entrada registrada para ${trabajador.nombres} ${trabajador.apellidos} (Ficha: ${trabajador.ficha || trabajador.idAcceso || 'S/F'}) - Estatus: ${estatusCalculado}`, 
+            null,
+            null,
+            `Entrada registrada para ${trabajador.nombres} ${trabajador.apellidos} (Ficha: ${trabajador.ficha || trabajador.idAcceso || 'S/F'}) - Estatus: ${estatusCalculado}`,
             "Control de Asistencia"
           );
 
@@ -511,7 +564,7 @@ export default function RegistroAsistencia() {
           const d = new Date();
           const hoyStr = `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
           if (trabajador.historialIncidencias && trabajador.historialIncidencias.length > 0) {
-            const historialFiltrado = trabajador.historialIncidencias.filter(inc => 
+            const historialFiltrado = trabajador.historialIncidencias.filter(inc =>
               !(inc.tipo === "FALTA" && inc.descripcion.includes(hoyStr))
             );
             if (historialFiltrado.length !== trabajador.historialIncidencias.length) {
@@ -544,12 +597,12 @@ export default function RegistroAsistencia() {
       {/* BARRA DE NAVEGACIÓN */}
       <nav className="top-nav print:hidden bg-white/60 backdrop-blur-xl border-b border-slate-200/80 px-6 py-4 flex justify-between items-center z-20 relative">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{background:'linear-gradient(135deg,#06b6d4,#3b82f6)'}}>
-            <i className="fas fa-fingerprint text-white" style={{fontSize:'11px'}} />
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#06b6d4,#3b82f6)' }}>
+            <i className="fas fa-fingerprint text-white" style={{ fontSize: '11px' }} />
           </div>
           <span className="text-base font-black tracking-tight text-slate-900 uppercase">INVECEM</span>
         </div>
-        <button 
+        <button
           className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 active:scale-95 rounded-xl font-extrabold text-xs tracking-wider uppercase shadow-lg shadow-cyan-500/20 transition-all duration-200 cursor-pointer text-white"
           onClick={() => router.push("/inspector")}
         >
@@ -559,7 +612,7 @@ export default function RegistroAsistencia() {
 
       {/* CONTENEDOR CENTRAL */}
       <div className="max-w-6xl mx-auto px-6 py-10 z-10 relative">
-        
+
         {/* DEV ACTIONS AND TOOLS */}
         <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mb-6 print:hidden">
           <div className="flex gap-2">
@@ -567,9 +620,9 @@ export default function RegistroAsistencia() {
               <span className="w-1.5 h-1.5 bg-cyan-500 rounded-full"></span> Lector Conectado
             </span>
           </div>
-          
+
           <div className="flex gap-2">
-            <button 
+            <button
               onClick={() => window.print()}
               className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-555 hover:text-indigo-950 rounded-lg text-xxs font-bold uppercase transition-all cursor-pointer shadow-sm"
             >
@@ -603,7 +656,7 @@ export default function RegistroAsistencia() {
 
           {/* ESCÁNER TERMINAL */}
           <section className="p-6 bg-slate-50 border border-slate-200 rounded-2xl print:hidden relative overflow-hidden group">
-            
+
             {/* Lámpara de scanner animado */}
             <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-500 to-transparent animate-float"></div>
 
@@ -612,7 +665,7 @@ export default function RegistroAsistencia() {
                 <label className="text-xxs font-black text-cyan-600 uppercase tracking-widest flex items-center gap-1.5 justify-center md:justify-start font-mono">
                   <span className="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-ping"></span> TERMINAL_ESCANEADO
                 </label>
-                <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Ingrese o escanee la ficha del trabajador</p>
+                <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Ingrese la ficha o cedula del trabajador</p>
               </div>
 
               <div className="w-full md:w-80">
@@ -635,7 +688,7 @@ export default function RegistroAsistencia() {
           {/* SECCIÓN PERSONAL EN ALMUERZO */}
           {(() => {
             const enAlmuerzo = asistenciasHoy.filter(a => a.entrada && a.salidaAlmuerzo && !a.entradaAlmuerzo && !a.salida);
-            
+
             return (
               <section className="p-6 bg-slate-50 border border-slate-200/80 rounded-2xl print:hidden space-y-4">
                 <div className="flex justify-between items-center border-b border-slate-200/60 pb-3">
@@ -663,7 +716,7 @@ export default function RegistroAsistencia() {
                         <div key={reg.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3 relative overflow-hidden group">
                           {/* Top accent line */}
                           <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${countdown.esTarde ? "from-red-500 to-pink-500 animate-pulse" : "from-cyan-500 to-blue-500"}`} />
-                          
+
                           <div>
                             <strong className="text-xs font-black text-indigo-950 uppercase block truncate">{reg.nombreCompleto}</strong>
                             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block font-mono">Ficha: {reg.ficha}</span>
@@ -760,7 +813,7 @@ export default function RegistroAsistencia() {
                             </div>
                           )}
                         </td>
-                         <td className="py-4 px-3 text-left text-xs font-semibold text-slate-500">
+                        <td className="py-4 px-3 text-left text-xs font-semibold text-slate-500">
                           {reg.area}
                         </td>
                         <td className="py-4 px-3 text-center font-bold text-slate-700 text-sm font-mono">
@@ -779,15 +832,14 @@ export default function RegistroAsistencia() {
                         </td>
                         <td className="py-4 px-3 text-center">
                           <div className="flex flex-col items-center gap-1">
-                            <span className={`px-2.5 py-0.5 rounded-lg text-xxs font-black tracking-wider uppercase border inline-block ${
-                              reg.estatus === "ABANDONO DE TRABAJO"
-                                ? "bg-red-100 text-red-750 border-red-300 animate-pulse"
-                                : isRetraso
+                            <span className={`px-2.5 py-0.5 rounded-lg text-xxs font-black tracking-wider uppercase border inline-block ${reg.estatus === "ABANDONO DE TRABAJO"
+                              ? "bg-red-100 text-red-750 border-red-300 animate-pulse"
+                              : isRetraso
                                 ? "bg-red-50 text-red-650 border-red-200 animate-pulse"
                                 : isBeneficio
-                                ? "bg-cyan-50 text-cyan-600 border-cyan-205"
-                                : "bg-emerald-50 text-emerald-600 border-emerald-200"
-                            }`}>
+                                  ? "bg-cyan-50 text-cyan-600 border-cyan-205"
+                                  : "bg-emerald-50 text-emerald-600 border-emerald-200"
+                              }`}>
                               {reg.estatus}
                             </span>
                             {reg.salida && (
@@ -833,11 +885,10 @@ export default function RegistroAsistencia() {
                           {showEllipsis && <span className="text-slate-400 font-bold self-center px-1">...</span>}
                           <button
                             onClick={() => setPaginaActual(pag)}
-                            className={`w-8 h-8 flex items-center justify-center rounded-xl text-xxs font-black transition-all cursor-pointer ${
-                              paginaActual === pag
-                                ? 'bg-gradient-to-r from-cyan-500 to-indigo-500 text-white shadow shadow-cyan-500/20'
-                                : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-650'
-                            }`}
+                            className={`w-8 h-8 flex items-center justify-center rounded-xl text-xxs font-black transition-all cursor-pointer ${paginaActual === pag
+                              ? 'bg-gradient-to-r from-cyan-500 to-indigo-500 text-white shadow shadow-cyan-500/20'
+                              : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-650'
+                              }`}
                           >
                             {pag}
                           </button>
@@ -877,7 +928,7 @@ export default function RegistroAsistencia() {
                 <p className="text-3xs font-black text-red-600 uppercase tracking-widest mt-0.5">Acceso Bloqueado por Sistema</p>
               </div>
             </div>
-            
+
             {/* Modal Body */}
             <div className="space-y-4">
               <p className="text-xs font-semibold text-slate-600 leading-relaxed bg-slate-50 p-4 border border-slate-200 rounded-xl">
@@ -889,7 +940,7 @@ export default function RegistroAsistencia() {
                   <span className="text-slate-500 font-bold uppercase tracking-wider text-xxs font-mono">EMPLEADO</span>
                   <strong className="text-indigo-955 uppercase">{trabajadorEspecial?.nombres} {trabajadorEspecial?.apellidos}</strong>
                 </div>
-                
+
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-slate-500 font-bold uppercase tracking-wider text-xxs font-mono">CEDULA_FICHA</span>
                   <strong className="text-red-600 font-black font-mono">{trabajadorEspecial?.cedula} / {trabajadorEspecial?.ficha || "S/F"}</strong>
@@ -912,18 +963,18 @@ export default function RegistroAsistencia() {
 
             {/* Modal Actions */}
             <div className="flex gap-3 justify-end pt-2">
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className="px-5 py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-red-600/25 transition-all duration-200 cursor-pointer"
                 onClick={() => { setMostrarModalBeneficio(false); setTrabajadorEspecial(null); }}
               >
                 {["PASANTÍA CULMINADA", "PERSONAL INACTIVO", "CONTRATISTA SUSPENDIDO", "CONTRATISTA INACTIVO"].includes(trabajadorEspecial?.motivoBloqueo) ? "Aceptar y Cerrar" : "❌ Denegar Entrada"}
               </button>
-              
+
               {!["PASANTÍA CULMINADA", "PERSONAL INACTIVO", "CONTRATISTA SUSPENDIDO", "CONTRATISTA INACTIVO"].includes(trabajadorEspecial?.motivoBloqueo) && (
-                <button 
-                  type="button" 
-                  className="px-5 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-450 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-emerald-600/25 transition-all duration-200 cursor-pointer" 
+                <button
+                  type="button"
+                  className="px-5 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-450 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-emerald-600/25 transition-all duration-200 cursor-pointer"
                   onClick={() => ejecutarEntradaExcepcional(trabajadorEspecial)}
                 >
                   📦 Permitir Entrada (Retiro)

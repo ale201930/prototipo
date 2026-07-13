@@ -485,7 +485,7 @@ export default function MonitoreoPage() {
                                 </div>
                                 <button
                                   onClick={() => toggleDayExpanded(grupo.diaKey)}
-                                  className="px-4 py-2 bg-indigo-650 hover:bg-indigo-500 active:scale-95 text-white rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-md shadow-indigo-650/10 flex items-center gap-1.5 self-end sm:self-auto"
+                                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-md shadow-indigo-600/10 flex items-center gap-1.5 self-end sm:self-auto"
                                 >
                                   <i className={`fas fa-${isExpanded ? 'eye-slash' : 'eye'}`} />
                                   {isExpanded ? 'Ocultar detalles' : 'Ver detalles'}

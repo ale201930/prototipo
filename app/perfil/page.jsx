@@ -318,7 +318,7 @@ export default function PerfilUsuario() {
               {/* FORMULARIO DE CONTRASEÑA */}
               <form onSubmit={handleCambiarClave} className="space-y-6 bg-slate-550/5 p-6 border border-slate-200/50 rounded-2xl">
                 <div>
-                  <h3 className="text-xs font-black uppercase text-indigo-650 tracking-wider border-b border-dashed border-indigo-500/20 pb-2 flex items-center gap-2">
+                  <h3 className="text-xs font-black uppercase text-indigo-600 tracking-wider border-b border-dashed border-indigo-500/20 pb-2 flex items-center gap-2">
                     <i className="fas fa-lock"></i> Seguridad y Contraseña
                   </h3>
                   <p className="text-slate-500 text-xs mt-1.5 font-medium">Actualiza tu clave de acceso al sistema INVECEM</p>
@@ -336,7 +336,7 @@ export default function PerfilUsuario() {
                     />
                     <button 
                       type="button" 
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-450 hover:text-indigo-550 transition-colors cursor-pointer"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-500 transition-colors cursor-pointer"
                       onClick={() => setVerClaveActual(!verClaveActual)}
                     >
                       <EyeIcon visible={verClaveActual} />
@@ -356,7 +356,7 @@ export default function PerfilUsuario() {
                     />
                     <button 
                       type="button" 
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-455 hover:text-indigo-550 transition-colors cursor-pointer"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-500 transition-colors cursor-pointer"
                       onClick={() => setVerNuevaClave(!verNuevaClave)}
                     >
                       <EyeIcon visible={verNuevaClave} />
@@ -366,7 +366,7 @@ export default function PerfilUsuario() {
 
                 {/* LISTA VISUAL REQUISITOS */}
                 <div className="bg-slate-50 p-4 border border-slate-200/80 rounded-xl space-y-1.5">
-                  <p className={`text-xxs font-bold uppercase tracking-wider flex items-center gap-2 ${validaciones.longitud ? "text-emerald-600" : "text-slate-450"}`}>
+                  <p className={`text-xxs font-bold uppercase tracking-wider flex items-center gap-2 ${validaciones.longitud ? "text-emerald-600" : "text-slate-400"}`}>
                     <i className={`fas ${validaciones.longitud ? 'fa-check-circle' : 'fa-circle-notch'}`}></i> Mínimo 8 caracteres
                   </p>
                   <p className={`text-xxs font-bold uppercase tracking-wider flex items-center gap-2 ${validaciones.mayuscula ? "text-emerald-600" : "text-slate-450"}`}>
@@ -392,7 +392,7 @@ export default function PerfilUsuario() {
                     />
                     <button 
                       type="button" 
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-455 hover:text-indigo-550 transition-colors cursor-pointer"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-500 transition-colors cursor-pointer"
                       onClick={() => setVerConfirmarClave(!verConfirmarClave)}
                     >
                       <EyeIcon visible={verConfirmarClave} />
@@ -400,7 +400,7 @@ export default function PerfilUsuario() {
                   </div>
                 </div>
 
-                <p className={`text-xxs font-bold uppercase tracking-wider flex items-center gap-2 ${validaciones.coincide ? "text-emerald-600" : "text-slate-450"}`}>
+                <p className={`text-xxs font-bold uppercase tracking-wider flex items-center gap-2 ${validaciones.coincide ? "text-emerald-600" : "text-slate-400"}`}>
                   <i className={`fas ${validaciones.coincide ? 'fa-check-circle' : 'fa-circle-notch'}`}></i> Las contraseñas coinciden
                 </p>
 
@@ -447,7 +447,7 @@ export default function PerfilUsuario() {
                     />
                     <button 
                       type="button" 
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-455 hover:text-indigo-550 transition-colors cursor-pointer"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-500 transition-colors cursor-pointer"
                       onClick={() => setVerClaveCorreo(!verClaveCorreo)}
                     >
                       <EyeIcon visible={verClaveCorreo} />
