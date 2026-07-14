@@ -330,8 +330,15 @@ export default function AsistenciaContratas() {
                       <td className="py-4 px-3 text-center font-bold text-slate-600 text-sm font-mono">
                         {reg.cedula}
                       </td>
-                      <td className="py-4 px-3 text-left font-extrabold text-indigo-950 text-sm uppercase">
+                      <td className="py-4 px-3 text-left font-extrabold text-indigo-955 text-sm uppercase">
                         {reg.nombreCompleto}
+                        {reg.observacionAcceso && reg.tipoSalida === "ANTICIPADA" && (
+                          <div className="mt-1 flex flex-wrap gap-1.5 items-center">
+                            <span className="px-1.5 py-0.5 bg-red-50 border border-red-200 text-red-650 rounded text-[9px] font-black uppercase tracking-wider font-mono animate-pulse">
+                              🚨 Salida Anticipada: {reg.observacionAcceso}
+                            </span>
+                          </div>
+                        )}
                       </td>
                       <td className="py-4 px-3 text-center">
                         <span className="px-2.5 py-1 bg-cyan-50 border border-cyan-200 text-cyan-600 rounded-lg text-xxs font-bold uppercase tracking-wider font-mono">

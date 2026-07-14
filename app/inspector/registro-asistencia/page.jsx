@@ -38,6 +38,14 @@ export default function RegistroAsistencia() {
   const [mostrarModalBeneficio, setMostrarModalBeneficio] = useState(false);
   const [trabajadorEspecial, setTrabajadorEspecial] = useState(null);
 
+  // Estados para el modal de decisión salida almuerzo vs salida anticipada
+  const [mostrarModalSalida, setMostrarModalSalida] = useState(false);
+  const [trabajadorSalida, setTrabajadorSalida] = useState(null);
+  const [registroSalida, setRegistroSalida] = useState(null);
+  const [motivoSalida, setMotivoSalida] = useState("");
+  const [procedenciaSalida, setProcedenciaSalida] = useState("");
+  const [soloSalidaAnticipada, setSoloSalidaAnticipada] = useState(false);
+
 
   const obtenerHora24 = () => {
     return new Date().toLocaleTimeString('es-ES', { hour12: false, hour: '2-digit', minute: '2-digit' });
@@ -204,7 +212,7 @@ export default function RegistroAsistencia() {
     });
 
     const mantenerFoco = () => {
-      if (!mostrarModalBeneficio) {
+      if (!mostrarModalBeneficio && !mostrarModalSalida) {
         inputRef.current?.focus();
       }
     };
@@ -215,7 +223,7 @@ export default function RegistroAsistencia() {
       unsubFeriados();
       clearInterval(interval);
     };
-  }, [mostrarModalBeneficio]);
+  }, [mostrarModalBeneficio, mostrarModalSalida]);
 
 
   const ejecutarEntradaExcepcional = async (trabajador) => {
@@ -273,6 +281,69 @@ export default function RegistroAsistencia() {
     } finally {
       setTrabajadorEspecial(null);
       setMostrarModalBeneficio(false);
+      setCargando(false);
+    }
+  };
+
+  const handleSalidaAlmuerzo = async () => {
+    if (!registroSalida || !trabajadorSalida) return;
+    try {
+      setCargando(true);
+      const horaActual = obtenerHora24();
+      const lunchFin = registroSalida.horaAlmuerzoFin || "13:00";
+      await updateDoc(doc(db, "asistencias", registroSalida.id), {
+        salidaAlmuerzo: horaActual,
+        observacionAcceso: "Salió a almorzar"
+      });
+
+      registrarAccion(
+        null,
+        null,
+        `Salida a almorzar registrada para ${trabajadorSalida.nombres} ${trabajadorSalida.apellidos} (Ficha: ${trabajadorSalida.ficha || trabajadorSalida.idAcceso || 'S/F'})`,
+        "Control de Asistencia"
+      );
+
+      alert(`🍱 Salida a Almuerzo registrada para ${trabajadorSalida.nombres.toUpperCase()} ${trabajadorSalida.apellidos.toUpperCase()}.\nHora límite de regreso: ${lunchFin}`);
+    } catch (err) {
+      console.error("Error al registrar salida almuerzo:", err);
+    } finally {
+      setMostrarModalSalida(false);
+      setTrabajadorSalida(null);
+      setRegistroSalida(null);
+      setCargando(false);
+    }
+  };
+
+  const handleSalidaAnticipada = async () => {
+    if (!registroSalida || !trabajadorSalida) return;
+    if (!motivoSalida.trim()) {
+      alert("⚠️ Debe ingresar un motivo para la salida anticipada.");
+      return;
+    }
+    try {
+      setCargando(true);
+      const horaActual = obtenerHora24();
+      await updateDoc(doc(db, "asistencias", registroSalida.id), {
+        salida: horaActual,
+        estado: "FINALIZADO",
+        tipoSalida: "ANTICIPADA",
+        observacionAcceso: motivoSalida.trim()
+      });
+
+      registrarAccion(
+        null,
+        null,
+        `Salida anticipada registrada para ${trabajadorSalida.nombres} ${trabajadorSalida.apellidos} (Ficha: ${trabajadorSalida.ficha || trabajadorSalida.idAcceso || 'S/F'}) - Motivo: ${motivoSalida.trim()}`,
+        "Control de Asistencia"
+      );
+
+      alert(`👋 Salida anticipada registrada para ${trabajadorSalida.nombres.toUpperCase()} ${trabajadorSalida.apellidos.toUpperCase()}.`);
+    } catch (err) {
+      console.error("Error al registrar salida anticipada:", err);
+    } finally {
+      setMostrarModalSalida(false);
+      setTrabajadorSalida(null);
+      setRegistroSalida(null);
       setCargando(false);
     }
   };
@@ -457,22 +528,15 @@ export default function RegistroAsistencia() {
               }
               const minutosTranscurridos = minActual - minEntrada;
 
-              const enRango = estaEnRangoAlmuerzo(horaActual, lunchInicio, lunchFin) ||
-                (minutosTranscurridos >= 0 && minutosTranscurridos <= 15);
+              const enRango = estaEnRangoAlmuerzo(horaActual, lunchInicio, lunchFin);
               if (enRango) {
-                await updateDoc(doc(db, "asistencias", existe.id), {
-                  salidaAlmuerzo: horaActual,
-                  observacionAcceso: "Salió a almorzar"
-                });
-
-                registrarAccion(
-                  null,
-                  null,
-                  `Salida a almorzar registrada para ${trabajador.nombres} ${trabajador.apellidos} (Ficha: ${trabajador.ficha || trabajador.idAcceso || 'S/F'})`,
-                  "Control de Asistencia"
-                );
-
-                alert(`🍱 Salida a Almuerzo registrada para ${trabajador.nombres.toUpperCase()} ${trabajador.apellidos.toUpperCase()}.\nHora límite de regreso: ${lunchFin}`);
+                // Abrir modal de decisión para seleccionar entre almuerzo y salida anticipada
+                setTrabajadorSalida(trabajador);
+                setRegistroSalida(existe);
+                setProcedenciaSalida(procedencia);
+                setMotivoSalida("");
+                setSoloSalidaAnticipada(false);
+                setMostrarModalSalida(true);
                 setCargando(false);
                 return;
               }
@@ -513,6 +577,34 @@ export default function RegistroAsistencia() {
           }
 
           // Salida definitiva
+          const esContratista = (procedencia === "CONTRATISTA" || existe.tipoPersonal === "CONTRATISTA");
+          const [sh, sm] = horaActual.split(":").map(Number);
+          const [eh, em] = (existe.horaSalida || "16:00").split(":").map(Number);
+
+          let minActual = sh * 60 + sm;
+          let minSalidaProgramada = eh * 60 + em;
+          const horaEntradaNum = parseInt(existe.entrada.split(":")[0], 10);
+          const esNocturno = (horaEntradaNum >= 18 || horaEntradaNum < 5);
+          if (esNocturno) {
+            if (sh >= 12) {
+              minSalidaProgramada += 1440;
+            }
+          }
+
+          const esSalidaAnticipada = !esContratista && (minActual < (minSalidaProgramada - 5));
+
+          if (esSalidaAnticipada) {
+            // Abrir modal de salida anticipada directa
+            setTrabajadorSalida(trabajador);
+            setRegistroSalida(existe);
+            setProcedenciaSalida(procedencia);
+            setMotivoSalida("");
+            setSoloSalidaAnticipada(true);
+            setMostrarModalSalida(true);
+            setCargando(false);
+            return;
+          }
+
           await updateDoc(doc(db, "asistencias", existe.id), {
             salida: horaActual,
             estado: "FINALIZADO"
@@ -620,14 +712,20 @@ export default function RegistroAsistencia() {
               <span className="w-1.5 h-1.5 bg-cyan-500 rounded-full"></span> Lector Conectado
             </span>
           </div>
+        </div>
 
-          <div className="flex gap-2">
-            <button
-              onClick={() => window.print()}
-              className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-555 hover:text-indigo-950 rounded-lg text-xxs font-bold uppercase transition-all cursor-pointer shadow-sm"
-            >
-              🖨️ Imprimir
-            </button>
+        {/* ENCABEZADO DE IMPRESIÓN */}
+        <div className="hidden print:flex items-center justify-between border-b-2 border-slate-300 pb-4 mb-6 w-full">
+          <div className="flex items-center gap-4">
+            <img src="/logo.png" alt="Logo Invecem" className="h-16 w-auto object-contain" />
+            <div>
+              <h1 className="text-2xl font-black uppercase text-indigo-955 tracking-tight">INVECEM</h1>
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Reporte de Registro de Asistencia</p>
+            </div>
+          </div>
+          <div className="text-right text-xs font-mono text-slate-500">
+            <div>Fecha Emisión: {fechaHoy || new Date().toLocaleDateString()}</div>
+            <div>Total: {asistenciasHoy.length} colaboradores</div>
           </div>
         </div>
 
@@ -640,9 +738,9 @@ export default function RegistroAsistencia() {
           <div className="absolute bottom-3 right-3 font-mono text-[8px] text-slate-400 select-none">[+]</div>
 
           {/* HEADER TARJETA */}
-          <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200/60 pb-6">
+          <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200/60 pb-6 print:hidden">
             <div>
-              <h1 className="text-3xl font-black tracking-tight text-indigo-950 uppercase flex items-center gap-2">
+              <h1 className="text-3xl font-black tracking-tight text-indigo-955 uppercase flex items-center gap-2">
                 <i className="fas fa-barcode text-cyan-600"></i> Registro de Asistencia
               </h1>
               <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">
@@ -684,6 +782,16 @@ export default function RegistroAsistencia() {
               </div>
             </div>
           </section>
+
+          {/* BOTÓN IMPRIMIR */}
+          <div className="flex justify-end print:hidden">
+            <button
+              className="px-4 py-3 bg-red-50/50 hover:bg-red-100/50 border border-red-200 text-red-600 hover:text-red-700 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5"
+              onClick={() => window.print()}
+            >
+              <i className="fas fa-print"></i> Imprimir
+            </button>
+          </div>
 
           {/* SECCIÓN PERSONAL EN ALMUERZO */}
           {(() => {
@@ -980,6 +1088,127 @@ export default function RegistroAsistencia() {
                   📦 Permitir Entrada (Retiro)
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DECISION DE SALIDA MODAL (ALMUERZO VS ANTICIPADA) */}
+      {mostrarModalSalida && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white/95 backdrop-blur-xl border border-cyan-500/60 rounded-3xl p-6 md:p-8 w-full max-w-lg shadow-2xl space-y-6 relative shadow-neon-cyan/10">
+            {/* Tech Corners */}
+            <div className="absolute top-2 left-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+            <div className="absolute top-2 right-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+
+            {/* Header */}
+            <div className="flex items-center gap-4 pb-4 border-b border-slate-200/60">
+              <div className="w-12 h-12 bg-cyan-50 border border-cyan-200 rounded-2xl flex items-center justify-center text-cyan-600 text-2xl animate-pulse">
+                <i className="fas fa-sign-out-alt"></i>
+              </div>
+              <div>
+                <h2 className="text-xl font-black uppercase text-indigo-955 tracking-tight">Opciones de Salida</h2>
+                <p className="text-3xs font-black text-cyan-600 uppercase tracking-widest mt-0.5">Control de Jornada Laboral</p>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="space-y-4">
+              <p className="text-xs font-semibold text-slate-600 leading-relaxed bg-slate-50 p-4 border border-slate-200 rounded-xl">
+                {soloSalidaAnticipada ? (
+                  <>
+                    El colaborador <strong className="text-indigo-955">{trabajadorSalida?.nombres} {trabajadorSalida?.apellidos}</strong> (Ficha: {trabajadorSalida?.ficha || trabajadorSalida?.idAcceso || "S/F"}) está saliendo de la empresa **antes de su hora de salida oficial** ({registroSalida?.horaSalida || "16:00"}). Por favor, ingrese el motivo de su retiro anticipado:
+                  </>
+                ) : (
+                  <>
+                    El colaborador <strong className="text-indigo-955">{trabajadorSalida?.nombres} {trabajadorSalida?.apellidos}</strong> (Ficha: {trabajadorSalida?.ficha || trabajadorSalida?.idAcceso || "S/F"}) está realizando un registro durante la hora de almuerzo. Por favor, seleccione el tipo de salida:
+                  </>
+                )}
+              </p>
+
+              {soloSalidaAnticipada ? (
+                /* Salida Anticipada Directa */
+                <div className="space-y-2 animate-fade-in">
+                  <label className="text-xxs font-black text-amber-600 uppercase tracking-widest font-mono">
+                    Motivo de la Salida Anticipada
+                  </label>
+                  <textarea
+                    value={motivoSalida}
+                    onChange={(e) => setMotivoSalida(e.target.value)}
+                    placeholder="Ingrese el motivo o justificación de la salida anticipada..."
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all text-xs font-semibold h-20 resize-none shadow-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSalidaAnticipada}
+                    className="w-full py-3 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-450 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-amber-600/20 transition-all duration-200 cursor-pointer active:scale-95 flex items-center justify-center gap-1.5"
+                  >
+                    <i className="fas fa-check"></i> Confirmar Salida Anticipada
+                  </button>
+                </div>
+              ) : (
+                /* Doble Opción: Almuerzo vs Salida Anticipada */
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={handleSalidaAlmuerzo}
+                      className="p-4 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 hover:border-cyan-300 text-cyan-700 rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
+                    >
+                      <span className="text-3xl">🍱</span>
+                      <span className="text-xs font-black uppercase tracking-wider">Salida Almuerzo</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (document.getElementById("motivo-salida-container")) {
+                          document.getElementById("motivo-salida-container").style.display = "block";
+                        }
+                      }}
+                      className="p-4 bg-amber-50 hover:bg-amber-100 border border-amber-200 hover:border-amber-300 text-amber-700 rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
+                    >
+                      <span className="text-3xl">🚪</span>
+                      <span className="text-xs font-black uppercase tracking-wider">Salida Anticipada</span>
+                    </button>
+                  </div>
+
+                  {/* Motivo Input */}
+                  <div id="motivo-salida-container" style={{ display: "none" }} className="space-y-2 animate-fade-in">
+                    <label className="text-xxs font-black text-amber-600 uppercase tracking-widest font-mono">
+                      Motivo de la Salida Anticipada
+                    </label>
+                    <textarea
+                      value={motivoSalida}
+                      onChange={(e) => setMotivoSalida(e.target.value)}
+                      placeholder="Ingrese el motivo o justificación de la salida anticipada..."
+                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all text-xs font-semibold h-20 resize-none shadow-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSalidaAnticipada}
+                      className="w-full py-3 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-450 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-amber-600/20 transition-all duration-200 cursor-pointer active:scale-95 flex items-center justify-center gap-1.5"
+                    >
+                      <i className="fas fa-check"></i> Confirmar Salida Anticipada
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end border-t border-slate-200/60 pt-4 mt-2">
+              <button
+                type="button"
+                className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-650 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer active:scale-95"
+                onClick={() => {
+                  setMostrarModalSalida(false);
+                  setTrabajadorSalida(null);
+                  setRegistroSalida(null);
+                }}
+              >
+                Cancelar y Cerrar
+              </button>
             </div>
           </div>
         </div>

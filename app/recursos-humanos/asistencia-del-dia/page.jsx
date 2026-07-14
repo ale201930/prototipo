@@ -156,7 +156,9 @@ export default function AsistenciaDiariaRRHH() {
         fechaFinReposo: fechaFinReposoCalculada,
         salidaAlmuerzo: registro?.salidaAlmuerzo || null,
         entradaAlmuerzo: registro?.entradaAlmuerzo || null,
-        minutosAlmuerzoTarde: registro?.minutosAlmuerzoTarde || null
+        minutosAlmuerzoTarde: registro?.minutosAlmuerzoTarde || null,
+        observacionAcceso: registro?.observacionAcceso || null,
+        tipoSalida: registro?.tipoSalida || null
       };
     });
 
@@ -466,6 +468,13 @@ export default function AsistenciaDiariaRRHH() {
                         </td>
                         <td className="py-4 px-3 text-left">
                           <strong className="text-sm font-extrabold text-indigo-950 uppercase block">{reg.nombres} {reg.apellidos}</strong>
+                          {reg.observacionAcceso && reg.tipoSalida === "ANTICIPADA" && (
+                            <div className="mt-1 flex flex-wrap gap-1.5 items-center">
+                              <span className="px-1.5 py-0.5 bg-red-50 border border-red-200 text-red-600 rounded text-[9px] font-black uppercase tracking-wider font-mono animate-pulse">
+                                🚨 Salida Anticipada: {reg.observacionAcceso}
+                              </span>
+                            </div>
+                          )}
                           {reg.salidaAlmuerzo && (
                             <div className="mt-1 flex flex-wrap gap-1.5 items-center">
                               <span className="px-1.5 py-0.5 bg-slate-100 border border-slate-200 text-slate-500 rounded text-[9px] font-bold uppercase tracking-wider font-mono">
@@ -477,7 +486,7 @@ export default function AsistenciaDiariaRRHH() {
                                 </span>
                               )}
                               {reg.salidaAlmuerzo && !reg.entradaAlmuerzo && !reg.salida && (
-                                <span className="px-1.5 py-0.5 bg-cyan-50 border border-cyan-200 text-cyan-600 rounded text-[9px] font-black uppercase tracking-wider font-mono">
+                                <span className="px-1.5 py-0.5 bg-cyan-50 border border-cyan-200 text-cyan-600 text-[9px] font-black uppercase tracking-wider font-mono">
                                   ⏳ Almorzando
                                 </span>
                               )}

@@ -399,49 +399,77 @@ export default function PanelRecursosHumanos() {
   }).slice(0, 5);
 
 
-  // 5. Overtime Hours (Calculated dynamically)
+  // Helper to calculate overtime for a single assistance record (matching record-asistencia logic)
+  const calcularHorasExtrasDeRegistro = (asist, emp) => {
+    if (!asist.salida || asist.salida === "--:--" || !asist.entrada) return 0;
+    try {
+      const horaEntradaNum = parseInt(asist.entrada.split(":")[0], 10);
+      const esNocturno = (horaEntradaNum >= 18 || horaEntradaNum < 5);
+      const horaSalidaOficial = (asist.horaSalida && asist.horaSalida.includes(":")) 
+          ? parseInt(asist.horaSalida.split(":")[0], 10) 
+          : (esNocturno ? 7 : 16);
+      const [hS, mS] = asist.salida.replace(/AM|PM/gi, '').trim().split(":").map(Number);
+      let minutosSalidaReal = (hS * 60) + mS;
+      if (esNocturno && hS < 12) minutosSalidaReal += 1440; 
+      const minutosSalidaOficial = (horaSalidaOficial * 60) + (esNocturno ? 1440 : 0);
+      const diff = minutosSalidaReal - minutosSalidaOficial;
+      if (diff > 0) return Math.floor(diff / 60);
+    } catch (e) {
+      console.error("Error al calcular horas extras del registro:", e);
+    }
+    return 0;
+  };
+
+  const currentYear = hoy.getFullYear();
+
+  // 5. Overtime Hours (Calculated dynamically for current month)
   const trabajadoresHorasExtras = personal.map(emp => {
-    const listAsist = asistencias.filter(a => a.ficha === emp.ficha);
-    let totalHorasExtras = 0;
-    const horaSalidaEsperada = emp.horaSalida || "16:00";
-    
-    listAsist.forEach(asist => {
-      if (asist.salida) {
-        try {
-          const [sh, sm] = asist.salida.split(":").map(Number);
-          const [eh, em] = horaSalidaEsperada.split(":").map(Number);
-          if (!isNaN(sh) && !isNaN(eh)) {
-            const difMin = (sh * 60 + sm) - (eh * 60 + em);
-            if (difMin > 60) {
-              totalHorasExtras += Math.floor(difMin / 60);
-            }
-          }
-        } catch {}
+    const listAsist = asistencias.filter(a => {
+      if (a.ficha !== emp.ficha) return false;
+      let mDoc = -1;
+      let yDoc = -1;
+      if (a.fecha) {
+        const parts = a.fecha.split("/");
+        mDoc = parseInt(parts[1], 10);
+        yDoc = parseInt(parts[2], 10);
+      } else if (a.fechaHora) {
+        const d = a.fechaHora.toDate ? a.fechaHora.toDate() : new Date(a.fechaHora);
+        mDoc = d.getMonth() + 1;
+        yDoc = d.getFullYear();
       }
+      return mDoc === currentMonthNum && yDoc === currentYear;
+    });
+
+    let totalHorasExtras = 0;
+    listAsist.forEach(asist => {
+      totalHorasExtras += calcularHorasExtrasDeRegistro(asist, emp);
     });
     return { ...emp, totalHorasExtras };
   }).filter(emp => emp.totalHorasExtras > 0)
     .sort((a, b) => b.totalHorasExtras - a.totalHorasExtras)
     .slice(0, 5);
 
-  // Overtime accumulated in company
+  // Overtime accumulated in company for current month
   const totalHorasExtrasCompania = personal.reduce((acc, emp) => {
-    const listAsist = asistencias.filter(a => a.ficha === emp.ficha);
-    let totalEmp = 0;
-    const horaSalidaEsperada = emp.horaSalida || "16:00";
-    listAsist.forEach(asist => {
-      if (asist.salida) {
-        try {
-          const [sh, sm] = asist.salida.split(":").map(Number);
-          const [eh, em] = horaSalidaEsperada.split(":").map(Number);
-          if (!isNaN(sh) && !isNaN(eh)) {
-            const difMin = (sh * 60 + sm) - (eh * 60 + em);
-            if (difMin > 60) {
-              totalEmp += Math.floor(difMin / 60);
-            }
-          }
-        } catch {}
+    const listAsist = asistencias.filter(a => {
+      if (a.ficha !== emp.ficha) return false;
+      let mDoc = -1;
+      let yDoc = -1;
+      if (a.fecha) {
+        const parts = a.fecha.split("/");
+        mDoc = parseInt(parts[1], 10);
+        yDoc = parseInt(parts[2], 10);
+      } else if (a.fechaHora) {
+        const d = a.fechaHora.toDate ? a.fechaHora.toDate() : new Date(a.fechaHora);
+        mDoc = d.getMonth() + 1;
+        yDoc = d.getFullYear();
       }
+      return mDoc === currentMonthNum && yDoc === currentYear;
+    });
+
+    let totalEmp = 0;
+    listAsist.forEach(asist => {
+      totalEmp += calcularHorasExtrasDeRegistro(asist, emp);
     });
     return acc + totalEmp;
   }, 0);
