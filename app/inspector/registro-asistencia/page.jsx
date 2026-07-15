@@ -622,7 +622,8 @@ export default function RegistroAsistencia() {
           const { entradaProg, salidaProg, almuerzoInicioProg, almuerzoFinProg } = obtenerHorariosTurno(trabajador, horaActual);
           const minM = convertirAMinutos(horaActual);
           const minT = convertirAMinutos(entradaProg);
-          const estatusCalculado = minM > (minT + 15) ? "RETRASO" : "PUNTUAL";
+          const esContratista = (procedencia === "CONTRATISTA" || trabajador.tipoPersonal === "CONTRATISTA");
+          const estatusCalculado = esContratista ? "INGRESO" : (minM > (minT + 15) ? "RETRASO" : "PUNTUAL");
 
           await addDoc(collection(db, "asistencias"), {
             nombreCompleto: `${trabajador.nombres} ${trabajador.apellidos}`.toUpperCase(),
@@ -921,8 +922,38 @@ export default function RegistroAsistencia() {
                             </div>
                           )}
                         </td>
-                        <td className="py-4 px-3 text-left text-xs font-semibold text-slate-500">
-                          {reg.area}
+                        <td className="py-4 px-3 text-left">
+                          <div className="flex flex-col gap-1 items-start">
+                            {(() => {
+                              const tipo = reg.tipoPersonal;
+                              let claseColor = "";
+                              let labelTexto = "";
+
+                              if (tipo === "Pasante") {
+                                claseColor = "bg-amber-50 border-amber-200 text-amber-700";
+                                labelTexto = "PASANTE";
+                              } else if (tipo === "Estudiante INCES") {
+                                claseColor = "bg-purple-50 border-purple-200 text-purple-700";
+                                labelTexto = "INCES";
+                              } else if (tipo === "CONTRATISTA" || tipo === "CONTRATA") {
+                                claseColor = "bg-cyan-50 border-cyan-200 text-cyan-700";
+                                labelTexto = "CONTRATA";
+                              } else {
+                                // Default / INVECEM (Rojo)
+                                claseColor = "bg-red-50 border-red-200 text-red-600";
+                                labelTexto = "INVECEM";
+                              }
+
+                              return (
+                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider inline-block border ${claseColor}`}>
+                                  {labelTexto}
+                                </span>
+                              );
+                            })()}
+                            <span className="text-xxs font-bold text-slate-500 uppercase tracking-wider font-mono">
+                              {reg.area}
+                            </span>
+                          </div>
                         </td>
                         <td className="py-4 px-3 text-center font-bold text-slate-700 text-sm font-mono">
                           <span className="flex items-center justify-center gap-1">
@@ -942,11 +973,13 @@ export default function RegistroAsistencia() {
                           <div className="flex flex-col items-center gap-1">
                             <span className={`px-2.5 py-0.5 rounded-lg text-xxs font-black tracking-wider uppercase border inline-block ${reg.estatus === "ABANDONO DE TRABAJO"
                               ? "bg-red-100 text-red-750 border-red-300 animate-pulse"
-                              : isRetraso
-                                ? "bg-red-50 text-red-650 border-red-200 animate-pulse"
-                                : isBeneficio
-                                  ? "bg-cyan-50 text-cyan-600 border-cyan-205"
-                                  : "bg-emerald-50 text-emerald-600 border-emerald-200"
+                              : (reg.estatus === "INGRESO" || reg.estatus === "CONTRATISTA")
+                                ? "bg-slate-100 text-slate-600 border-slate-200"
+                                : isRetraso
+                                  ? "bg-red-50 text-red-650 border-red-200 animate-pulse"
+                                  : isBeneficio
+                                    ? "bg-cyan-50 text-cyan-600 border-cyan-205"
+                                    : "bg-emerald-50 text-emerald-600 border-emerald-200"
                               }`}>
                               {reg.estatus}
                             </span>
