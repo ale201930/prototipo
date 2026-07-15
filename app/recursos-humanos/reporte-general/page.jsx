@@ -52,6 +52,51 @@ export default function ReportesGenerales() {
     return `${h12.toString().padStart(2, '0')}:${minutos}${ampm}`;
   };
 
+  const obtenerEstatusFinal = (r) => {
+    if (r.estatus === "ABANDONO DE TRABAJO") return "ABANDONO DE TRABAJO";
+    
+    // Calcular abandono dinámico de almuerzo si no ha retornado y ya pasó la hora de salida
+    if (r.entrada && r.salidaAlmuerzo && !r.entradaAlmuerzo && !r.salida && r.horaSalida) {
+      const ahora = new Date();
+      const fechaDoc = r.fechaHora?.toDate ? r.fechaHora.toDate() : (r.fechaHora ? new Date(r.fechaHora) : null);
+      if (fechaDoc) {
+        const hoy = new Date();
+        const esHoy = fechaDoc.getFullYear() === hoy.getFullYear() &&
+                      fechaDoc.getMonth() === hoy.getMonth() &&
+                      fechaDoc.getDate() === hoy.getDate();
+        
+        if (esHoy) {
+          const [hrsSalida, minsSalida] = r.horaSalida.split(":").map(Number);
+          const shiftEnd = new Date(fechaDoc);
+          shiftEnd.setHours(hrsSalida, minsSalida, 0, 0);
+
+          const entradaProg = r.horaEntrada || "07:00";
+          const convertirAMinutos = (horaStr) => {
+            if (!horaStr) return 0;
+            const [hrs, mins] = horaStr.split(":").map(Number);
+            return (hrs * 60) + mins;
+          };
+          if (convertirAMinutos(r.horaSalida) < convertirAMinutos(entradaProg)) {
+            shiftEnd.setDate(shiftEnd.getDate() + 1);
+          }
+
+          if (ahora >= shiftEnd) {
+            return "ABANDONO DE TRABAJO";
+          }
+        } else {
+          // Si el registro es de un día pasado y quedó incompleto en almuerzo
+          return "ABANDONO DE TRABAJO";
+        }
+      }
+    }
+
+    if (r.tipoSalida === "ANTICIPADA") {
+      return "SALIDA ANTICIPADA";
+    }
+
+    return r.estatus || "PUNTUAL";
+  };
+
   const ejecutarBusqueda = async () => {
     setLoading(true);
     try {
@@ -157,15 +202,22 @@ export default function ReportesGenerales() {
       doc.text(`REGISTROS DEL DÍA: ${fechaLinda} | TURNO: ${filtroTurno}`, 15, 30);
     }
 
-    const filas = resultados.map(r => [
-      r.ficha, 
-      r.nombreCompleto?.toUpperCase(), 
-      `${r.area?.toUpperCase() || "N/A"} - ${r.cargo?.toUpperCase() || ""}`, 
-      formatAMPM(r.entrada),
-      formatAMPM(r.salida),
-      r.estatus || "PUNTUAL",
-      r.tipoPersonal
-    ]);
+    const filas = resultados.map(r => {
+      const estatusFinal = obtenerEstatusFinal(r);
+      let estatusTexto = estatusFinal;
+      if (estatusFinal === "SALIDA ANTICIPADA" && r.observacionAcceso) {
+        estatusTexto = `SALIDA ANTICIPADA: ${r.observacionAcceso.toUpperCase()}`;
+      }
+      return [
+        r.ficha, 
+        r.nombreCompleto?.toUpperCase(), 
+        `${r.area?.toUpperCase() || "N/A"} - ${r.cargo?.toUpperCase() || ""}`, 
+        formatAMPM(r.entrada),
+        formatAMPM(r.salida),
+        estatusTexto,
+        r.tipoPersonal
+      ];
+    });
 
     doc.autoTable({
       startY: 45,
@@ -391,6 +443,20 @@ export default function ReportesGenerales() {
                         
                         <td className="py-4 px-3 text-left">
                           <strong className="text-sm font-extrabold text-indigo-950 uppercase block">{r.nombreCompleto}</strong>
+                          {r.tipoSalida === "ANTICIPADA" && r.observacionAcceso && (
+                            <div className="mt-1 flex flex-wrap gap-1.5 items-center">
+                              <span className="px-1.5 py-0.5 bg-amber-50 border border-amber-200 text-amber-700 rounded text-[9px] font-black uppercase tracking-wider font-mono animate-pulse">
+                                🚪 Salida Anticipada: {r.observacionAcceso}
+                              </span>
+                            </div>
+                          )}
+                          {obtenerEstatusFinal(r) === "ABANDONO DE TRABAJO" && (
+                            <div className="mt-1 flex flex-wrap gap-1.5 items-center">
+                              <span className="px-1.5 py-0.5 bg-red-50 border border-red-200 text-red-750 rounded text-[9px] font-black uppercase tracking-wider font-mono animate-pulse">
+                                🚨 Abandono de Trabajo: No retornó de almuerzo
+                              </span>
+                            </div>
+                          )}
                           {r.salidaAlmuerzo && (
                             <div className="mt-1 flex flex-wrap gap-1.5 items-center">
                               <span className="px-1.5 py-0.5 bg-slate-100 border border-slate-200 text-slate-500 rounded text-[9px] font-bold uppercase tracking-wider font-mono">
@@ -424,17 +490,24 @@ export default function ReportesGenerales() {
                         </td>
                         
                         <td className="py-4 px-3 text-center">
-                          <span className={`px-2.5 py-0.5 rounded-lg text-xxs font-black tracking-wider uppercase inline-block border ${
-                            r.estatus === "ABANDONO DE TRABAJO"
-                              ? "bg-red-100 text-red-750 border-red-300 animate-pulse"
-                              : r.estatus === "Retraso" || r.estatus === "RETRASO"
-                              ? "bg-orange-50 text-orange-605 border-orange-200"
-                              : r.estatus === "BENEFICIO"
-                              ? "bg-cyan-50 text-cyan-600 border-cyan-200"
-                              : "bg-emerald-50 text-emerald-600 border-emerald-200"
-                          }`}>
-                            {r.estatus || "PUNTUAL"}
-                          </span>
+                          {(() => {
+                            const estatusFinal = obtenerEstatusFinal(r);
+                            return (
+                              <span className={`px-2.5 py-0.5 rounded-lg text-xxs font-black tracking-wider uppercase inline-block border ${
+                                estatusFinal === "ABANDONO DE TRABAJO"
+                                  ? "bg-red-100 text-red-750 border-red-300 animate-pulse"
+                                  : estatusFinal === "SALIDA ANTICIPADA"
+                                  ? "bg-amber-100 text-amber-800 border-amber-300"
+                                  : estatusFinal === "Retraso" || estatusFinal === "RETRASO"
+                                  ? "bg-orange-50 text-orange-605 border-orange-200"
+                                  : estatusFinal === "BENEFICIO"
+                                  ? "bg-cyan-50 text-cyan-600 border-cyan-200"
+                                  : "bg-emerald-50 text-emerald-600 border-emerald-200"
+                              }`}>
+                                {estatusFinal}
+                              </span>
+                            );
+                          })()}
                         </td>
 
                         <td className="py-4 px-3 text-center">

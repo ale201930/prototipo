@@ -31,6 +31,214 @@ function SidebarSection({ label }) {
   return <div className="px-4 pt-5 pb-1.5 text-[10px] font-black text-slate-500 uppercase tracking-widest select-none">{label}</div>;
 }
 
+// Helpers for Perfect Attendance logic
+function parseFechaIngreso(fechaStr) {
+  if (!fechaStr) return null;
+  const [y, m, d] = fechaStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function obtenerHorario4x4(fecha, fechaInicioCiclo) {
+  let fechaBase;
+  if (fechaInicioCiclo) {
+    const [y, m, d] = fechaInicioCiclo.split("-").map(Number);
+    fechaBase = new Date(y, m - 1, d);
+  } else {
+    fechaBase = new Date(2026, 0, 1);
+  }
+  const diffDays = Math.round((fecha - fechaBase) / (1000 * 60 * 60 * 24));
+  const ciclo = ((diffDays % 8) + 8) % 8;
+
+  if (ciclo === 0 || ciclo === 1) {
+    return { horaEntrada: "07:00", horaSalida: "19:00", esNocturno: false, esLaboral: true };
+  } else if (ciclo === 2 || ciclo === 3) {
+    return { horaEntrada: "19:00", horaSalida: "07:00", esNocturno: true, esLaboral: true };
+  } else {
+    return { esLaboral: false };
+  }
+}
+
+function obtenerHorarioDeFecha(fecha, worker) {
+  if (worker.regimenLaboral === "TURNO_4X4") {
+    return obtenerHorario4x4(fecha, worker.fechaInicioCiclo);
+  }
+  return {
+    horaEntrada: worker.horaEntrada || "07:00",
+    horaSalida: worker.horaSalida || "16:00",
+    esNocturno: worker.esNocturno === true || worker.esNocturno === "true",
+    esLaboral: fecha.getDay() >= 1 && fecha.getDay() <= 5
+  };
+}
+
+function esDiaLaboralParaTrabajador(fecha, worker, feriadosLista = []) {
+  // 1. Verificar fecha ingreso
+  const ingreso = parseFechaIngreso(worker.fechaIngreso);
+  if (ingreso && fecha < ingreso) return false;
+
+  // 2. Verificar vacaciones/reposo
+  if (worker.estatus === "Vacaciones" || worker.estatus === "Reposo Médico") {
+    const salida = parseFechaIngreso(worker.fechaSalida);
+    const fin = parseFechaIngreso(worker.fechaFin || worker.fechaRegreso);
+    if (salida && fin) {
+      const dClean = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
+      if (dClean >= salida && dClean <= fin) return false;
+    } else {
+      return false;
+    }
+  }
+
+  // 3. Verificar si es feriado general
+  const dClean = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
+  const feriado = feriadosLista.find((f) => {
+    if (!f.fechaInicio || !f.fechaRegreso) return false;
+    const start = parseFechaIngreso(f.fechaInicio);
+    const end = parseFechaIngreso(f.fechaRegreso);
+    return start && end && dClean >= start && dClean < end;
+  });
+
+  if (feriado && feriado.tipo === "TODOS") return false;
+
+  // 4. Verificar si es feriado parcial y el trabajador libra
+  if (feriado && feriado.tipo === "PARCIAL" && feriado.trabajadoresLibran?.includes(worker.id)) {
+    return false;
+  }
+
+  // 5. Verificar horario
+  const horario = obtenerHorarioDeFecha(fecha, worker);
+  return horario.esLaboral;
+}
+
+function tieneAsistenciaDia(fecha, worker, asistenciasList) {
+  return asistenciasList.some(a => {
+    if (a.ficha !== worker.ficha) return false;
+    let dAsist = null;
+    if (a.fecha) {
+      const parts = a.fecha.split("/");
+      dAsist = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+    } else if (a.fechaHora) {
+      dAsist = a.fechaHora.toDate ? a.fechaHora.toDate() : new Date(a.fechaHora);
+    }
+    if (!dAsist) return false;
+    return dAsist.getFullYear() === fecha.getFullYear() &&
+           dAsist.getMonth() === fecha.getMonth() &&
+           dAsist.getDate() === fecha.getDate();
+  });
+}
+
+function verificarAsistenciaPerfecta(emp, fechaInicio, fechaFin, asistenciasList, feriadosList) {
+  if (emp.estatus !== "Activo (En funciones)") return false;
+
+  const inicio = new Date(fechaInicio);
+  inicio.setHours(0, 0, 0, 0);
+  const fin = new Date(fechaFin);
+  fin.setHours(23, 59, 59, 999);
+
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+
+  // Generar todos los días del período a evaluar que son menores o iguales a hoy
+  const diasAEvaluar = [];
+  let dCurr = new Date(inicio);
+  while (dCurr <= fin && dCurr <= hoy) {
+    diasAEvaluar.push(new Date(dCurr));
+    dCurr.setDate(dCurr.getDate() + 1);
+  }
+
+  let tieneTrabajoProgramado = false;
+
+  // Verificar cada día del período
+  for (const fecha of diasAEvaluar) {
+    if (!esDiaLaboralParaTrabajador(fecha, emp, feriadosList)) {
+      continue;
+    }
+
+    tieneTrabajoProgramado = true;
+    const asistio = tieneAsistenciaDia(fecha, emp, asistenciasList);
+    const esHoy = fecha.getFullYear() === hoy.getFullYear() &&
+                  fecha.getMonth() === hoy.getMonth() &&
+                  fecha.getDate() === hoy.getDate();
+
+    if (!asistio) {
+      if (esHoy) {
+        const horario = obtenerHorarioDeFecha(fecha, emp);
+        const horaSalidaOficial = horario.horaSalida 
+          ? parseInt(horario.horaSalida.split(":")[0], 10) 
+          : (horario.esNocturno ? 7 : 16);
+        const horaActual = new Date().getHours();
+        
+        if (horaActual < horaSalidaOficial) {
+          continue;
+        }
+      }
+      return false;
+    }
+  }
+
+  if (!tieneTrabajoProgramado) return false;
+
+  // Tampoco debe tener retrasos o faltas explícitas en el historial para este período
+  const tieneIncidenciasNegativas = emp.historialIncidencias?.some(inc => {
+    if (inc.tipo !== "FALTA") return false;
+    let dInc = null;
+    if (inc.fecha) {
+      try {
+        const cleanStr = inc.fecha.split(",")[0].trim();
+        const [d, m, y] = cleanStr.split("/").map(Number);
+        if (!isNaN(d) && !isNaN(m) && !isNaN(y)) {
+          dInc = new Date(y, m - 1, d);
+        }
+      } catch {}
+    }
+    if (!dInc && inc.descripcion) {
+      try {
+        const match = inc.descripcion.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        if (match) {
+          dInc = new Date(parseInt(match[3], 10), parseInt(match[2], 10) - 1, parseInt(match[1], 10));
+        }
+      } catch {}
+    }
+    if (!dInc) return false;
+    dInc.setHours(12, 0, 0, 0);
+
+    const lClean = new Date(inicio);
+    lClean.setHours(0, 0, 0, 0);
+    const rClean = new Date(fin);
+    rClean.setHours(23, 59, 59, 999);
+
+    return dInc >= lClean && dInc <= rClean;
+  });
+
+  if (tieneIncidenciasNegativas) return false;
+
+  const tieneRetrasoPeriodo = asistenciasList.some(a => {
+    if (a.ficha !== emp.ficha) return false;
+    let dAsist = null;
+    if (a.fecha) {
+      const parts = a.fecha.split("/");
+      dAsist = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+    } else if (a.fechaHora) {
+      dAsist = a.fechaHora.toDate ? a.fechaHora.toDate() : new Date(a.fechaHora);
+    }
+    if (!dAsist) return false;
+    dAsist.setHours(12, 0, 0, 0);
+
+    const lClean = new Date(inicio);
+    lClean.setHours(0, 0, 0, 0);
+    const rClean = new Date(fin);
+    rClean.setHours(23, 59, 59, 999);
+
+    const enPeriodo = dAsist >= lClean && dAsist <= rClean;
+    if (!enPeriodo) return false;
+
+    const horaEsperada = emp.horaEntrada || "07:00";
+    return a.estatus === "RETRASO" || (a.entrada && a.entrada > horaEsperada);
+  });
+
+  if (tieneRetrasoPeriodo) return false;
+
+  return true;
+}
+
 export default function PanelRecursosHumanos() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -43,6 +251,7 @@ export default function PanelRecursosHumanos() {
   const [personal, setPersonal] = useState([]);
   const [asistencias, setAsistencias] = useState([]);
   const [correosEnviados, setCorreosEnviados] = useState([]);
+  const [feriados, setFeriados] = useState([]);
 
   const router = useRouter();
   const procesadosRef = React.useRef(new Set());
@@ -97,10 +306,16 @@ export default function PanelRecursosHumanos() {
       setCorreosEnviados(list);
     });
 
+    const unsubFeriados = onSnapshot(collection(db, "feriados"), (snapshot) => {
+      const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      setFeriados(list);
+    });
+
     return () => {
       unsubPersonal();
       unsubAsistencias();
       unsubCorreos();
+      unsubFeriados();
     };
   }, []);
 
@@ -166,53 +381,12 @@ export default function PanelRecursosHumanos() {
           }
         }
 
-        // 2. Perfect Attendance Congrats (Monthly)
-        if (emp.estatus === "Activo (En funciones)") {
-          // Check if they registered check-in at least once this month
-          const asistioEsteMes = asistencias.some(a => {
-            if (a.ficha !== emp.ficha) return false;
-            let mDoc = -1;
-            let yDoc = -1;
-            if (a.fecha) {
-              const parts = a.fecha.split("/");
-              mDoc = parseInt(parts[1], 10);
-              yDoc = parseInt(parts[2], 10);
-            } else if (a.fechaHora) {
-              const d = a.fechaHora.toDate ? a.fechaHora.toDate() : new Date(a.fechaHora);
-              mDoc = d.getMonth() + 1;
-              yDoc = d.getFullYear();
-            }
-            return mDoc === currentMonthNum && yDoc === currentYear;
-          });
+        // 2. Perfect Attendance Congrats (Monthly) - Only evaluated near/at the end of the month (past the 28th)
+        if (emp.estatus === "Activo (En funciones)" && hoy.getDate() >= 28) {
+          const primerDiaMes = new Date(currentYear, currentMonthNum - 1, 1);
+          const ultimoDiaMes = new Date(currentYear, currentMonthNum, 0);
 
-          // Check if they have zero FALTAs this month
-          const tieneFaltasEsteMes = emp.historialIncidencias?.some(inc => {
-            if (inc.tipo !== "FALTA") return false;
-            return inc.descripcion.includes(`/${currentMonthNum}/${currentYear}`);
-          });
-
-          // Check if they have zero retrasos this month
-          const tieneRetrasosEsteMes = asistencias.some(a => {
-            if (a.ficha !== emp.ficha) return false;
-            let mDoc = -1;
-            let yDoc = -1;
-            if (a.fecha) {
-              const parts = a.fecha.split("/");
-              mDoc = parseInt(parts[1], 10);
-              yDoc = parseInt(parts[2], 10);
-            } else if (a.fechaHora) {
-              const d = a.fechaHora.toDate ? a.fechaHora.toDate() : new Date(a.fechaHora);
-              mDoc = d.getMonth() + 1;
-              yDoc = d.getFullYear();
-            }
-            const enEsteMes = mDoc === currentMonthNum && yDoc === currentYear;
-            if (!enEsteMes) return false;
-
-            const horaEsperada = emp.horaEntrada || "07:00";
-            return a.estatus === "RETRASO" || (a.entrada && a.entrada > horaEsperada);
-          });
-
-          if (asistioEsteMes && !tieneFaltasEsteMes && !tieneRetrasosEsteMes) {
+          if (verificarAsistenciaPerfecta(emp, primerDiaMes, ultimoDiaMes, asistencias, feriados)) {
             const attKey = `att_${emp.id}_${currentPeriod}`;
             if (procesadosRef.current.has(attKey)) continue;
 
@@ -257,7 +431,7 @@ export default function PanelRecursosHumanos() {
     };
 
     procesarAutomatizaciones();
-  }, [personal, asistencias, correosEnviados]);
+  }, [personal, asistencias, correosEnviados, feriados]);
 
   // Statistics Computations
   const hoy = new Date();
@@ -321,82 +495,9 @@ export default function PanelRecursosHumanos() {
   domingoEstaSemana.setDate(lunesEstaSemana.getDate() + 6);
   domingoEstaSemana.setHours(23, 59, 59, 999);
 
-  const asistenciaPerfecta = personal.filter(emp => {
-    if (emp.estatus !== "Activo (En funciones)") return false;
-
-    // 1. Debe haber asistido al menos una vez esta semana
-    const asistioEstaSemana = asistencias.some(a => {
-      if (a.ficha !== emp.ficha) return false;
-      let dAsist = null;
-      if (a.fecha) {
-        const parts = a.fecha.split("/");
-        dAsist = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
-      } else if (a.fechaHora) {
-        dAsist = a.fechaHora.toDate ? a.fechaHora.toDate() : new Date(a.fechaHora);
-      }
-      if (!dAsist) return false;
-      
-      const dClean = new Date(dAsist.getFullYear(), dAsist.getMonth(), dAsist.getDate(), 12, 0, 0);
-      const lClean = new Date(lunesEstaSemana.getFullYear(), lunesEstaSemana.getMonth(), lunesEstaSemana.getDate(), 0, 0, 0);
-      const rClean = new Date(domingoEstaSemana.getFullYear(), domingoEstaSemana.getMonth(), domingoEstaSemana.getDate(), 23, 59, 59);
-      
-      return dClean >= lClean && dClean <= rClean;
-    });
-
-    // 2. No debe tener faltas registradas esta semana
-    const tieneFaltasEstaSemana = emp.historialIncidencias?.some(inc => {
-      if (inc.tipo !== "FALTA") return false;
-      let dInc = null;
-      if (inc.fecha) {
-        try {
-          const cleanStr = inc.fecha.split(",")[0].trim();
-          const [d, m, y] = cleanStr.split("/").map(Number);
-          if (!isNaN(d) && !isNaN(m) && !isNaN(y)) {
-            dInc = new Date(y, m - 1, d, 12, 0, 0);
-          }
-        } catch {}
-      }
-      if (!dInc && inc.descripcion) {
-        try {
-          const match = inc.descripcion.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-          if (match) {
-            dInc = new Date(parseInt(match[3], 10), parseInt(match[2], 10) - 1, parseInt(match[1], 10), 12, 0, 0);
-          }
-        } catch {}
-      }
-      if (!dInc) return false;
-      
-      const lClean = new Date(lunesEstaSemana.getFullYear(), lunesEstaSemana.getMonth(), lunesEstaSemana.getDate(), 0, 0, 0);
-      const rClean = new Date(domingoEstaSemana.getFullYear(), domingoEstaSemana.getMonth(), domingoEstaSemana.getDate(), 23, 59, 59);
-      
-      return dInc >= lClean && dInc <= rClean;
-    });
-
-    // 3. No debe tener retrasos esta semana
-    const tieneRetrasosEstaSemana = asistencias.some(a => {
-      if (a.ficha !== emp.ficha) return false;
-      let dAsist = null;
-      if (a.fecha) {
-        const parts = a.fecha.split("/");
-        dAsist = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
-      } else if (a.fechaHora) {
-        dAsist = a.fechaHora.toDate ? a.fechaHora.toDate() : new Date(a.fechaHora);
-      }
-      if (!dAsist) return false;
-      
-      const dClean = new Date(dAsist.getFullYear(), dAsist.getMonth(), dAsist.getDate(), 12, 0, 0);
-      const lClean = new Date(lunesEstaSemana.getFullYear(), lunesEstaSemana.getMonth(), lunesEstaSemana.getDate(), 0, 0, 0);
-      const rClean = new Date(domingoEstaSemana.getFullYear(), domingoEstaSemana.getMonth(), domingoEstaSemana.getDate(), 23, 59, 59);
-      
-      const enEstaSemana = dClean >= lClean && dClean <= rClean;
-      if (!enEstaSemana) return false;
-
-      const horaEsperada = emp.horaEntrada || "07:00";
-      return a.estatus === "RETRASO" || (a.entrada && a.entrada > horaEsperada);
-    });
-
-    return asistioEstaSemana && !tieneFaltasEstaSemana && !tieneRetrasosEstaSemana;
-  }).slice(0, 5);
+  const asistenciaPerfecta = personal.filter(emp => 
+    verificarAsistenciaPerfecta(emp, lunesEstaSemana, domingoEstaSemana, asistencias, feriados)
+  ).slice(0, 5);
 
 
   // Helper to calculate overtime for a single assistance record (matching record-asistencia logic)
