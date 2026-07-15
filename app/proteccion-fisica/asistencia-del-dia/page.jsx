@@ -64,7 +64,7 @@ export default function AsistenciaContratas() {
       const empresasSet = new Set(lista.map(a => a.nombreContrata || "Sin Empresa"));
       setEmpresasDisponibles(Array.from(empresasSet).sort());
 
-      const adentro = lista.filter(a => a.entrada && !a.salida).length;
+      const adentro = lista.filter(a => a.entrada && !a.salida && !(a.salidaAlmuerzo && !a.entradaAlmuerzo) && a.estatus !== "ABANDONO DE TRABAJO").length;
       setResumen(prev => ({ ...prev, presentes: adentro }));
     }, (error) => {
       console.error("Error al cargar listado de asistencias de contratistas:", error);
@@ -113,16 +113,28 @@ export default function AsistenciaContratas() {
     }
 
     // Table
-    const filas = jsonFiltrada.map((r, i) => [
-      i + 1,
-      r.cedula || "--",
-      r.nombreCompleto || "--",
-      r.nombreContrata || "--",
-      r.area || "--",
-      r.entrada || "--:--",
-      r.salida || "--:--",
-      r.entrada && !r.salida ? "EN PLANTA" : r.salida ? "RETIRADO" : "--"
-    ]);
+    const filas = jsonFiltrada.map((r, i) => {
+      let estadoTexto = "--";
+      if (r.salida) {
+        estadoTexto = "RETIRADO";
+      } else if (r.estatus === "ABANDONO DE TRABAJO") {
+        estadoTexto = "ABANDONO";
+      } else if (r.salidaAlmuerzo && !r.entradaAlmuerzo) {
+        estadoTexto = "ALMUERZO";
+      } else if (r.entrada) {
+        estadoTexto = "EN PLANTA";
+      }
+      return [
+        i + 1,
+        r.cedula || "--",
+        r.nombreCompleto || "--",
+        r.nombreContrata || "--",
+        r.area || "--",
+        r.entrada || "--:--",
+        r.salida || "--:--",
+        estadoTexto
+      ];
+    });
 
     autoTable(doc, {
       startY: 45,
@@ -367,8 +379,22 @@ export default function AsistenciaContratas() {
                         )}
                       </td>
                       <td className="py-4 px-3 text-center">
-                        <span className={`px-2.5 py-0.5 rounded-lg text-xxs font-black tracking-wider uppercase inline-block border ${!reg.salida ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
-                          ● {!reg.salida ? "EN PLANTA" : "RETIRADO"}
+                        <span className={`px-2.5 py-0.5 rounded-lg text-xxs font-black tracking-wider uppercase inline-block border ${
+                          reg.salida 
+                            ? 'bg-slate-100 text-slate-500 border-slate-200' 
+                            : (reg.estatus === "ABANDONO DE TRABAJO"
+                              ? 'bg-red-50 text-red-650 border-red-300 animate-pulse'
+                              : (reg.salidaAlmuerzo && !reg.entradaAlmuerzo
+                                ? 'bg-cyan-50 text-cyan-650 border-cyan-200'
+                                : 'bg-emerald-50 text-emerald-600 border-emerald-200'))
+                        }`}>
+                          ● {
+                            reg.salida 
+                              ? "RETIRADO" 
+                              : (reg.estatus === "ABANDONO DE TRABAJO" 
+                                ? "ABANDONO" 
+                                : (reg.salidaAlmuerzo && !reg.entradaAlmuerzo ? "ALMUERZO" : "EN PLANTA"))
+                          }
                         </span>
                       </td>
                     </tr>

@@ -194,7 +194,7 @@ export default function AsistenciaDiariaRRHH() {
 
   const resumen = {
     total: listaCompleta.length,
-    presentes: listaCompleta.filter(p => p.asistioHoy && !p.salida).length,
+    presentes: listaCompleta.filter(p => p.asistioHoy && !p.salida && !(p.salidaAlmuerzo && !p.entradaAlmuerzo) && p.estatusAsistenciaHoy !== "ABANDONO DE TRABAJO").length,
     inasistencias: listaCompleta.filter(p => {
       if (p.asistioHoy) return false;
       if (esFeriadoExento(p)) return false;
@@ -206,13 +206,13 @@ export default function AsistenciaDiariaRRHH() {
 
   const listaFiltradaParaTabla = () => {
     let data = [...listaCompleta];
-    if (filtroEstadoClic === "PRESENTES") return data.filter(p => p.asistioHoy && !p.salida);
+    if (filtroEstadoClic === "PRESENTES") return data.filter(p => p.asistioHoy && !p.salida && !(p.salidaAlmuerzo && !p.entradaAlmuerzo) && p.estatusAsistenciaHoy !== "ABANDONO DE TRABAJO");
     if (filtroEstadoClic === "INASISTENCIAS") return data.filter(p => !p.asistioHoy && !esFeriadoExento(p) && (p.estatus === "Inasistente" || p.estatus?.includes("Activo") || !p.estatus));
     if (filtroEstadoClic === "VACACIONES") return data.filter(p => p.estatus === "Vacaciones" || (p.asistioHoy && p.estatusAsistenciaHoy === "BENEFICIO" && p.estatus === "Vacaciones"));
     if (filtroEstadoClic === "REPOSO") return data.filter(p => p.estatus === "Reposo Médico" || (p.asistioHoy && p.estatusAsistenciaHoy === "BENEFICIO" && p.estatus === "Reposo Médico"));
     return data.sort((a, b) => {
-      const aEnPlanta = a.asistioHoy && !a.salida;
-      const bEnPlanta = b.asistioHoy && !b.salida;
+      const aEnPlanta = a.asistioHoy && !a.salida && !(a.salidaAlmuerzo && !a.entradaAlmuerzo) && a.estatusAsistenciaHoy !== "ABANDONO DE TRABAJO";
+      const bEnPlanta = b.asistioHoy && !b.salida && !(b.salidaAlmuerzo && !b.entradaAlmuerzo) && b.estatusAsistenciaHoy !== "ABANDONO DE TRABAJO";
       return aEnPlanta === bEnPlanta ? 0 : aEnPlanta ? -1 : 1;
     });
   };
