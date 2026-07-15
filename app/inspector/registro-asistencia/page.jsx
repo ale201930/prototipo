@@ -95,11 +95,11 @@ export default function RegistroAsistencia() {
       minFin += 1440;
       if (minActual < 720) {
         const minActualAjustado = minActual + 1440;
-        return minActualAjustado >= (minInicio - 30) && minActualAjustado <= (minFin + 60);
+        return minActualAjustado >= (minInicio - 30) && minActualAjustado <= minFin;
       }
     }
 
-    return minActual >= (minInicio - 30) && minActual <= (minFin + 60);
+    return minActual >= (minInicio - 30) && minActual <= minFin;
   };
 
   const obtenerCountdownAlmuerzo = (salidaAlmuerzoStr, finAlmuerzoStr) => {
