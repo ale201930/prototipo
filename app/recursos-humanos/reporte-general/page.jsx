@@ -203,25 +203,32 @@ export default function ReportesGenerales() {
     }
 
     const filas = resultados.map(r => {
+      const observaciones = [];
       const estatusFinal = obtenerEstatusFinal(r);
-      let estatusTexto = estatusFinal;
-      if (estatusFinal === "SALIDA ANTICIPADA" && r.observacionAcceso) {
-        estatusTexto = `SALIDA ANTICIPADA: ${r.observacionAcceso.toUpperCase()}`;
+      if (estatusFinal === "ABANDONO DE TRABAJO") {
+        observaciones.push("ABANDONO DE TRABAJO: NO RETORNÓ DE ALMUERZO");
+      } else if (r.tipoSalida === "ANTICIPADA") {
+        observaciones.push(`SALIDA ANTICIPADA: ${r.observacionAcceso?.toUpperCase() || "SIN MOTIVO"}`);
       }
+      if (r.minutosAlmuerzoTarde > 0) {
+        observaciones.push(`DEMORA RETORNO ALMUERZO: +${r.minutosAlmuerzoTarde}MIN`);
+      }
+      
       return [
         r.ficha, 
         r.nombreCompleto?.toUpperCase(), 
         `${r.area?.toUpperCase() || "N/A"} - ${r.cargo?.toUpperCase() || ""}`, 
         formatAMPM(r.entrada),
         formatAMPM(r.salida),
-        estatusTexto,
-        r.tipoPersonal
+        r.estatus || "PUNTUAL",
+        r.tipoPersonal,
+        observaciones.join(" | ") || "--"
       ];
     });
 
     doc.autoTable({
       startY: 45,
-      head: [['FICHA', 'COLABORADOR', 'ÁREA / CARGO', 'ENTRADA', 'SALIDA', 'ESTATUS', 'TIPO']],
+      head: [['FICHA', 'COLABORADOR', 'ÁREA / CARGO', 'ENTRADA', 'SALIDA', 'ESTATUS', 'TIPO', 'OBSERVACIONES']],
       body: filas,
       headStyles: { fillColor: [6, 182, 212] },
       styles: { fontSize: 8 }
@@ -419,12 +426,13 @@ export default function ReportesGenerales() {
                   <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">SALIDA</th>
                   <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">ESTATUS</th>
                   <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">TIPO</th>
+                  <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-left font-mono">OBSERVACIONES</th>
                 </tr>
               </thead>
               <tbody>
                 {resultados.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="py-10 text-center text-slate-400 font-bold italic text-sm font-mono">
+                    <td colSpan="8" className="py-10 text-center text-slate-400 font-bold italic text-sm font-mono">
                       {loading ? "Buscando registros..." : "Sin datos — seleccione criterios y genere el reporte"}
                     </td>
                   </tr>
@@ -443,35 +451,11 @@ export default function ReportesGenerales() {
                         
                         <td className="py-4 px-3 text-left">
                           <strong className="text-sm font-extrabold text-indigo-950 uppercase block">{r.nombreCompleto}</strong>
-                          {r.tipoSalida === "ANTICIPADA" && r.observacionAcceso && (
-                            <div className="mt-1 flex flex-wrap gap-1.5 items-center">
-                              <span className="px-1.5 py-0.5 bg-amber-50 border border-amber-200 text-amber-700 rounded text-[9px] font-black uppercase tracking-wider font-mono animate-pulse">
-                                🚪 Salida Anticipada: {r.observacionAcceso}
-                              </span>
-                            </div>
-                          )}
-                          {obtenerEstatusFinal(r) === "ABANDONO DE TRABAJO" && (
-                            <div className="mt-1 flex flex-wrap gap-1.5 items-center">
-                              <span className="px-1.5 py-0.5 bg-red-50 border border-red-200 text-red-750 rounded text-[9px] font-black uppercase tracking-wider font-mono animate-pulse">
-                                🚨 Abandono de Trabajo: No retornó de almuerzo
-                              </span>
-                            </div>
-                          )}
                           {r.salidaAlmuerzo && (
                             <div className="mt-1 flex flex-wrap gap-1.5 items-center">
                               <span className="px-1.5 py-0.5 bg-slate-100 border border-slate-200 text-slate-500 rounded text-[9px] font-bold uppercase tracking-wider font-mono">
                                 🍱 Almuerzo: {r.salidaAlmuerzo} a {r.entradaAlmuerzo || "--:--"}
                               </span>
-                              {r.minutosAlmuerzoTarde > 0 && (
-                                <span className="px-1.5 py-0.5 bg-red-50 border border-red-200 text-red-650 rounded text-[9px] font-black uppercase tracking-wider font-mono animate-pulse">
-                                  ⚠️ Demora: +{r.minutosAlmuerzoTarde}m
-                                </span>
-                              )}
-                              {r.salidaAlmuerzo && !r.entradaAlmuerzo && !r.salida && (
-                                <span className="px-1.5 py-0.5 bg-cyan-50 border border-cyan-200 text-cyan-600 rounded text-[9px] font-black uppercase tracking-wider font-mono">
-                                  ⏳ Almorzando
-                                </span>
-                              )}
                             </div>
                           )}
                         </td>
@@ -490,30 +474,56 @@ export default function ReportesGenerales() {
                         </td>
                         
                         <td className="py-4 px-3 text-center">
-                          {(() => {
-                            const estatusFinal = obtenerEstatusFinal(r);
-                            return (
-                              <span className={`px-2.5 py-0.5 rounded-lg text-xxs font-black tracking-wider uppercase inline-block border ${
-                                estatusFinal === "ABANDONO DE TRABAJO"
-                                  ? "bg-red-100 text-red-750 border-red-300 animate-pulse"
-                                  : estatusFinal === "SALIDA ANTICIPADA"
-                                  ? "bg-amber-100 text-amber-800 border-amber-300"
-                                  : estatusFinal === "Retraso" || estatusFinal === "RETRASO"
-                                  ? "bg-orange-50 text-orange-605 border-orange-200"
-                                  : estatusFinal === "BENEFICIO"
-                                  ? "bg-cyan-50 text-cyan-600 border-cyan-200"
-                                  : "bg-emerald-50 text-emerald-600 border-emerald-200"
-                              }`}>
-                                {estatusFinal}
-                              </span>
-                            );
-                          })()}
+                          <span className={`px-2.5 py-0.5 rounded-lg text-xxs font-black tracking-wider uppercase inline-block border ${
+                            r.estatus === "Retraso" || r.estatus === "RETRASO"
+                              ? "bg-orange-50 text-orange-605 border-orange-200"
+                              : r.estatus === "BENEFICIO"
+                              ? "bg-cyan-50 text-cyan-600 border-cyan-200"
+                              : "bg-emerald-50 text-emerald-600 border-emerald-200"
+                          }`}>
+                            {r.estatus || "PUNTUAL"}
+                          </span>
                         </td>
 
                         <td className="py-4 px-3 text-center">
                           <span className="px-2 py-0.5 bg-slate-50 border border-slate-200 text-slate-500 rounded-lg text-[9px] font-black tracking-widest uppercase font-mono">
                             {r.tipoPersonal}
                           </span>
+                        </td>
+
+                        <td className="py-4 px-3 text-left max-w-[220px]">
+                          {(() => {
+                            const estatusFinal = obtenerEstatusFinal(r);
+                            const badges = [];
+                            
+                            if (estatusFinal === "ABANDONO DE TRABAJO") {
+                              badges.push(
+                                <span key="abandono" className="px-1.5 py-0.5 bg-red-50 border border-red-200 text-red-650 rounded text-[9px] font-black uppercase tracking-wider font-mono animate-pulse block mb-1 text-center w-full">
+                                  🚨 Abandono: No retornó de almuerzo
+                                </span>
+                              );
+                            } else if (r.tipoSalida === "ANTICIPADA") {
+                              badges.push(
+                                <span key="anticipada" className="px-1.5 py-0.5 bg-amber-50 border border-amber-250 text-amber-700 rounded text-[9px] font-black uppercase tracking-wider font-mono block mb-1 w-full text-center">
+                                  🚪 Anticipada: {r.observacionAcceso || "Sin motivo"}
+                                </span>
+                              );
+                            }
+                            
+                            if (r.minutosAlmuerzoTarde > 0) {
+                              badges.push(
+                                <span key="retraso-almuerzo" className="px-1.5 py-0.5 bg-red-50 border border-red-250 text-red-650 rounded text-[9px] font-black uppercase tracking-wider font-mono block text-center w-full">
+                                  ⚠️ Retorno Almuerzo: +{r.minutosAlmuerzoTarde}m
+                                </span>
+                              );
+                            }
+                            
+                            return badges.length > 0 ? (
+                              <div className="flex flex-col gap-1 w-full">{badges}</div>
+                            ) : (
+                              <span className="text-slate-400 font-mono text-xs">--</span>
+                            );
+                          })()}
                         </td>
                       </tr>
                     ));
