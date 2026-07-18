@@ -41,7 +41,8 @@ export default function Login() {
     if (params.get("error") === "unauthorized") {
       setError("⚠️ Debe iniciar sesión para acceder a este módulo.");
     }
-    if (params.get("presentation") === "true" || params.get("mode") === "presentation") {
+    const fromPresentation = typeof window !== "undefined" && sessionStorage.getItem("fromPresentation") === "true";
+    if (params.get("presentation") === "true" || params.get("mode") === "presentation" || fromPresentation) {
       setEsPresentacion(true);
     }
   }, []);
