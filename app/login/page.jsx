@@ -6,6 +6,7 @@ import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/aut
 import { doc, getDoc, collection, query, where, getDocs, updateDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
+import Link from "next/link";
 
 export default function Login() {
   const [usuario, setUsuario] = useState("");
@@ -19,6 +20,7 @@ export default function Login() {
   const [loadingRecuperar, setLoadingRecuperar] = useState(false);
   const [mensajeRecuperar, setMensajeRecuperar] = useState("");
   const [errorRecuperar, setErrorRecuperar] = useState("");
+  const [esPresentacion, setEsPresentacion] = useState(false);
 
   const [pasoRecuperar, setPasoRecuperar] = useState(1); // 1: buscar usuario, 2: elegir opción, 3: ingresar nueva clave
   const [usuarioCargado, setUsuarioCargado] = useState(null);
@@ -38,6 +40,9 @@ export default function Login() {
     const params = new URLSearchParams(window.location.search);
     if (params.get("error") === "unauthorized") {
       setError("⚠️ Debe iniciar sesión para acceder a este módulo.");
+    }
+    if (params.get("presentation") === "true" || params.get("mode") === "presentation") {
+      setEsPresentacion(true);
     }
   }, []);
 
@@ -328,6 +333,18 @@ export default function Login() {
           {/* Card de login */}
           <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-10"
             style={{ boxShadow: '0 20px 60px rgba(15,23,42,0.1), 0 1px 3px rgba(15,23,42,0.05)' }}>
+
+            {esPresentacion && (
+              <div className="fixed top-6 right-6 z-50">
+                <Link
+                  href="/presentacion?slide=4"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900/80 border border-slate-700 hover:border-cyan-500/50 hover:bg-slate-900/90 hover:text-cyan-400 text-cyan-400 hover:text-white text-xs uppercase font-extrabold tracking-wider rounded-xl transition-all cursor-pointer shadow-lg backdrop-blur-sm"
+                >
+                  <i className="fas fa-arrow-left" />
+                  Volver a la Presentación
+                </Link>
+              </div>
+            )}
 
             <div className="mb-8">
               <h2 className="text-2xl font-black text-center text-white tracking-tight">Iniciar Sesión</h2>

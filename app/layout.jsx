@@ -1,6 +1,7 @@
 import "./globals.css";
 import GlobalToast from "./lib/GlobalToast";
 import ThemeToggle from "./lib/ThemeToggle";
+import PresentationReturn from "./lib/PresentationReturn";
 import Script from "next/script";
 
 export const metadata = {
@@ -65,6 +66,7 @@ export default function RootLayout({ children }) {
         </div>
         <GlobalToast />
         <ThemeToggle />
+        <PresentationReturn />
       </body>
     </html>
   );
