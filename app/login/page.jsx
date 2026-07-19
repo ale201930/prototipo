@@ -198,7 +198,7 @@ export default function Login() {
     setLoadingRecuperar(true);
     try {
       await sendPasswordResetEmail(auth, usuarioCargado.correo);
-      setMensajeRecuperar(`✅ [Simulación de Correo] Se envió con éxito el enlace de restablecimiento a su correo: ${usuarioCargado.correo}`);
+      setMensajeRecuperar(`✅ Se envió con éxito el enlace de restablecimiento a su correo: ${usuarioCargado.correo}`);
     } catch (err) {
       setErrorRecuperar("❌ Error: " + err.message);
     } finally {
