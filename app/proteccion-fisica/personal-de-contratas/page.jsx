@@ -313,13 +313,6 @@ export default function PersonalContratas() {
                               <i className="fas fa-edit"></i> Editar
                             </button>
 
-                            <button 
-                              className="bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-500 hover:text-red-655 p-2 rounded-xl text-xxs font-black uppercase tracking-wider transition-all duration-150 cursor-pointer w-8 h-8 flex items-center justify-center shadow-sm"
-                              onClick={() => handleEliminar(user.id, user.nombres)}
-                            >
-                              <i className="fas fa-trash-alt text-red-500"></i>
-                            </button>
-
                           </div>
                         </td>
 
