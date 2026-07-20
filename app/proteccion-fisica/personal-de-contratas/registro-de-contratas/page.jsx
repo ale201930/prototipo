@@ -39,7 +39,13 @@ function RegistroFormContent() {
           const docRef = doc(db, "contratistas", editId);
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
-            setFormData(docSnap.data());
+            const data = docSnap.data();
+            const cedulaClean = (data.cedula || "").replace(/\D/g, "");
+            const idCalculado = cedulaClean.length >= 5 ? cedulaClean.slice(-5) : (data.idAcceso || "");
+            setFormData({
+              ...data,
+              idAcceso: idCalculado
+            });
           }
         } catch (error) {
           console.error("Error al cargar:", error);
@@ -51,12 +57,12 @@ function RegistroFormContent() {
 
   const handleCedulaChange = (e) => {
     const val = e.target.value.replace(/\D/g, "").slice(0, 8);
-    const ultimosCinco = val.slice(-5);
-    setFormData({
-      ...formData,
+    const ultimosCinco = val.length >= 5 ? val.slice(-5) : val;
+    setFormData((prev) => ({
+      ...prev,
       cedula: val,
-      idAcceso: editId ? formData.idAcceso : ultimosCinco
-    });
+      idAcceso: ultimosCinco
+    }));
   };
 
   const handleSubmit = async (e) => {
@@ -184,14 +190,13 @@ function RegistroFormContent() {
                   placeholder="Ej: 25123456"
                   value={formData.cedula}
                   onChange={handleCedulaChange}
-                  disabled={!!editId}
-                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent focus:shadow-neon-cyan/40 transition-all duration-200 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent focus:shadow-neon-cyan/40 transition-all duration-200 text-sm font-semibold"
                 />
               </div>
 
               {/* ID Acceso */}
               <div className="flex flex-col gap-2">
-                <label className="text-xxs font-bold uppercase tracking-wider text-cyan-600 font-mono">ID_ACCESO (5 DÍGITOS)</label>
+                <label className="text-xxs font-bold uppercase tracking-wider text-cyan-600 font-mono">ID-ACCESO (5 DÍGITOS)</label>
                 <input
                   type="text"
                   required

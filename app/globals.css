@@ -1247,69 +1247,129 @@ button:has(.fa-print) i {
   border-color: var(--cyan) !important;
 }
 
-/* Data table cells in dark mode */
-.theme-dark .data-table thead th {
-  background: var(--navy-soft) !important;
-  color: var(--text-muted) !important;
-  border-bottom-color: var(--border) !important;
+/* ==========================================================================
+   ── SECTION 12: GLOBAL DARK MODE HIGH-CONTRAST OVERRIDES ─────────────────
+   ========================================================================== */
+
+/* Dark Mode Support for .dark, html.dark, and .theme-dark */
+.dark, html.dark, .theme-dark {
+  color-scheme: dark;
 }
 
-.theme-dark .data-table tbody tr {
-  border-bottom-color: var(--border) !important;
+.dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6,
+html.dark h1, html.dark h2, html.dark h3, html.dark h4, html.dark h5, html.dark h6,
+.theme-dark h1, .theme-dark h2, .theme-dark h3, .theme-dark h4, .theme-dark h5, .theme-dark h6 {
+  color: #ffffff !important;
 }
 
-.theme-dark .data-table tbody td {
-  color: var(--text-base) !important;
-}
-
-/* Cards in dark mode — ensure bg-card variable is applied */
-.theme-dark .card {
-  background: var(--bg-card) !important;
-  border-color: var(--border) !important;
-}
-
-/* Metric cards in dark mode */
-.theme-dark .metric-card {
-  background: var(--bg-card) !important;
-  border-color: var(--border) !important;
-}
-
-/* Generic bg-slate-50 / bg-slate-100 overrides for dark mode */
-.theme-dark .bg-slate-50,
-.theme-dark .bg-slate-100 {
-  background-color: var(--navy-soft) !important;
-}
-
-/* Text overrides for commonly hard-coded dark text in dark mode */
-.theme-dark .text-slate-900 {
-  color: #f8fafc !important;
-}
-
+/* Force dark text classes to pure white / light slate in Dark Mode */
+.dark .text-slate-900,
+.dark .text-indigo-950,
+.dark .text-indigo-900,
+.dark .text-slate-800,
+html.dark .text-slate-900,
+html.dark .text-indigo-950,
+html.dark .text-indigo-900,
+html.dark .text-slate-800,
+.theme-dark .text-slate-900,
+.theme-dark .text-indigo-950,
+.theme-dark .text-indigo-900,
 .theme-dark .text-slate-800 {
-  color: #e2e8f0 !important;
+  color: #ffffff !important;
 }
 
-.theme-dark .text-slate-700 {
+.dark .text-slate-700,
+.dark .text-slate-600,
+html.dark .text-slate-700,
+html.dark .text-slate-600,
+.theme-dark .text-slate-700,
+.theme-dark .text-slate-600 {
+  color: #f1f5f9 !important;
+}
+
+.dark .text-slate-500,
+.dark .text-slate-400,
+html.dark .text-slate-500,
+html.dark .text-slate-400,
+.theme-dark .text-slate-500,
+.theme-dark .text-slate-400 {
   color: #cbd5e1 !important;
 }
 
-.theme-dark .text-slate-600 {
+/* Container & Card Overrides in Dark Mode */
+.dark .bg-white,
+.dark .bg-white\/80,
+.dark .bg-white\/85,
+.dark .bg-white\/60,
+html.dark .bg-white,
+html.dark .bg-white\/80,
+html.dark .bg-white\/85,
+html.dark .bg-white\/60,
+.theme-dark .bg-white,
+.theme-dark .bg-white\/80,
+.theme-dark .bg-white\/85,
+.theme-dark .bg-white\/60 {
+  background-color: rgba(15, 23, 42, 0.92) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.dark .bg-slate-50,
+.dark .bg-slate-100,
+html.dark .bg-slate-50,
+html.dark .bg-slate-100,
+.theme-dark .bg-slate-50,
+.theme-dark .bg-slate-100 {
+  background-color: rgba(30, 41, 59, 0.8) !important;
+}
+
+/* Inputs & Form Fields in Dark Mode */
+.dark input,
+.dark select,
+.dark textarea,
+html.dark input,
+html.dark select,
+html.dark textarea,
+.theme-dark input,
+.theme-dark select,
+.theme-dark textarea {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+  border-color: #475569 !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder,
+html.dark input::placeholder,
+html.dark textarea::placeholder,
+.theme-dark input::placeholder,
+.theme-dark textarea::placeholder {
   color: #94a3b8 !important;
 }
 
-/* Border overrides */
-.theme-dark .border-slate-100,
-.theme-dark .border-slate-200,
-.theme-dark .border-slate-300 {
-  border-color: rgba(96, 165, 250, 0.1) !important;
+/* Tables in Dark Mode */
+.dark table thead th,
+html.dark table thead th,
+.theme-dark table thead th {
+  color: #cbd5e1 !important;
+  border-bottom-color: rgba(255, 255, 255, 0.15) !important;
 }
 
-/* Background section containers */
-.theme-dark .bg-white {
-  background-color: var(--bg-card) !important;
+.dark table tbody td strong,
+html.dark table tbody td strong,
+.theme-dark table tbody td strong {
+  color: #ffffff !important;
+}
+
+.dark table tbody td,
+html.dark table tbody td,
+.theme-dark table tbody td {
+  color: #e2e8f0 !important;
 }
 
 /* Scrollbar thumbs adapt to dark mode */
+.dark ::-webkit-scrollbar-thumb,
+html.dark ::-webkit-scrollbar-thumb,
 .theme-dark ::-webkit-scrollbar-thumb {
   background: linear-gradient(to bottom, #334155, #1e293b);
 }

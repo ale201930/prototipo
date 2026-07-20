@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 
 export default function ThemeToggle() {
+  const pathname = usePathname();
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
@@ -20,6 +22,11 @@ export default function ThemeToggle() {
       document.body.classList.remove("theme-dark", "dark");
     }
   }, []);
+
+  // No mostrar el botón flotante de tema en la pantalla de login
+  if (pathname === "/login") {
+    return null;
+  }
 
   const handleToggle = () => {
     const nextDark = !isDark;

@@ -352,8 +352,8 @@ export default function RegistroAsistencia() {
     const valor = identificador.trim();
     if (!valor || cargando) return;
 
-    if (valor.length < 4 || valor.length > 5) {
-      alert("⚠️ Debe ingresar un mínimo de 4 y un máximo de 5 dígitos.");
+    if (valor.length < 4 || valor.length > 8) {
+      alert("⚠️ Debe ingresar la Ficha / ID (4 a 5 dígitos) o la Cédula (hasta 8 dígitos).");
       return;
     }
 
@@ -388,7 +388,25 @@ export default function RegistroAsistencia() {
         if (!snapC.empty) {
           trabajador = { id: snapC.docs[0].id, ...snapC.docs[0].data() };
           procedencia = "CONTRATISTA";
+        } else {
+          // Fallback: buscar contratista si coincide con los últimos 5 dígitos de la cédula
+          const snapAllC = await getDocs(contratistasRef);
+          const matchC = snapAllC.docs.find(d => {
+            const data = d.data();
+            const cClean = (data.cedula || "").replace(/\D/g, "");
+            return data.idAcceso === valor || data.cedula === valor || (cClean.length >= 5 && cClean.slice(-5) === valor);
+          });
+          if (matchC) {
+            trabajador = { id: matchC.id, ...matchC.data() };
+            procedencia = "CONTRATISTA";
+          }
         }
+      }
+
+      if (!trabajador) {
+        alert("⚠️ No se encontró ningún colaborador o contratista registrado con ese identificador.");
+        setCargando(false);
+        return;
       }
 
       if (trabajador) {
@@ -399,6 +417,24 @@ export default function RegistroAsistencia() {
         );
 
         if (!existe) {
+          // 1. VERIFICACIÓN DE ESTATUS INACTIVO / SUSPENDIDO / DENEGADO (BLOQUEO ABSOLUTO)
+          const estatusNormalizado = (trabajador.estatus || trabajador.estadoNominal || "").toUpperCase();
+          if (
+            estatusNormalizado.includes("INACTIVO") ||
+            estatusNormalizado.includes("DENEGADO") ||
+            estatusNormalizado.includes("SUSPENDIDO") ||
+            estatusNormalizado.includes("DESINCORPORADO")
+          ) {
+            setTrabajadorEspecial({
+              ...trabajador,
+              motivoBloqueo: "ACCESO DENEGADO",
+              mensajeBloqueo: `⛔ ACCESO DENEGADO: El colaborador/contratista se encuentra INACTIVO (${trabajador.estatus || trabajador.estadoNominal || "Inactivo"}). No tiene permitido el ingreso a la planta.`
+            });
+            setMostrarModalBeneficio(true);
+            setCargando(false);
+            return;
+          }
+
           // Verificar si ya tiene una asistencia finalizada hoy (mismo día calendario)
           const yaFinalizadoHoy = asistenciasHoy.find(a => {
             if ((a.cedula === trabajador.cedula || (trabajador.ficha && a.ficha === trabajador.ficha)) && a.salida) {
@@ -418,6 +454,7 @@ export default function RegistroAsistencia() {
             setCargando(false);
             return;
           }
+
           // Verificar si es un pasante y su pasantía ha culminado (para denegar ingreso)
           if (trabajador.tipoPersonal === "Pasante" && trabajador.fechaEgreso) {
             const hoy = new Date();
@@ -429,42 +466,6 @@ export default function RegistroAsistencia() {
                 ...trabajador,
                 motivoBloqueo: "PASANTÍA CULMINADA",
                 mensajeBloqueo: `Las pasantías de este colaborador culminaron el día ${dia.toString().padStart(2, '0')}/${mes.toString().padStart(2, '0')}/${anio}. No tiene permitido el acceso a las instalaciones.`
-              });
-              setMostrarModalBeneficio(true);
-              setCargando(false);
-              return;
-            }
-          }
-
-          // Verificar si el colaborador está INACTIVO
-          if (trabajador.estatus === "Inactivo") {
-            setTrabajadorEspecial({
-              ...trabajador,
-              motivoBloqueo: "PERSONAL INACTIVO",
-              mensajeBloqueo: "Este colaborador se encuentra INACTIVO en el sistema. Acceso denegado."
-            });
-            setMostrarModalBeneficio(true);
-            setCargando(false);
-            return;
-          }
-
-          // Verificar si es un contratista y está SUSPENDIDO o INACTIVO
-          if (procedencia === "CONTRATISTA") {
-            if (trabajador.estadoNominal === "Suspendido") {
-              setTrabajadorEspecial({
-                ...trabajador,
-                motivoBloqueo: "CONTRATISTA SUSPENDIDO",
-                mensajeBloqueo: "Este contratista se encuentra SUSPENDIDO. Acceso denegado."
-              });
-              setMostrarModalBeneficio(true);
-              setCargando(false);
-              return;
-            }
-            if (trabajador.estadoNominal === "Inactivo") {
-              setTrabajadorEspecial({
-                ...trabajador,
-                motivoBloqueo: "CONTRATISTA INACTIVO",
-                mensajeBloqueo: "Este contratista se encuentra INACTIVO. Acceso denegado."
               });
               setMostrarModalBeneficio(true);
               setCargando(false);
@@ -625,10 +626,14 @@ export default function RegistroAsistencia() {
           const esContratista = (procedencia === "CONTRATISTA" || trabajador.tipoPersonal === "CONTRATISTA");
           const estatusCalculado = esContratista ? "INGRESO" : (minM > (minT + 15) ? "RETRASO" : "PUNTUAL");
 
+          const cedulaClean = (trabajador.cedula || "").replace(/\D/g, "");
+          const fichaFinal = cedulaClean.length >= 5 ? cedulaClean.slice(-5) : (trabajador.idAcceso || trabajador.ficha || "S/F");
+
           await addDoc(collection(db, "asistencias"), {
             nombreCompleto: `${trabajador.nombres} ${trabajador.apellidos}`.toUpperCase(),
-            ficha: trabajador.idAcceso || trabajador.ficha || "S/F",
+            ficha: fichaFinal,
             cedula: trabajador.cedula,
+            nombreContrata: trabajador.nombreContrata || trabajador.empresaContratista || trabajador.empresa || "",
             cargo: trabajador.nombreContrata || trabajador.cargo || (trabajador.tipoPersonal === "Pasante" ? (trabajador.carreraPasante || "PASANTE") : trabajador.tipoPersonal === "Estudiante INCES" ? (trabajador.programaInces || "ESTUDIANTE INCES") : "OPERARIO"),
             area: trabajador.areaTrabajo || trabajador.area || (trabajador.tipoPersonal === "Pasante" ? (trabajador.universidadPasante || "PLANTA") : trabajador.tipoPersonal === "Estudiante INCES" ? ("INCES") : "PLANTA"),
             tipoPersonal: trabajador.tipoPersonal || procedencia,
@@ -899,7 +904,7 @@ export default function RegistroAsistencia() {
                     return (
                       <tr key={reg.id} className="border-b border-slate-100/60 hover:bg-slate-50/50 transition-colors">
                         <td className="py-4 px-3 text-center font-black text-cyan-600 text-sm font-mono">
-                          {reg.ficha}
+                          {reg.cedula && reg.cedula.length >= 5 ? reg.cedula.replace(/\D/g, "").slice(-5) : (reg.ficha || "----")}
                         </td>
                         <td className="py-4 px-3 text-left">
                           <strong className="text-sm font-extrabold text-indigo-950 uppercase block">{reg.nombreCompleto}</strong>

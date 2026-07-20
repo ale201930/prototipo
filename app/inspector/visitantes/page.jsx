@@ -8,15 +8,61 @@ import {
   doc, updateDoc, Timestamp 
 } from "firebase/firestore";
 
-// --- COMPONENTE AUXILIAR: CRONÓMETRO INDUSTRIAL EN TIEMPO REAL (CON SEGUNDOS) ---
-function ContadorEstancia({ fechaIngreso }) {
+// --- COMPONENTE AUXILIAR: PARSEO DE FECHA Y CRONÓMETRO INDUSTRIAL ---
+export function parseFechaIngreso(fechaIngreso, entradaStr) {
+  if (fechaIngreso) {
+    if (typeof fechaIngreso.toDate === "function") {
+      const d = fechaIngreso.toDate();
+      if (!isNaN(d.getTime())) return d;
+    }
+    if (typeof fechaIngreso.seconds === "number") {
+      const d = new Date(fechaIngreso.seconds * 1000);
+      if (!isNaN(d.getTime())) return d;
+    }
+    if (fechaIngreso instanceof Date && !isNaN(fechaIngreso.getTime())) {
+      return fechaIngreso;
+    }
+    if (typeof fechaIngreso === "string" || typeof fechaIngreso === "number") {
+      const d = new Date(fechaIngreso);
+      if (!isNaN(d.getTime())) return d;
+    }
+  }
+
+  if (entradaStr && typeof entradaStr === "string") {
+    try {
+      const hoy = new Date();
+      const match = entradaStr.match(/(\d{1,2}):(\d{2})\s*(a\.\s*m\.|p\.\s*m\.|AM|PM)?/i);
+      if (match) {
+        let horas = parseInt(match[1], 10);
+        const minutos = parseInt(match[2], 10);
+        const ampm = match[3]?.toLowerCase();
+
+        if (ampm) {
+          if ((ampm.includes("p") || ampm.includes("pm")) && horas < 12) horas += 12;
+          if ((ampm.includes("a") || ampm.includes("am")) && horas === 12) horas = 0;
+        }
+        const d = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), horas, minutos, 0);
+        if (!isNaN(d.getTime())) return d;
+      }
+    } catch (e) {
+      console.error("Error parseando hora de entrada:", e);
+    }
+  }
+
+  return null;
+}
+
+export function ContadorEstancia({ fechaIngreso, entradaStr }) {
   const [estancia, setEstancia] = useState("00:00:00");
 
   useEffect(() => {
-    if (!fechaIngreso) return;
-
     const calcular = () => {
-      const entrada = fechaIngreso.toDate ? fechaIngreso.toDate() : new Date(fechaIngreso);
+      const entrada = parseFechaIngreso(fechaIngreso, entradaStr);
+      if (!entrada) {
+        setEstancia("00:00:00");
+        return;
+      }
+
       const ahora = new Date();
       const diferenciaMs = ahora - entrada;
 
@@ -40,13 +86,38 @@ function ContadorEstancia({ fechaIngreso }) {
     calcular();
     const intervalo = setInterval(calcular, 1000);
     return () => clearInterval(intervalo);
-  }, [fechaIngreso]);
+  }, [fechaIngreso, entradaStr]);
 
   return (
-    <span className="inline-flex items-center gap-1 text-cyan-600 font-mono text-xs font-black tracking-widest bg-cyan-50 border border-cyan-200 px-2 py-0.5 rounded-lg animate-pulse-glow shadow-sm shadow-cyan-200/10">
-      <i className="fas fa-stopwatch text-[10px]"></i> {estancia}
+    <span className="inline-flex items-center gap-1.5 text-cyan-400 font-mono text-xs font-black tracking-widest bg-slate-900 border border-cyan-500/30 px-3 py-1 rounded-xl shadow-md shadow-cyan-950/20 select-none">
+      <i className="fas fa-stopwatch text-cyan-400 text-[11px] animate-pulse"></i>
+      <span>{estancia}</span>
     </span>
   );
+}
+
+export function calcularEstanciaMinutos(v) {
+  if (v.minutosEstancia !== undefined && v.minutosEstancia !== null && !isNaN(parseInt(v.minutosEstancia, 10))) {
+    const min = parseInt(v.minutosEstancia, 10);
+    if (min >= 0) return min;
+  }
+
+  const isEnPlanta = v.estado?.toLowerCase() === "en planta" || (!v.salida || v.salida === "--:--");
+  const entrada = parseFechaIngreso(v.fechaIngreso, v.entrada);
+  if (!entrada) return 0;
+
+  if (isEnPlanta) {
+    const ahora = new Date();
+    const diffMs = ahora - entrada;
+    return diffMs > 0 ? Math.floor(diffMs / 60000) : 0;
+  } else if (v.salida && v.salida !== "--:--") {
+    const salidaDate = parseFechaIngreso(null, v.salida);
+    if (salidaDate && salidaDate > entrada) {
+      return Math.floor((salidaDate - entrada) / 60000);
+    }
+  }
+
+  return 0;
 }
 
 export default function RegistroVisitantes() {
@@ -54,10 +125,10 @@ export default function RegistroVisitantes() {
   const [mounted, setMounted] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [visitantes, setVisitantes] = useState([]);
-  const [stats, setStats] = useState({ hoy: 0, enPlanta: 0, promedio: "0 min" });
+  const [stats, setStats] = useState({ hoy: 0, enPlanta: 0, tiempoTotal: "0 min" });
 
   const [formData, setFormData] = useState({
-    cedula: "", nombre: "", empresa: "", autoriza: "", area: "Producción", motivo: ""
+    cedula: "", nombre: "", empresa: "", autoriza: "", area: "", motivo: ""
   });
 
   useEffect(() => { setMounted(true); }, []);
@@ -68,22 +139,41 @@ export default function RegistroVisitantes() {
 
   useEffect(() => {
     if (!mounted) return;
-    const inicioHoy = new Date(); 
-    inicioHoy.setHours(0, 0, 0, 0);
-    const q = query(
-      collection(db, "visitantes"), 
-      where("fechaIngreso", ">=", Timestamp.fromDate(inicioHoy)), 
-      orderBy("fechaIngreso", "desc")
-    );
 
-    const unsub = onSnapshot(q, (snapshot) => {
+    const unsub = onSnapshot(collection(db, "visitantes"), (snapshot) => {
       const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-      setVisitantes(docs);
-      const enPlanta = docs.filter(v => v.estado === "En Planta").length;
-      const finalizados = docs.filter(v => v.estado === "Finalizado" && v.minutosEstancia);
-      const promedio = finalizados.length > 0 ? Math.round(finalizados.reduce((acc, v) => acc + v.minutosEstancia, 0) / finalizados.length) : 0;
-      setStats({ hoy: docs.length, enPlanta, promedio: `${promedio} min` });
+      
+      docs.sort((a, b) => {
+        const dA = parseFechaIngreso(a.fechaIngreso, a.entrada);
+        const dB = parseFechaIngreso(b.fechaIngreso, b.entrada);
+        const msA = dA ? dA.getTime() : 0;
+        const msB = dB ? dB.getTime() : 0;
+        return msB - msA;
+      });
+
+      const inicioHoy = new Date(); 
+      inicioHoy.setHours(0, 0, 0, 0);
+
+      const visitantesRelevantes = docs.filter(v => {
+        const isEnPlanta = v.estado?.toLowerCase() === "en planta" || (!v.salida || v.salida === "--:--");
+        if (isEnPlanta) return true;
+        const fechaObj = parseFechaIngreso(v.fechaIngreso, v.entrada);
+        return fechaObj && fechaObj >= inicioHoy;
+      });
+
+      setVisitantes(visitantesRelevantes);
+
+      const enPlantaCount = docs.filter(v => v.estado?.toLowerCase() === "en planta" || (!v.salida || v.salida === "--:--")).length;
+      
+      // Calcular la estancia total acumulada en minutos para todos los visitantes del día
+      const estancias = visitantesRelevantes.map(v => calcularEstanciaMinutos(v));
+      const totalMin = estancias.reduce((acc, min) => acc + min, 0);
+
+      setStats({ hoy: visitantesRelevantes.length, enPlanta: enPlantaCount, tiempoTotal: `${totalMin} min` });
+    }, (err) => {
+      console.error("Error en tiempo real de visitantes:", err);
     });
+
     return () => unsub();
   }, [mounted]);
 
@@ -104,16 +194,14 @@ export default function RegistroVisitantes() {
         `Visitante registrado: ${formData.nombre} (Cédula: ${formData.cedula}) - Autorizado por: ${formData.autoriza || 'N/E'} - Destino: ${formData.area}`, 
         "Control de Visitantes"
       );
-      setFormData({ cedula: "", nombre: "", empresa: "", autoriza: "", area: "Producción", motivo: "" });
+      setFormData({ cedula: "", nombre: "", empresa: "", autoriza: "", area: "", motivo: "" });
     } catch { alert("Error al guardar en la base de datos"); }
   };
 
-  const handleSalida = async (id, fechaIngreso) => {
+  const handleSalida = async (id, fechaIngreso, entradaStr) => {
     try {
-      if (!fechaIngreso) return alert("Error: No se puede calcular la estancia sin marca de entrada.");
-      
+      const entrada = parseFechaIngreso(fechaIngreso, entradaStr) || new Date();
       const ahora = new Date();
-      const entrada = fechaIngreso.toDate ? fechaIngreso.toDate() : new Date(fechaIngreso);
       
       let minutos = Math.floor((ahora.getTime() - entrada.getTime()) / 60000);
       if (minutos < 0) minutos = 0; 
@@ -293,8 +381,8 @@ export default function RegistroVisitantes() {
             <div className="absolute top-2 left-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
             <div className="absolute top-2 right-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
             <div>
-              <span className="text-xxs font-black text-slate-500 uppercase tracking-widest block mb-1">Tiempo Promedio</span>
-              <p className="text-4xl font-black text-indigo-950">{stats.promedio}</p>
+              <span className="text-xxs font-black text-slate-500 uppercase tracking-widest block mb-1">Tiempo Total Estancia</span>
+              <p className="text-4xl font-black text-indigo-950">{stats.tiempoTotal}</p>
             </div>
             <div className="text-emerald-500/10 text-5xl group-hover:text-emerald-500/25 transition-colors">
               <i className="fas fa-history"></i>
@@ -321,57 +409,59 @@ export default function RegistroVisitantes() {
             <form onSubmit={handleIngreso} className="space-y-4">
               <div className="grid grid-cols-1 gap-4">
                 <div className="flex flex-col gap-2">
-                  <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">CÉDULA_ID</label>
+                  <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300 font-mono">CÉDULA</label>
                   <input 
                     type="text" 
-                    placeholder="Número de cédula" 
+                    inputMode="numeric"
+                    maxLength={8}
+                    placeholder="Número de cédula (máx. 8 dígitos)" 
                     value={formData.cedula} 
-                    onChange={e => setFormData({...formData, cedula: e.target.value})} 
-                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs font-semibold focus:shadow-neon-cyan/40"
+                    onChange={e => setFormData({...formData, cedula: e.target.value.replace(/\D/g, "").slice(0, 8)})} 
+                    className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs font-semibold focus:shadow-neon-cyan/40"
                   />
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">NOMBRE_COMPLETO</label>
+                  <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300 font-mono">NOMBRE_COMPLETO</label>
                   <input 
                     type="text" 
                     placeholder="Nombres del visitante" 
                     value={formData.nombre} 
                     onChange={e => setFormData({...formData, nombre: e.target.value})} 
-                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs font-semibold focus:shadow-neon-cyan/40"
+                    className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs font-semibold focus:shadow-neon-cyan/40"
                   />
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">EMPRESA_ORIGEN</label>
+                  <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300 font-mono">EMPRESA_ORIGEN</label>
                   <input 
                     type="text" 
                     placeholder="Procedencia o particular" 
                     value={formData.empresa} 
                     onChange={e => setFormData({...formData, empresa: e.target.value})} 
-                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs font-semibold"
+                    className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs font-semibold"
                   />
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">QUIEN_AUTORIZA</label>
+                  <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300 font-mono">QUIEN_AUTORIZA</label>
                   <input 
                     type="text" 
                     placeholder="Personal de planta responsable" 
                     value={formData.autoriza} 
                     onChange={e => setFormData({...formData, autoriza: e.target.value})} 
-                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs font-semibold"
+                    className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs font-semibold"
                   />
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">AREA_DESTINO</label>
+                  <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300 font-mono">ÁREA DE DESTINO</label>
                   <input 
                     list="areas-destino-sugeridas"
                     value={formData.area} 
                     onChange={e => setFormData({...formData, area: e.target.value})}
-                    placeholder="Escriba o seleccione destino..."
-                    className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs font-semibold focus:shadow-neon-cyan/40 transition-all duration-200"
+                    placeholder="Seleccione o escriba el área de destino..."
+                    className="w-full px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs font-semibold focus:shadow-neon-cyan/40 transition-all duration-200"
                   />
                   <datalist id="areas-destino-sugeridas">
                     <option value="Mantenimiento" />
@@ -458,56 +548,56 @@ export default function RegistroVisitantes() {
                     <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-2 text-center font-mono">ÁREA</th>
                     <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-2 text-center font-mono">ENTRADA</th>
                     <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-2 text-center font-mono">ESTADO</th>
-                    <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-2 text-center no-print font-mono">GESTIÓN // ESTANCIA</th>
-                    <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-2 text-center only-print font-mono">SALIDA</th>
+                    <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-2 text-center print:hidden font-mono">GESTIÓN // ESTANCIA</th>
+                    <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-2 text-center hidden print:table-cell font-mono">SALIDA</th>
                   </tr>
                 </thead>
                 <tbody>
                   {listaFiltrada.map((v) => {
-                    const isEnPlanta = v.estado === "En Planta";
+                    const isEnPlanta = v.estado?.toLowerCase() === "en planta" || (!v.salida || v.salida === "--:--");
                     return (
-                      <tr key={v.id} className="border-b border-slate-100/60 hover:bg-slate-50/50 transition-colors">
+                      <tr key={v.id} className="border-b border-slate-100/60 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
                         <td className="py-4 px-2 text-left">
-                          <strong className="text-xs font-black text-indigo-950 uppercase block">{v.nombre}</strong>
-                          <span className="text-[10px] font-bold text-slate-500 uppercase mt-0.5 block font-mono">{v.empresa || "Particular"}</span>
+                          <strong className="text-xs font-black text-indigo-950 dark:text-white uppercase block">{v.nombre}</strong>
+                          <span className="text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase mt-0.5 block font-mono">{v.empresa || "Particular"}</span>
                         </td>
-                        <td className="py-4 px-2 text-center font-bold text-slate-600 text-xs font-mono">
+                        <td className="py-4 px-2 text-center font-bold text-slate-600 dark:text-slate-200 text-xs font-mono">
                           {v.cedula}
                         </td>
                         <td className="py-4 px-2 text-center">
-                          <span className="px-2 py-0.5 bg-cyan-50 border border-cyan-200 text-cyan-600 rounded-lg text-xxs font-bold uppercase tracking-wider font-mono">
+                          <span className="px-2 py-0.5 bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-200 dark:border-cyan-800 text-cyan-600 dark:text-cyan-300 rounded-lg text-xxs font-bold uppercase tracking-wider font-mono">
                             {v.area}
                           </span>
                         </td>
-                        <td className="py-4 px-2 text-center font-bold text-slate-700 text-xs font-mono">
+                        <td className="py-4 px-2 text-center font-bold text-slate-700 dark:text-slate-200 text-xs font-mono">
                           {v.entrada}
                         </td>
                         <td className="py-4 px-2 text-center">
-                          <span className={`px-2 py-0.5 rounded text-xxs font-black tracking-wider uppercase inline-block border ${isEnPlanta ? "bg-emerald-50 text-emerald-600 border-emerald-200 animate-pulse-glow" : "bg-slate-100 text-slate-500 border-slate-200"}`}>
+                          <span className={`px-2.5 py-1 rounded-lg text-xxs font-extrabold tracking-wider uppercase inline-block border ${isEnPlanta ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700 shadow-sm" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-700"}`}>
                             {isEnPlanta ? "EN PLANTA" : "RETIRADO"}
                           </span>
                         </td>
                         
                         {/* ACCIONES Y CRONÓMETRO DIGITAL */}
-                        <td className="py-4 px-2 text-center no-print font-mono">
+                        <td className="py-4 px-2 text-center print:hidden font-mono">
                           {isEnPlanta ? (
                             <div className="flex flex-col gap-2 items-center">
-                              <ContadorEstancia fechaIngreso={v.fechaIngreso} />
+                              <ContadorEstancia fechaIngreso={v.fechaIngreso} entradaStr={v.entrada} />
                               <button 
                                 className="px-3 py-1.5 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 active:scale-90 text-white text-[10px] font-black tracking-wider uppercase rounded-lg shadow-md shadow-red-600/20 transition-all cursor-pointer hover:shadow-neon-red"
-                                onClick={() => handleSalida(v.id, v.fechaIngreso)}
+                                onClick={() => handleSalida(v.id, v.fechaIngreso, v.entrada)}
                               >
                                 Marcar Salida
                               </button>
                             </div>
                           ) : (
-                            <span className="text-[10px] font-bold text-slate-500 uppercase">
-                              Salió: {v.salida} <span className="text-slate-400">({v.minutosEstancia || 0} min)</span>
+                            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase">
+                              Salió: {v.salida} <span className="text-slate-400 dark:text-slate-400">({v.minutosEstancia || 0} min)</span>
                             </span>
                           )}
                         </td>
  
-                        <td className="py-4 px-2 text-center font-bold text-slate-700 text-xs only-print font-mono">
+                        <td className="py-4 px-2 text-center font-bold text-slate-700 dark:text-slate-200 text-xs hidden print:table-cell font-mono">
                           {v.salida !== "--:--" ? v.salida : "EN PLANTA"}
                         </td>
                       </tr>

@@ -6,6 +6,7 @@ import Cookies from "js-cookie";
 import { auth, db } from "../lib/firebase";
 import { signOut } from "firebase/auth";
 import { doc, getDoc, collection, query, where, orderBy, onSnapshot, Timestamp } from "firebase/firestore";
+import { ContadorEstancia, parseFechaIngreso } from "./visitantes/page";
 
 function SidebarItem({ icon, label, active, onClick, accent = "#06b6d4" }) {
   return (
@@ -66,25 +67,35 @@ export default function Inspector() {
   }, []);
 
   useEffect(() => {
-    // 1. Escuchar visitantes de HOY
     const inicioHoy = new Date();
     inicioHoy.setHours(0, 0, 0, 0);
 
-    const qVisitas = query(
-      collection(db, "visitantes"),
-      where("fechaIngreso", ">=", Timestamp.fromDate(inicioHoy)),
-      orderBy("fechaIngreso", "desc")
-    );
-
-    const unsubVisitas = onSnapshot(qVisitas, (snapshot) => {
+    // 1. Escuchar visitantes
+    const unsubVisitas = onSnapshot(collection(db, "visitantes"), (snapshot) => {
       const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-      const enPlanta = docs.filter(v => v.estado === "En Planta");
       
+      docs.sort((a, b) => {
+        const dA = parseFechaIngreso(a.fechaIngreso, a.entrada);
+        const dB = parseFechaIngreso(b.fechaIngreso, b.entrada);
+        const msA = dA ? dA.getTime() : 0;
+        const msB = dB ? dB.getTime() : 0;
+        return msB - msA;
+      });
+
+      const enPlanta = docs.filter(v => v.estado?.toLowerCase() === "en planta" || (!v.salida || v.salida === "--:--"));
+      
+      const visitantesRelevantes = docs.filter(v => {
+        const isEnPlanta = v.estado?.toLowerCase() === "en planta" || (!v.salida || v.salida === "--:--");
+        if (isEnPlanta) return true;
+        const fechaObj = parseFechaIngreso(v.fechaIngreso, v.entrada);
+        return fechaObj && fechaObj >= inicioHoy;
+      });
+
       setVisitantesEnPlanta(enPlanta);
-      setVisitantesHoy(docs);
+      setVisitantesHoy(visitantesRelevantes);
       setStats(prev => ({
         ...prev,
-        hoy: docs.length,
+        hoy: visitantesRelevantes.length,
         enPlanta: enPlanta.length
       }));
     }, (error) => {
@@ -329,26 +340,32 @@ export default function Inspector() {
                 
                 <div className="overflow-y-auto max-h-[300px] mt-4 space-y-3 pr-2">
                   {visitantesHoy.length > 0 ? (
-                    visitantesHoy.map(v => (
-                      <div key={v.id} className="p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-xl flex items-center justify-between">
-                        <div>
-                          <strong className="text-xs font-black text-indigo-950 dark:text-white uppercase block">{v.nombre}</strong>
-                          <span className="text-[10px] font-bold text-slate-500 uppercase font-mono">{v.empresa || "Particular"}</span>
+                    visitantesHoy.map(v => {
+                      const isEnPlanta = v.estado?.toLowerCase() === "en planta" || (!v.salida || v.salida === "--:--");
+                      return (
+                        <div key={v.id} className="p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-xl flex items-center justify-between">
+                          <div>
+                            <strong className="text-xs font-black text-indigo-950 dark:text-white uppercase block">{v.nombre}</strong>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase font-mono">{v.empresa || "Particular"}</span>
+                          </div>
+                          <div className="text-right flex flex-col items-end gap-1">
+                            {isEnPlanta ? (
+                              <div className="flex flex-col items-end gap-1">
+                                <span className="inline-block px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 rounded-lg text-xxs font-bold uppercase tracking-wider font-mono animate-pulse-glow">
+                                  EN PLANTA
+                                </span>
+                                <ContadorEstancia fechaIngreso={v.fechaIngreso} entradaStr={v.entrada} />
+                              </div>
+                            ) : (
+                              <span className="inline-block px-2 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-250 dark:border-slate-700 text-slate-500 rounded-lg text-xxs font-bold uppercase tracking-wider font-mono">
+                                SALIÓ: {v.salida}
+                              </span>
+                            )}
+                            <span className="block text-[9px] text-slate-400 font-bold font-mono">ÁREA: {v.area}</span>
+                          </div>
                         </div>
-                        <div className="text-right flex flex-col items-end gap-1">
-                          {v.estado === "En Planta" ? (
-                            <span className="inline-block px-2 py-0.5 bg-cyan-50 dark:bg-cyan-950/20 border border-cyan-200 dark:border-cyan-800 text-cyan-600 dark:text-cyan-400 rounded-lg text-xxs font-bold uppercase tracking-wider font-mono">
-                              EN PLANTA
-                            </span>
-                          ) : (
-                            <span className="inline-block px-2 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-250 dark:border-slate-700 text-slate-500 rounded-lg text-xxs font-bold uppercase tracking-wider font-mono">
-                              SALIÓ: {v.salida}
-                            </span>
-                          )}
-                          <span className="block text-[9px] text-slate-400 font-bold font-mono">ÁREA: {v.area}</span>
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   ) : (
                     <p className="text-xs font-bold text-slate-400 uppercase text-center py-12 font-mono">No hay visitas registradas hoy</p>
                   )}

@@ -353,12 +353,12 @@ export default function AsistenciaContratas() {
                         )}
                       </td>
                       <td className="py-4 px-3 text-center">
-                        <span className="px-2.5 py-1 bg-cyan-50 border border-cyan-200 text-cyan-600 rounded-lg text-xxs font-bold uppercase tracking-wider font-mono">
-                          {reg.nombreContrata}
+                        <span className="px-2.5 py-1 bg-cyan-50 border border-cyan-200 text-cyan-600 dark:bg-cyan-950/40 dark:border-cyan-800 dark:text-cyan-300 rounded-lg text-xxs font-bold uppercase tracking-wider font-mono">
+                          {reg.nombreContrata || reg.empresaContratista || reg.empresa || "NO ESPECIFICADA"}
                         </span>
                       </td>
-                      <td className="py-4 px-3 text-left text-xs font-semibold text-slate-500">
-                        {reg.area || "No especificada"}
+                      <td className="py-4 px-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase">
+                        {reg.area || reg.areaTrabajo || reg.areaAsignada || "NO ESPECIFICADA"}
                       </td>
                       <td className="py-4 px-3 text-center font-bold text-slate-700 text-sm font-mono">
                         {reg.entrada ? (

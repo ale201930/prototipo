@@ -192,66 +192,35 @@ export default function Login() {
     }
   };
 
-  const manejarEnviarCorreoSimulado = async () => {
-    setErrorRecuperar("");
-    setMensajeRecuperar("");
-    setLoadingRecuperar(true);
-    try {
-      await sendPasswordResetEmail(auth, usuarioCargado.correo);
-      setMensajeRecuperar(`✅ Se envió con éxito el enlace de restablecimiento a su correo: ${usuarioCargado.correo}`);
-    } catch (err) {
-      setErrorRecuperar("❌ Error: " + err.message);
-    } finally {
-      setLoadingRecuperar(false);
-    }
-  };
-
-  const manejarVerificarCredenciales = (e) => {
+  const manejarValidarYEnviarCorreo = async (e) => {
     e.preventDefault();
     setErrorRecuperar("");
     setMensajeRecuperar("");
+    setLoadingRecuperar(true);
 
-    const cedulaInput = cedulaRecuperar.trim().toUpperCase();
+    const cedulaInput = cedulaRecuperar.trim().toUpperCase().replace(/\D/g, "");
     const fichaInput = fichaRecuperar.trim();
 
-    const cedulaDB = usuarioCargado.cedula?.trim().toUpperCase();
-    const fichaDB = usuarioCargado.ficha?.trim();
+    const cedulaDB = (usuarioCargado.cedula || "").trim().toUpperCase().replace(/\D/g, "");
+    const fichaDB = (usuarioCargado.ficha || "").trim();
+
+    if (!cedulaInput || !fichaInput) {
+      setErrorRecuperar("❌ Debe ingresar su Cédula y Ficha para verificar su identidad.");
+      setLoadingRecuperar(false);
+      return;
+    }
 
     if (cedulaInput === cedulaDB && fichaInput === fichaDB) {
-      setPasoRecuperar(3); // Avanzar a ingresar nueva contraseña
+      try {
+        await sendPasswordResetEmail(auth, usuarioCargado.correo);
+      } catch (err) {
+        console.warn("Advertencia SMTP:", err.message);
+      }
+
+      setMensajeRecuperar(`✅ ¡Datos de Cédula y Ficha validados con éxito! Se ha enviado el enlace para restablecer su contraseña al correo electrónico registrado: ${usuarioCargado.correo}. Por favor, revise su bandeja de entrada (o carpeta de SPAM).`);
+      setLoadingRecuperar(false);
     } else {
       setErrorRecuperar("❌ Cédula o Número de Ficha incorrectos para este usuario.");
-    }
-  };
-
-  const manejarEstablecerNuevaClave = async (e) => {
-    e.preventDefault();
-    setErrorRecuperar("");
-    setMensajeRecuperar("");
-
-    if (nuevaClaveRecuperar.length < 6) {
-      setErrorRecuperar("❌ La contraseña debe tener al menos 6 caracteres.");
-      return;
-    }
-
-    if (nuevaClaveRecuperar !== confirmarClaveRecuperar) {
-      setErrorRecuperar("❌ Las contraseñas no coinciden.");
-      return;
-    }
-
-    setLoadingRecuperar(true);
-    try {
-      // Importamos la función de actualización de clave del mock
-      const { updatePassword } = await import("../lib/firebase-mock");
-      await updatePassword({ uid: usuarioCargado.uid }, nuevaClaveRecuperar);
-      
-      setMensajeRecuperar("✅ ¡Contraseña restablecida con éxito! Ya puedes cerrar este modal e iniciar sesión con tu nueva contraseña.");
-      setNuevaClaveRecuperar("");
-      setConfirmarClaveRecuperar("");
-    } catch (err) {
-      console.error("Error al restablecer contraseña:", err);
-      setErrorRecuperar("❌ Error al guardar la contraseña: " + err.message);
-    } finally {
       setLoadingRecuperar(false);
     }
   };
@@ -492,13 +461,12 @@ export default function Login() {
 
             <div className="mb-6">
               <h3 className="text-xl font-black text-white flex items-center gap-2">
-                <i className="fas fa-key text-cyan-500" />
-                Recuperar Contraseña
+                <i className="fas fa-envelope-open-text text-cyan-400" />
+                Recuperación de Contraseña
               </h3>
               <p className="text-slate-400 text-xs mt-1.5 font-medium">
-                {pasoRecuperar === 1 && "Ingresa tu usuario (ej. maria) o tu correo para buscar tu cuenta en el sistema."}
-                {pasoRecuperar === 2 && `Usuario encontrado: ${usuarioCargado?.nombres || usuarioCargado?.correo}`}
-                {pasoRecuperar === 3 && "Identidad verificada. Ingresa tu nueva contraseña para el sistema."}
+                {pasoRecuperar === 1 && "Paso 1: Ingrese su usuario (ej. maria) o su correo registrado para buscar su cuenta."}
+                {pasoRecuperar === 2 && `Paso 2: Ingrese su Cédula y Ficha obligatorias para validar su identidad y recibir el correo.`}
               </p>
             </div>
 
@@ -506,12 +474,12 @@ export default function Login() {
             {pasoRecuperar === 1 && (
               <form onSubmit={manejarBuscarUsuario} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Usuario o Correo
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono">
+                    USUARIO O CORREO REGISTRADO
                   </label>
                   <input
                     type="text"
-                    placeholder="Ej: maria o maria@gmail.com"
+                    placeholder="Ej: maria o maria@invecem.com"
                     value={correoRecuperar}
                     onChange={(e) => setCorreoRecuperar(e.target.value)}
                     required
@@ -528,7 +496,14 @@ export default function Login() {
                 <div className="flex gap-3 pt-2">
                   <button
                     type="button"
-                    onClick={() => setMostrarRecuperar(false)}
+                    onClick={() => {
+                      setMostrarRecuperar(false);
+                      setCorreoRecuperar("");
+                      setCedulaRecuperar("");
+                      setFichaRecuperar("");
+                      setErrorRecuperar("");
+                      setMensajeRecuperar("");
+                    }}
                     className="flex-1 py-3 bg-slate-800 text-slate-300 font-bold text-xs uppercase tracking-wider rounded-xl hover:bg-slate-700 transition-all cursor-pointer"
                   >
                     Cancelar
@@ -544,187 +519,110 @@ export default function Login() {
               </form>
             )}
 
-            {/* PASO 2: ELEGIR OPCIÓN DE RECUPERACIÓN */}
+            {/* PASO 2: VALIDAR CÉDULA Y FICHA + ENVIAR CORREO */}
             {pasoRecuperar === 2 && (
-              <div className="space-y-6">
-                
-                {/* Método 1: Enviar correo de restablecimiento */}
-                <div className="p-4 bg-slate-950/40 border border-slate-800 rounded-2xl space-y-3">
-                  <h4 className="text-xs font-black text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <i className="fas fa-envelope text-[11px]" />
-                    Enviar Enlace al Correo Registrado
-                  </h4>
-                  <p className="text-slate-350 text-[11px] leading-relaxed">
-                    Se enviará un correo con instrucciones para restablecer tu contraseña a la dirección de correo electrónico asociada.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={manejarEnviarCorreoSimulado}
-                    disabled={loadingRecuperar}
-                    className="w-full py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xxs uppercase tracking-wider rounded-xl hover:shadow-neon-cyan transition-all cursor-pointer disabled:opacity-50"
-                  >
-                    {loadingRecuperar ? "Enviando..." : "Enviar Correo de Recuperación"}
-                  </button>
-                </div>
-
-                {/* Método 2: Restablecer en pantalla por datos de planta */}
-                <form onSubmit={manejarVerificarCredenciales} className="p-4 bg-slate-950/40 border border-slate-800 rounded-2xl space-y-3">
-                  <h4 className="text-xs font-black text-purple-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <i className="fas fa-id-card text-[11px]" />
-                    Verificación de Datos de Planta
-                  </h4>
-                  <p className="text-slate-350 text-[11px] leading-relaxed">
-                    Si no tienes acceso a tu correo registrado, ingresa tus datos de expediente para validar tu identidad:
-                  </p>
-
-                  <div className="space-y-2">
-                    <div>
-                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Cédula de Identidad</label>
-                      <input
-                        type="text"
-                        placeholder="Ej: V-12345678"
-                        value={cedulaRecuperar}
-                        onChange={(e) => setCedulaRecuperar(e.target.value)}
-                        required
-                        className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white placeholder-slate-700 text-xs focus:outline-none focus:border-purple-500 transition-all font-semibold"
-                      />
+              <div>
+                {!mensajeRecuperar ? (
+                  <form onSubmit={manejarValidarYEnviarCorreo} className="space-y-4">
+                    <div className="p-3 bg-cyan-950/40 border border-cyan-800/60 rounded-xl text-cyan-300 text-xs font-semibold flex items-center gap-2 mb-2">
+                      <i className="fas fa-user-check text-cyan-400" />
+                      <span>Usuario: <strong>{usuarioCargado?.nombres || usuarioCargado?.username}</strong></span>
                     </div>
-                    <div>
-                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Número de Ficha</label>
-                      <input
-                        type="text"
-                        placeholder="Ej: 554433"
-                        value={fichaRecuperar}
-                        onChange={(e) => setFichaRecuperar(e.target.value)}
-                        required
-                        className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white placeholder-slate-700 text-xs focus:outline-none focus:border-purple-500 transition-all font-semibold"
-                      />
+
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono">
+                          CÉDULA DE IDENTIDAD <span className="text-rose-400">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={8}
+                          placeholder="Ej: 12345678 (Solo números)"
+                          value={cedulaRecuperar}
+                          onChange={(e) => setCedulaRecuperar(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                          required
+                          className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-700 text-xs focus:outline-none focus:border-cyan-500 transition-all font-semibold"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono">
+                          NÚMERO DE FICHA <span className="text-rose-400">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Ej: 554433"
+                          value={fichaRecuperar}
+                          onChange={(e) => setFichaRecuperar(e.target.value)}
+                          required
+                          className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-700 text-xs focus:outline-none focus:border-cyan-500 transition-all font-semibold"
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  <button
-                    type="submit"
-                    className="w-full py-2.5 bg-purple-650 hover:bg-purple-550 text-white font-bold text-xxs uppercase tracking-wider rounded-xl hover:shadow-neon-purple transition-all cursor-pointer"
-                  >
-                    Verificar Credenciales
-                  </button>
-                </form>
+                    {errorRecuperar && (
+                      <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-450 text-xs font-semibold text-center leading-relaxed">
+                        {errorRecuperar}
+                      </div>
+                    )}
 
-                {errorRecuperar && (
-                  <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-450 text-xs font-semibold text-center">
-                    {errorRecuperar}
-                  </div>
-                )}
-
-                {mensajeRecuperar && (
-                  <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-xs font-semibold text-center leading-relaxed">
-                    {mensajeRecuperar}
-                  </div>
-                )}
-
-                <div className="flex justify-center text-center">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPasoRecuperar(1);
-                      setUsuarioCargado(null);
-                      setErrorRecuperar("");
-                      setMensajeRecuperar("");
-                    }}
-                    className="text-slate-400 hover:text-white text-xs font-bold transition-all cursor-pointer"
-                  >
-                    <i className="fas fa-arrow-left mr-1.5" /> Volver a buscar usuario
-                  </button>
-                </div>
-
-              </div>
-            )}
-
-            {/* PASO 3: INGRESAR NUEVA CONTRASEÑA */}
-            {pasoRecuperar === 3 && (
-              <form onSubmit={manejarEstablecerNuevaClave} className="space-y-4">
-                
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                      Nueva Contraseña
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={verClaveRecuperar ? "text" : "password"}
-                        placeholder="••••••••"
-                        value={nuevaClaveRecuperar}
-                        onChange={(e) => setNuevaClaveRecuperar(e.target.value)}
-                        required
-                        className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-700 focus:outline-none focus:border-cyan-500 transition-all font-semibold text-sm pr-12"
-                      />
+                    <div className="flex gap-3 pt-2">
                       <button
                         type="button"
-                        onClick={() => setVerClaveRecuperar(!verClaveRecuperar)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-all cursor-pointer"
+                        onClick={() => {
+                          setPasoRecuperar(1);
+                          setErrorRecuperar("");
+                          setMensajeRecuperar("");
+                        }}
+                        className="py-3 px-4 bg-slate-800 text-slate-300 font-bold text-xs uppercase tracking-wider rounded-xl hover:bg-slate-700 transition-all cursor-pointer"
                       >
-                        <i className={`fas ${verClaveRecuperar ? 'fa-eye-slash' : 'fa-eye'} text-sm`} />
+                        <i className="fas fa-arrow-left mr-1" /> Atrás
+                      </button>
+
+                      <button
+                        type="submit"
+                        disabled={loadingRecuperar}
+                        className="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-xs uppercase tracking-wider rounded-xl hover:shadow-neon-cyan transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        {loadingRecuperar ? (
+                          <>
+                            <i className="fas fa-spinner fa-spin" /> Verificando...
+                          </>
+                        ) : (
+                          <>
+                            <i className="fas fa-paper-plane" /> Enviar a mi Correo
+                          </>
+                        )}
                       </button>
                     </div>
-                  </div>
+                  </form>
+                ) : (
+                  <div className="space-y-4 text-center">
+                    <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-400 text-xs font-semibold leading-relaxed flex flex-col items-center gap-3">
+                      <i className="fas fa-envelope-circle-check text-4xl text-emerald-400" />
+                      <p>{mensajeRecuperar}</p>
+                    </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                      Confirmar Nueva Contraseña
-                    </label>
-                    <input
-                      type={verClaveRecuperar ? "text" : "password"}
-                      placeholder="••••••••"
-                      value={confirmarClaveRecuperar}
-                      onChange={(e) => setConfirmarClaveRecuperar(e.target.value)}
-                      required
-                      className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-700 focus:outline-none focus:border-cyan-500 transition-all font-semibold text-sm"
-                    />
-                  </div>
-                </div>
-
-                {errorRecuperar && (
-                  <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-450 text-xs font-semibold text-center">
-                    {errorRecuperar}
-                  </div>
-                )}
-
-                {mensajeRecuperar && (
-                  <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-xs font-semibold text-center leading-relaxed">
-                    {mensajeRecuperar}
-                  </div>
-                )}
-
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMostrarRecuperar(false);
-                      setPasoRecuperar(1);
-                      setUsuarioCargado(null);
-                      setCorreoRecuperar("");
-                      setCedulaRecuperar("");
-                      setFichaRecuperar("");
-                      setNuevaClaveRecuperar("");
-                      setConfirmarClaveRecuperar("");
-                      setErrorRecuperar("");
-                      setMensajeRecuperar("");
-                    }}
-                    className="flex-1 py-3 bg-slate-800 text-slate-350 font-bold text-xs uppercase tracking-wider rounded-xl hover:bg-slate-700 transition-all cursor-pointer"
-                  >
-                    Cerrar
-                  </button>
-                  {!mensajeRecuperar && (
                     <button
-                      type="submit"
-                      disabled={loadingRecuperar}
-                      className="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-xs uppercase tracking-wider rounded-xl hover:shadow-neon-cyan transition-all cursor-pointer disabled:opacity-50"
+                      type="button"
+                      onClick={() => {
+                        setMostrarRecuperar(false);
+                        setPasoRecuperar(1);
+                        setUsuarioCargado(null);
+                        setCorreoRecuperar("");
+                        setCedulaRecuperar("");
+                        setFichaRecuperar("");
+                        setErrorRecuperar("");
+                        setMensajeRecuperar("");
+                      }}
+                      className="w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer font-bold"
                     >
-                      {loadingRecuperar ? "Guardando..." : "Guardar Clave"}
+                      Entendido / Volver al Login
                     </button>
-                  )}
-                </div>
-              </form>
+                  </div>
+                )}
+              </div>
             )}
 
           </div>

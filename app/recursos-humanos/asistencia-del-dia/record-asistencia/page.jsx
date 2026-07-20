@@ -287,8 +287,13 @@ export default function RecordFuncionalAsistencia() {
                   <input 
                     key="input-fecha"
                     type="date" 
+                    max={new Date().toISOString().split("T")[0]}
                     value={fechaReferencia instanceof Date && !isNaN(fechaReferencia.getTime()) ? `${fechaReferencia.getFullYear()}-${String(fechaReferencia.getMonth() + 1).padStart(2, "0")}-${String(fechaReferencia.getDate()).padStart(2, "0")}` : ""}
-                    onChange={(e) => setFechaReferencia(e.target.value ? new Date(e.target.value + "T12:00:00") : new Date())} 
+                    onChange={(e) => {
+                      const todayStr = new Date().toISOString().split("T")[0];
+                      const val = e.target.value > todayStr ? todayStr : e.target.value;
+                      setFechaReferencia(val ? new Date(val + "T12:00:00") : new Date());
+                    }} 
                     className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-800 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-cyan-500 cursor-pointer" 
                   />
                 )}
@@ -593,8 +598,12 @@ export default function RecordFuncionalAsistencia() {
                 <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">FECHA_CONSULTA</label>
                 <input
                   type="date"
+                  max={new Date().toISOString().split("T")[0]}
                   value={tempFecha}
-                  onChange={(e) => setTempFecha(e.target.value)}
+                  onChange={(e) => {
+                    const todayStr = new Date().toISOString().split("T")[0];
+                    setTempFecha(e.target.value > todayStr ? todayStr : e.target.value);
+                  }}
                   className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm font-semibold cursor-pointer"
                 />
               </div>

@@ -30,10 +30,16 @@ export default function PersonalContratas() {
     setIsClient(true);
     const q = query(collection(db, "contratistas"), orderBy("fechaRegistro", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const docs = snapshot.docs.map(doc => {
+        const data = doc.data();
+        const cedulaClean = (data.cedula || "").replace(/\D/g, "");
+        const idAcceso5 = cedulaClean.length >= 5 ? cedulaClean.slice(-5) : (data.idAcceso || "-----");
+        return {
+          id: doc.id,
+          ...data,
+          idAcceso: idAcceso5
+        };
+      });
       setUsuarios(docs);
       setLoading(false);
     });
@@ -245,6 +251,7 @@ export default function PersonalContratas() {
                 <thead>
                   <tr className="border-b border-slate-200/60">
                     <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">CÉDULA</th>
+                    <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">ID-ACCESO</th>
                     <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-left font-mono">NOMBRES Y APELLIDOS</th>
                     <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-center font-mono">CONTRATA</th>
                     <th className="text-slate-500 font-bold text-xxs tracking-wider uppercase py-4 px-3 text-left font-mono">ÁREA</th>
@@ -255,7 +262,7 @@ export default function PersonalContratas() {
                 <tbody>
                   {usuariosFiltrados.length === 0 ? (
                     <tr>
-                      <td colSpan="6" className="py-8 text-center text-slate-450 font-bold italic text-sm font-sans">
+                      <td colSpan="7" className="py-8 text-center text-slate-450 font-bold italic text-sm font-sans">
                         No se encontraron contratistas registrados.
                       </td>
                     </tr>
@@ -264,8 +271,13 @@ export default function PersonalContratas() {
                       <tr key={user.id} className="hover:bg-slate-50/50 border-b border-slate-100/60 transition-colors">
                         
                         {/* Cédula */}
-                        <td className="py-4 px-3 text-center font-bold text-slate-600 text-sm font-mono">
+                        <td className="py-4 px-3 text-center font-bold text-slate-600 dark:text-slate-300 text-sm font-mono">
                           {user.cedula}
+                        </td>
+
+                        {/* ID-Acceso */}
+                        <td className="py-4 px-3 text-center font-extrabold text-cyan-600 dark:text-cyan-400 text-xs font-mono">
+                          {user.idAcceso || (user.cedula ? user.cedula.slice(-5) : "-----")}
                         </td>
 
                         {/* Nombre Completo */}
@@ -275,14 +287,14 @@ export default function PersonalContratas() {
 
                         {/* Contrata */}
                         <td className="py-4 px-3 text-center">
-                          <span className="px-2.5 py-1 bg-cyan-50 border border-cyan-200 text-cyan-600 rounded-lg text-xxs font-bold uppercase tracking-wider font-mono">
-                            {user.nombreContrata}
+                          <span className="px-2.5 py-1 bg-cyan-50 border border-cyan-200 text-cyan-600 dark:bg-cyan-950/40 dark:border-cyan-800 dark:text-cyan-300 rounded-lg text-xxs font-bold uppercase tracking-wider font-mono">
+                            {user.nombreContrata || user.empresaContratista || user.empresa || "NO ESPECIFICADA"}
                           </span>
                         </td>
 
                         {/* Área */}
-                        <td className="py-4 px-3 text-left text-xs font-semibold text-slate-500">
-                          {user.areaTrabajo || "No especificada"}
+                        <td className="py-4 px-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase">
+                          {user.areaTrabajo || user.areaAsignada || user.area || "NO ESPECIFICADA"}
                         </td>
 
                         {/* Estatus dropdown */}

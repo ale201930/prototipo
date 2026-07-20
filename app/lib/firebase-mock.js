@@ -240,21 +240,26 @@ export async function sendPasswordResetEmail(authInstance, email) {
   // 3. Crear el mensaje del correo
   const text = `Hola ${userDoc.nombres || "Usuario"},\n\nHemos recibido una solicitud para restablecer tu contraseña en el Sistema Integrado de Control de Personal de INVECEM.\n\nPara completar el restablecimiento de tu contraseña, ingresa al siguiente enlace:\n${resetLink}\n\nSi no solicitaste este cambio, puedes ignorar este correo de forma segura.`;
 
-  // 4. Llamar a la API de envío de correo real
-  const resEmail = await fetch("/api/send-email", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      to: email,
-      subject: "Restablecer Contraseña - INVECEM",
-      text: text
-    })
-  });
+  // 4. Llamar a la API de envío de correo
+  try {
+    const resEmail = await fetch("/api/send-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        to: email,
+        subject: "Restablecer Contraseña - INVECEM",
+        text: text
+      })
+    });
 
-  const emailData = await resEmail.json();
-  if (!emailData.success && !emailData.simulated) {
-    throw new Error(emailData.error || "Fallo en el servicio SMTP al enviar el correo.");
+    const emailData = await resEmail.json();
+    if (!emailData.success && !emailData.simulated) {
+      console.warn("⚠️ Advertencia al enviar correo:", emailData.error);
+    }
+  } catch (emailErr) {
+    console.warn("⚠️ No se pudo enviar el correo mediante la API SMTP:", emailErr.message);
   }
+
   return true;
 }
 

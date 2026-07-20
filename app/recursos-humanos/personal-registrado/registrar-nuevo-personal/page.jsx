@@ -535,6 +535,7 @@ function FormularioRegistro() {
                 <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">FECHA_INGRESO</label>
                 <input
                   type="date"
+                  max={new Date().toISOString().split("T")[0]}
                   name="fechaIngreso"
                   value={formData.fechaIngreso}
                   onChange={handleChange}
@@ -547,6 +548,7 @@ function FormularioRegistro() {
                 <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">FECHA_NACIMIENTO</label>
                 <input
                   type="date"
+                  max={new Date().toISOString().split("T")[0]}
                   name="fechaNacimiento"
                   value={formData.fechaNacimiento || ""}
                   onChange={handleChange}

@@ -339,6 +339,30 @@ export default function PersonalRegistrado() {
     });
   };
 
+  const eliminarDocumentoAdjunto = (item) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: "Eliminar Documento Adjunto",
+      message: "¿Estás seguro de eliminar únicamente el archivo o documento adjunto de este registro?",
+      onConfirm: async () => {
+        try {
+          const userRef = doc(db, "personal", usuarioExpediente.id);
+          const userActual = usuarios.find(u => u.id === usuarioExpediente.id) || usuarioExpediente;
+          let historial = userActual.historialIncidencias ? [...userActual.historialIncidencias] : [];
+          const idx = historial.findIndex(inc => inc.id === item.id);
+          if (idx === -1) return;
+
+          historial[idx] = { ...historial[idx], url: null };
+          await updateDoc(userRef, { historialIncidencias: historial });
+          setUsuarioExpediente(prev => ({ ...prev, historialIncidencias: historial }));
+          mostrarAlerta("Éxito", "✅ Documento adjunto eliminado correctamente.");
+        } catch (error) {
+          mostrarAlerta("Error", "Error al eliminar documento: " + error.message);
+        }
+      }
+    });
+  };
+
   const actualizarClaveMaestra = async () => {
     if (!confirmarVieja || !nuevaClave) { mostrarAlerta("Atención", "⚠️ Debes completar ambos campos."); return; }
     if (confirmarVieja !== claveMaestra) { mostrarAlerta("Error", "❌ La clave actual es incorrecta."); return; }
@@ -441,7 +465,7 @@ export default function PersonalRegistrado() {
     const texto = busqueda.toLowerCase();
     const coincideBusqueda = u.nombres?.toLowerCase().includes(texto) || u.apellidos?.toLowerCase().includes(texto) || u.ficha?.toLowerCase().includes(texto) || u.cedula?.includes(texto);
     const tipoUser = (u.tipoPersonal || "INVECEM").toUpperCase();
-    let coincideTipo = filtroTipo === "TODOS" || (filtroTipo === "INVECEM" && tipoUser === "INVECEM") || (filtroTipo === "INCES" && tipoUser.includes("INCES")) || (filtroTipo === "PASANTES" && tipoUser === "PASANTE");
+    let coincideTipo = filtroTipo === "TODOS" || (filtroTipo === "INVECEM" && tipoUser === "INVECEM") || (filtroTipo.includes("INCES") && tipoUser.includes("INCES")) || (filtroTipo === "PASANTES" && tipoUser.includes("PASANTE"));
     return coincideBusqueda && coincideTipo;
   });
 
@@ -541,9 +565,13 @@ export default function PersonalRegistrado() {
                   <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">FECHA_INICIO</label>
                   <input
                     type="date"
+                    max={new Date().toISOString().split("T")[0]}
                     className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm font-semibold cursor-pointer"
                     value={fechas.inicio}
-                    onChange={(e) => setFechas({ ...fechas, inicio: e.target.value })}
+                    onChange={(e) => {
+                      const todayStr = new Date().toISOString().split("T")[0];
+                      setFechas({ ...fechas, inicio: e.target.value > todayStr ? todayStr : e.target.value });
+                    }}
                   />
                 </div>
 
@@ -679,19 +707,34 @@ export default function PersonalRegistrado() {
                     <label className="text-xxs font-black uppercase text-red-650 tracking-wider flex items-center gap-1.5 font-mono">
                       <i className="fas fa-file-pdf"></i> SYS_ADJUNTAR // AMONESTACIÓN (PDF)
                     </label>
-                    <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-xl p-4 bg-white hover:border-cyan-500/50 transition-colors relative cursor-pointer group">
+                    <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-xl p-4 bg-white hover:border-cyan-500/50 transition-colors relative group">
+                      {pdfFile && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPdfFile(null);
+                          }}
+                          className="absolute top-2 right-2 z-20 w-6 h-6 rounded-full bg-red-100 hover:bg-red-500 text-red-600 hover:text-white flex items-center justify-center text-xs font-black transition-all shadow-sm cursor-pointer"
+                          title="Cancelar y eliminar archivo seleccionado"
+                        >
+                          <i className="fas fa-times"></i>
+                        </button>
+                      )}
                       <input
                         type="file"
                         accept="application/pdf"
                         onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
-                        className="absolute inset-0 opacity-0 cursor-pointer"
+                        className="absolute inset-0 opacity-0 cursor-pointer z-10"
                         disabled={subiendoArchivo}
                       />
                       <i className="fas fa-file-pdf text-red-500 text-2xl mb-2 group-hover:scale-110 transition-transform"></i>
-                      <span className="text-xs font-bold text-slate-700 truncate max-w-full">
+                      <span className="text-xs font-bold text-slate-700 truncate max-w-full px-6">
                         {pdfFile ? pdfFile.name : "Seleccionar archivo PDF..."}
                       </span>
-                      <span className="text-[10px] text-slate-400 mt-1">Haga clic para buscar</span>
+                      <span className="text-[10px] text-slate-400 mt-1">
+                        {pdfFile ? "Haga clic en la 'X' para quitar o en 'Guardar' para subir" : "Haga clic para buscar"}
+                      </span>
                     </div>
                     <button
                       className="w-full py-3.5 bg-gradient-to-r from-cyan-500 via-indigo-500 to-purple-655 hover:from-cyan-400 hover:to-purple-500 text-white font-extrabold uppercase text-xs tracking-wider rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-neon-cyan transition-all duration-200 cursor-pointer flex items-center justify-center gap-2"
@@ -769,21 +812,31 @@ export default function PersonalRegistrado() {
                                 />
 
                                 {item.url && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setPreviewUrl(item.url);
-                                      setPreviewTipo(item.tipo);
-                                    }}
-                                    className="inline-flex items-center gap-1.5 text-[9px] font-black text-cyan-600 hover:text-cyan-700 uppercase tracking-widest font-mono bg-cyan-50 border border-cyan-200 px-2 py-1 rounded-lg cursor-pointer transition-colors"
-                                  >
-                                    <i className="fas fa-file-medical"></i> Ver Récipe
-                                  </button>
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setPreviewUrl(item.url);
+                                        setPreviewTipo(item.tipo);
+                                      }}
+                                      className="inline-flex items-center gap-1.5 text-[9px] font-black text-cyan-600 hover:text-cyan-700 uppercase tracking-widest font-mono bg-cyan-50 border border-cyan-200 px-2 py-1 rounded-lg cursor-pointer transition-colors"
+                                    >
+                                      <i className="fas fa-file-medical"></i> Ver Récipe
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => eliminarDocumentoAdjunto(item)}
+                                      className="w-6 h-6 rounded-lg bg-red-50 hover:bg-red-500 text-red-600 hover:text-white border border-red-200 flex items-center justify-center text-xs font-black transition-all cursor-pointer"
+                                      title="Eliminar este archivo adjunto"
+                                    >
+                                      <i className="fas fa-times"></i>
+                                    </button>
+                                  </div>
                                 )}
                               </div>
                             ) : (
                               item.url && (
-                                <div className="mt-2">
+                                <div className="mt-2 flex items-center gap-1.5">
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -793,6 +846,14 @@ export default function PersonalRegistrado() {
                                     className="inline-flex items-center gap-1.5 text-[10px] font-black text-cyan-600 hover:text-cyan-700 uppercase tracking-widest font-mono bg-cyan-50 border border-cyan-200 px-2 py-1 rounded-lg cursor-pointer transition-colors"
                                   >
                                     <i className="fas fa-paperclip"></i> Ver Documento / Foto
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => eliminarDocumentoAdjunto(item)}
+                                    className="w-6 h-6 rounded-lg bg-red-50 hover:bg-red-500 text-red-600 hover:text-white border border-red-200 flex items-center justify-center text-xs font-black transition-all cursor-pointer"
+                                    title="Eliminar este archivo adjunto"
+                                  >
+                                    <i className="fas fa-times"></i>
                                   </button>
                                 </div>
                               )
@@ -875,7 +936,7 @@ export default function PersonalRegistrado() {
 
           {/* Tabs por Tipo */}
           <div className="flex flex-wrap gap-1.5 w-full xl:w-auto">
-            {["TODOS", "INVECEM", "INCES", "PASANTES"].map(f => (
+            {["TODOS", "INVECEM", "ESTUDIANTES INCES", "PASANTES"].map(f => (
               <button
                 key={f}
                 className={`px-4 py-2 rounded-xl text-xxs font-black uppercase tracking-wider border transition-all duration-200 cursor-pointer ${filtroTipo === f ? "bg-gradient-to-r from-cyan-500 to-indigo-505 border-transparent text-white shadow-md shadow-indigo-500/20" : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"}`}

@@ -316,7 +316,7 @@ export default function AsistenciaDiariaRRHH() {
 
           {/* TABS DE TIPO DE PERSONAL */}
           <div className="flex flex-wrap gap-2 mb-8 print:hidden">
-            {["TODOS", "INVECEM", "INCES", "PASANTES"].map(t => (
+            {["TODOS", "INVECEM", "ESTUDIANTES INCES", "PASANTES"].map(t => (
               <button
                 key={t}
                 className={`px-4 py-2 text-xs font-black uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer ${filtroTipo === t ? "bg-gradient-to-r from-cyan-500 to-indigo-500 text-white border-transparent shadow-md shadow-indigo-500/20" : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"}`}

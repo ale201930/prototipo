@@ -457,6 +457,7 @@ export default function CalendarioFeriados() {
                       <label className="block text-xxs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2 font-mono">Fecha del Feriado</label>
                       <input
                         type="date"
+                        max={new Date().toISOString().split("T")[0]}
                         value={fechaUnica}
                         onChange={(e) => setFechaUnica(e.target.value)}
                         className="w-full px-4 py-2.5 bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs font-semibold"
@@ -470,6 +471,7 @@ export default function CalendarioFeriados() {
                         <label className="block text-xxs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2 font-mono">Fecha de Inicio</label>
                         <input
                           type="date"
+                          max={new Date().toISOString().split("T")[0]}
                           value={fechaInicio}
                           onChange={(e) => setFechaInicio(e.target.value)}
                           className="w-full px-4 py-2.5 bg-slate-50/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 text-xs font-semibold"

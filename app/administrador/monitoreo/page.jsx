@@ -283,15 +283,23 @@ export default function MonitoreoPage() {
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <input
                   type="date"
+                  max={new Date().toISOString().split("T")[0]}
                   value={fechaInicio}
-                  onChange={(e) => setFechaInicio(e.target.value)}
+                  onChange={(e) => {
+                    const todayStr = new Date().toISOString().split("T")[0];
+                    setFechaInicio(e.target.value > todayStr ? todayStr : e.target.value);
+                  }}
                   className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 shadow-sm cursor-pointer"
                 />
                 <span className="text-slate-400 text-xs font-bold font-mono">al</span>
                 <input
                   type="date"
+                  max={new Date().toISOString().split("T")[0]}
                   value={fechaFin}
-                  onChange={(e) => setFechaFin(e.target.value)}
+                  onChange={(e) => {
+                    const todayStr = new Date().toISOString().split("T")[0];
+                    setFechaFin(e.target.value > todayStr ? todayStr : e.target.value);
+                  }}
                   className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 shadow-sm cursor-pointer"
                 />
               </div>

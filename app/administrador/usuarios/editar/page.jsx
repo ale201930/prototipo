@@ -166,7 +166,7 @@ export default function EditarUsuario() {
               </div>
               <div className="flex flex-col gap-2">
                 <label className="text-xxs font-bold uppercase tracking-wider text-slate-550">FECHA NACIMIENTO</label>
-                <input name="fechaNac" type="date" value={formData.fechaNac || ""} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 text-sm font-semibold cursor-pointer shadow-sm" />
+                <input name="fechaNac" type="date" max={new Date().toISOString().split("T")[0]} value={formData.fechaNac || ""} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:shadow-neon-purple transition-all duration-200 text-sm font-semibold cursor-pointer shadow-sm" />
               </div>
             </div>
           </section>

@@ -33,7 +33,19 @@ export default function ReportesGenerales() {
     setPaginaActual(1);
   }, [fechaBusqueda, filtroEmpresa, filtroTurno, filtroArea, busquedaManual]);
 
-  useEffect(() => { setMounted(true); }, []);
+  const limpiarFiltros = () => {
+    setFechaBusqueda(new Date().toISOString().split('T')[0]);
+    setFiltroEmpresa("TODOS");
+    setFiltroArea("TODOS");
+    setFiltroTurno("TODOS");
+    setBusquedaManual("");
+    setResultados([]);
+    setPaginaActual(1);
+  };
+
+  useEffect(() => { 
+    setMounted(true);
+  }, []);
 
   const formatearFechaVisual = (fechaISO) => {
     if (!fechaISO) return "";
@@ -84,7 +96,6 @@ export default function ReportesGenerales() {
             return "ABANDONO DE TRABAJO";
           }
         } else {
-          // Si el registro es de un día pasado y quedó incompleto en almuerzo
           return "ABANDONO DE TRABAJO";
         }
       }
@@ -97,11 +108,17 @@ export default function ReportesGenerales() {
     return r.estatus || "PUNTUAL";
   };
 
-  const ejecutarBusqueda = async () => {
+  const ejecutarBusqueda = async (
+    pFecha = fechaBusqueda,
+    pEmpresa = filtroEmpresa,
+    pArea = filtroArea,
+    pTurno = filtroTurno,
+    pBusqueda = busquedaManual
+  ) => {
     setLoading(true);
     try {
-      const fechaElegida = new Date(fechaBusqueda + "T00:00:00");
-      const finDelDia = new Date(fechaBusqueda + "T23:59:59");
+      const fechaElegida = new Date(pFecha + "T00:00:00");
+      const finDelDia = new Date(pFecha + "T23:59:59");
 
       const q = query(
         collection(db, "asistencias"),
@@ -121,31 +138,31 @@ export default function ReportesGenerales() {
       data = data.filter(item => {
         if (!item.fechaHora) return false;
         const fechaDoc = item.fechaHora.toDate().toISOString().split('T')[0];
-        return fechaDoc === fechaBusqueda;
+        return fechaDoc === pFecha;
       });
 
-      if (filtroEmpresa !== "TODOS") {
+      if (pEmpresa !== "TODOS") {
         data = data.filter(item => {
-          if (filtroEmpresa === "INCES") return item.tipoPersonal?.includes("INCES");
-          return item.tipoPersonal === filtroEmpresa;
+          if (pEmpresa === "INCES") return item.tipoPersonal?.includes("INCES");
+          return item.tipoPersonal === pEmpresa;
         });
       }
 
-      if (filtroTurno !== "TODOS") {
+      if (pTurno !== "TODOS") {
         data = data.filter(item => {
           if (!item.entrada) return false;
           const [h] = item.entrada.split(":").map(Number);
           const esNocturno = h >= 18 || h < 7; 
-          return filtroTurno === "DIURNO" ? !esNocturno : esNocturno;
+          return pTurno === "DIURNO" ? !esNocturno : esNocturno;
         });
       }
 
-      if (filtroArea !== "TODOS") {
-        data = data.filter(item => item.area?.toUpperCase() === filtroArea);
+      if (pArea !== "TODOS") {
+        data = data.filter(item => item.area?.toUpperCase() === pArea);
       }
 
-      if (busquedaManual.trim() !== "") {
-        const b = busquedaManual.toLowerCase();
+      if (pBusqueda && pBusqueda.trim() !== "") {
+        const b = pBusqueda.toLowerCase();
         data = data.filter(item => 
           item.nombreCompleto?.toLowerCase().includes(b) || 
           item.ficha?.toString().includes(b)
@@ -299,8 +316,12 @@ export default function ReportesGenerales() {
               <label className="text-xxs font-bold uppercase tracking-wider text-slate-500 font-mono">FECHA_CONSULTA</label>
               <input 
                 type="date" 
+                max={new Date().toISOString().split("T")[0]}
                 value={fechaBusqueda} 
-                onChange={(e) => setFechaBusqueda(e.target.value)}
+                onChange={(e) => {
+                  const todayStr = new Date().toISOString().split("T")[0];
+                  setFechaBusqueda(e.target.value > todayStr ? todayStr : e.target.value);
+                }}
                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm font-semibold cursor-pointer"
               />
             </div>
@@ -315,7 +336,7 @@ export default function ReportesGenerales() {
               >
                 <option value="TODOS">TODOS (EMPRESA)</option>
                 <option value="INVECEM">INVECEM</option>
-                <option value="INCES">INCES</option>
+                <option value="Estudiante INCES">ESTUDIANTES INCES</option>
                 <option value="Pasante">PASANTES</option>
               </select>
             </div>
@@ -382,7 +403,7 @@ export default function ReportesGenerales() {
             {/* Botones de acción */}
             <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
               <button 
-                onClick={ejecutarBusqueda} 
+                onClick={() => ejecutarBusqueda(fechaBusqueda, filtroEmpresa, filtroArea, filtroTurno, busquedaManual)} 
                 disabled={loading}
                 className="px-5 py-3 bg-white hover:bg-slate-50 border border-slate-200 text-indigo-950 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-50 shadow-sm"
               >
@@ -395,6 +416,15 @@ export default function ReportesGenerales() {
                     <i className="fas fa-sync-alt text-cyan-500 animate-spin-slow"></i> Generar
                   </>
                 )}
+              </button>
+
+              <button 
+                onClick={limpiarFiltros}
+                type="button"
+                className="px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 shadow-sm"
+                title="Limpiar todos los filtros"
+              >
+                <i className="fas fa-undo text-amber-500"></i> Limpiar Filtrado
               </button>
 
               <button 
