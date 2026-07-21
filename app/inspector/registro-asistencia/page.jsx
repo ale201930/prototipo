@@ -227,6 +227,22 @@ export default function RegistroAsistencia() {
 
 
   const ejecutarEntradaExcepcional = async (trabajador) => {
+    if (!trabajador) return;
+    const estatusNorm = (trabajador.estatus || trabajador.estadoNominal || trabajador.estado || "").toUpperCase();
+    if (
+      trabajador.esBloqueoAbsoluto ||
+      estatusNorm.includes("INACTIVO") ||
+      estatusNorm.includes("DENEGADO") ||
+      estatusNorm.includes("SUSPENDIDO") ||
+      estatusNorm.includes("DESINCORPORADO")
+    ) {
+      alert("⛔ ACCESO DENEGADO: El personal con estatus INACTIVO o bloqueado no tiene permitido el acceso a la planta.");
+      setTrabajadorEspecial(null);
+      setMostrarModalBeneficio(false);
+      setCargando(false);
+      return;
+    }
+
     setCargando(true);
     try {
       const horaActual = obtenerHora24();
@@ -418,7 +434,7 @@ export default function RegistroAsistencia() {
 
         if (!existe) {
           // 1. VERIFICACIÓN DE ESTATUS INACTIVO / SUSPENDIDO / DENEGADO (BLOQUEO ABSOLUTO)
-          const estatusNormalizado = (trabajador.estatus || trabajador.estadoNominal || "").toUpperCase();
+          const estatusNormalizado = (trabajador.estatus || trabajador.estadoNominal || trabajador.estado || "").toUpperCase();
           if (
             estatusNormalizado.includes("INACTIVO") ||
             estatusNormalizado.includes("DENEGADO") ||
@@ -427,8 +443,9 @@ export default function RegistroAsistencia() {
           ) {
             setTrabajadorEspecial({
               ...trabajador,
-              motivoBloqueo: "ACCESO DENEGADO",
-              mensajeBloqueo: `⛔ ACCESO DENEGADO: El colaborador/contratista se encuentra INACTIVO (${trabajador.estatus || trabajador.estadoNominal || "Inactivo"}). No tiene permitido el ingreso a la planta.`
+              esBloqueoAbsoluto: true,
+              motivoBloqueo: "PERSONAL INACTIVO",
+              mensajeBloqueo: `⛔ ACCESO DENEGADO: El colaborador/contratista se encuentra INACTIVO (${trabajador.estatus || trabajador.estadoNominal || trabajador.estado || "Inactivo"}). No tiene permitido el ingreso a la planta.`
             });
             setMostrarModalBeneficio(true);
             setCargando(false);
@@ -1057,79 +1074,91 @@ export default function RegistroAsistencia() {
       </div>
 
       {/* INDUSTRIAL RESTRICTION MODAL */}
-      {mostrarModalBeneficio && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white/95 backdrop-blur-xl border border-red-500/60 rounded-3xl p-6 md:p-8 w-full max-w-lg shadow-2xl space-y-6 relative shadow-neon-red/10">
-            {/* Tech Corners */}
-            <div className="absolute top-2 left-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
-            <div className="absolute top-2 right-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+      {mostrarModalBeneficio && (() => {
+        const estatusStr = (trabajadorEspecial?.estatus || trabajadorEspecial?.estadoNominal || trabajadorEspecial?.estado || "").toUpperCase();
+        const esBloqueoAbsoluto = Boolean(
+          trabajadorEspecial?.esBloqueoAbsoluto ||
+          ["PASANTÍA CULMINADA", "PERSONAL INACTIVO", "CONTRATISTA SUSPENDIDO", "CONTRATISTA INACTIVO", "ACCESO DENEGADO"].includes(trabajadorEspecial?.motivoBloqueo) ||
+          estatusStr.includes("INACTIVO") ||
+          estatusStr.includes("DENEGADO") ||
+          estatusStr.includes("SUSPENDIDO") ||
+          estatusStr.includes("DESINCORPORADO")
+        );
 
-            {/* Alert Header */}
-            <div className="flex items-center gap-4 pb-4 border-b border-red-200/60">
-              <div className="w-12 h-12 bg-red-50 border border-red-200 rounded-2xl flex items-center justify-center text-red-600 text-2xl animate-pulse">
-                <i className="fas fa-exclamation-triangle animate-bounce"></i>
-              </div>
-              <div>
-                <h2 className="text-xl font-black uppercase text-indigo-950 tracking-tight">Restricción de Acceso</h2>
-                <p className="text-3xs font-black text-red-600 uppercase tracking-widest mt-0.5">Acceso Bloqueado por Sistema</p>
-              </div>
-            </div>
+        return (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+            <div className="bg-white/95 backdrop-blur-xl border border-red-500/60 rounded-3xl p-6 md:p-8 w-full max-w-lg shadow-2xl space-y-6 relative shadow-neon-red/10">
+              {/* Tech Corners */}
+              <div className="absolute top-2 left-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
+              <div className="absolute top-2 right-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
 
-            {/* Modal Body */}
-            <div className="space-y-4">
-              <p className="text-xs font-semibold text-slate-600 leading-relaxed bg-slate-50 p-4 border border-slate-200 rounded-xl">
-                {trabajadorEspecial?.mensajeBloqueo || "El sistema detectó un bloqueo administrativo activo en la ficha de este trabajador. No tiene permitido el acceso para cumplir jornadas laborales ordinarias."}
-              </p>
-
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500 font-bold uppercase tracking-wider text-xxs font-mono">EMPLEADO</span>
-                  <strong className="text-indigo-955 uppercase">{trabajadorEspecial?.nombres} {trabajadorEspecial?.apellidos}</strong>
+              {/* Alert Header */}
+              <div className="flex items-center gap-4 pb-4 border-b border-red-200/60">
+                <div className="w-12 h-12 bg-red-50 border border-red-200 rounded-2xl flex items-center justify-center text-red-600 text-2xl animate-pulse">
+                  <i className="fas fa-exclamation-triangle animate-bounce"></i>
                 </div>
-
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500 font-bold uppercase tracking-wider text-xxs font-mono">CEDULA_FICHA</span>
-                  <strong className="text-red-600 font-black font-mono">{trabajadorEspecial?.cedula} / {trabajadorEspecial?.ficha || "S/F"}</strong>
-                </div>
-
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500 font-bold uppercase tracking-wider text-xxs font-mono">ESTATUS_NOMINAL</span>
-                  <span className="px-2 py-0.5 bg-red-50 text-red-600 border border-red-200 rounded text-xxs font-black uppercase tracking-wider font-mono">
-                    {trabajadorEspecial?.motivoBloqueo || trabajadorEspecial?.estatus?.toUpperCase()}
-                  </span>
+                <div>
+                  <h2 className="text-xl font-black uppercase text-indigo-950 tracking-tight">Restricción de Acceso</h2>
+                  <p className="text-3xs font-black text-red-600 uppercase tracking-widest mt-0.5">Acceso Bloqueado por Sistema</p>
                 </div>
               </div>
 
-              {!["PASANTÍA CULMINADA", "PERSONAL INACTIVO", "CONTRATISTA SUSPENDIDO", "CONTRATISTA INACTIVO"].includes(trabajadorEspecial?.motivoBloqueo) && (
-                <p className="text-xs font-black text-indigo-955 uppercase text-center py-2 border-t border-b border-slate-200/60 font-mono">
-                  ¿EL ACCESO ES EXCLUSIVAMENTE PARA RETIRAR BENEFICIOS?
+              {/* Modal Body */}
+              <div className="space-y-4">
+                <p className="text-xs font-semibold text-slate-600 leading-relaxed bg-slate-50 p-4 border border-slate-200 rounded-xl">
+                  {trabajadorEspecial?.mensajeBloqueo || "El sistema detectó un bloqueo administrativo activo en la ficha de este trabajador. No tiene permitido el acceso a las instalaciones."}
                 </p>
-              )}
-            </div>
 
-            {/* Modal Actions */}
-            <div className="flex gap-3 justify-end pt-2">
-              <button
-                type="button"
-                className="px-5 py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-red-600/25 transition-all duration-200 cursor-pointer"
-                onClick={() => { setMostrarModalBeneficio(false); setTrabajadorEspecial(null); }}
-              >
-                {["PASANTÍA CULMINADA", "PERSONAL INACTIVO", "CONTRATISTA SUSPENDIDO", "CONTRATISTA INACTIVO"].includes(trabajadorEspecial?.motivoBloqueo) ? "Aceptar y Cerrar" : "❌ Denegar Entrada"}
-              </button>
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-500 font-bold uppercase tracking-wider text-xxs font-mono">EMPLEADO</span>
+                    <strong className="text-indigo-955 uppercase">{trabajadorEspecial?.nombres} {trabajadorEspecial?.apellidos}</strong>
+                  </div>
 
-              {!["PASANTÍA CULMINADA", "PERSONAL INACTIVO", "CONTRATISTA SUSPENDIDO", "CONTRATISTA INACTIVO"].includes(trabajadorEspecial?.motivoBloqueo) && (
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-500 font-bold uppercase tracking-wider text-xxs font-mono">CEDULA_FICHA</span>
+                    <strong className="text-red-600 font-black font-mono">{trabajadorEspecial?.cedula} / {trabajadorEspecial?.ficha || "S/F"}</strong>
+                  </div>
+
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-500 font-bold uppercase tracking-wider text-xxs font-mono">ESTATUS_NOMINAL</span>
+                    <span className="px-2 py-0.5 bg-red-50 text-red-600 border border-red-200 rounded text-xxs font-black uppercase tracking-wider font-mono">
+                      {trabajadorEspecial?.motivoBloqueo || estatusStr || "INACTIVO"}
+                    </span>
+                  </div>
+                </div>
+
+                {!esBloqueoAbsoluto && (
+                  <p className="text-xs font-black text-indigo-955 uppercase text-center py-2 border-t border-b border-slate-200/60 font-mono">
+                    ¿EL ACCESO ES EXCLUSIVAMENTE PARA RETIRAR BENEFICIOS?
+                  </p>
+                )}
+              </div>
+
+              {/* Modal Actions */}
+              <div className="flex gap-3 justify-end pt-2">
                 <button
                   type="button"
-                  className="px-5 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-450 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-emerald-600/25 transition-all duration-200 cursor-pointer"
-                  onClick={() => ejecutarEntradaExcepcional(trabajadorEspecial)}
+                  className="px-5 py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-red-600/25 transition-all duration-200 cursor-pointer"
+                  onClick={() => { setMostrarModalBeneficio(false); setTrabajadorEspecial(null); }}
                 >
-                  📦 Permitir Entrada (Retiro)
+                  {esBloqueoAbsoluto ? "Aceptar y Cerrar" : "❌ Denegar Entrada"}
                 </button>
-              )}
+
+                {!esBloqueoAbsoluto && (
+                  <button
+                    type="button"
+                    className="px-5 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-450 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-emerald-600/25 transition-all duration-200 cursor-pointer"
+                    onClick={() => ejecutarEntradaExcepcional(trabajadorEspecial)}
+                  >
+                    📦 Permitir Entrada (Retiro)
+                  </button>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* DECISION DE SALIDA MODAL (ALMUERZO VS ANTICIPADA) */}
       {mostrarModalSalida && (

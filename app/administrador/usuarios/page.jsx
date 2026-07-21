@@ -9,19 +9,12 @@ import {
   query, 
   onSnapshot, 
   doc, 
-  updateDoc,
-  deleteDoc
+  updateDoc
 } from "firebase/firestore";
 
 export default function GestionUsuarios() {
   const [usuarios, setUsuarios] = useState([]);
   const [filtro, setFiltro] = useState("");
-  const [confirmDialog, setConfirmDialog] = useState({
-    isOpen: false,
-    title: "",
-    message: "",
-    onConfirm: null
-  });
   const router = useRouter();
 
   // 1. CARGA EN TIEMPO REAL
@@ -49,27 +42,6 @@ export default function GestionUsuarios() {
     u.cedula?.includes(filtro) ||
     u.rol?.toLowerCase().includes(filtro.toLowerCase())
   );
-
-  const eliminarUsuario = (id, nombreUser, rol) => {
-    if (rol?.toLowerCase() === "administrador" || rol?.toLowerCase() === "admin") {
-      alert("⚠️ Por razones de seguridad, no está permitido eliminar usuarios con el rol de Administrador.");
-      return;
-    }
-
-    setConfirmDialog({
-      isOpen: true,
-      title: "Eliminar Usuario",
-      message: `¿Eliminar a ${nombreUser}? Esta acción borrará sus datos de la base de datos de forma permanente.`,
-      onConfirm: async () => {
-        try {
-          await deleteDoc(doc(db, "usuarios", id));
-          registrarAccion(null, null, `Usuario eliminado: ${nombreUser} (${rol})`, "Control de Usuarios");
-        } catch (error) {
-          console.error("Error:", error);
-        }
-      }
-    });
-  };
 
   const toggleEstado = async (id, estadoActual) => {
     const nuevoEstado = estadoActual === "Activo" ? "Inactivo" : "Activo";
@@ -203,17 +175,6 @@ export default function GestionUsuarios() {
                           >
                             <i className="fas fa-ban"></i>
                           </button>
-                          <button 
-                            className={`border text-xs transition-all p-2 rounded-xl w-8 h-8 flex items-center justify-center ${
-                              user.rol?.toLowerCase() === "administrador" || user.rol?.toLowerCase() === "admin"
-                                ? "bg-slate-105 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed"
-                                : "bg-white hover:bg-red-50 border-slate-200 hover:border-red-200 text-slate-500 hover:text-red-600 active:scale-90 cursor-pointer"
-                            }`}
-                            onClick={() => eliminarUsuario(user.id, user.nombres || user.usuario, user.rol)}
-                            title={user.rol?.toLowerCase() === "administrador" || user.rol?.toLowerCase() === "admin" ? "No se puede eliminar un administrador" : "Eliminar"}
-                          >
-                            <i className="fas fa-trash-alt"></i>
-                          </button>
                         </div>
                       </td>
                     </tr>
@@ -223,41 +184,6 @@ export default function GestionUsuarios() {
             </table>
           </div>
         </div>
-
-        {confirmDialog.isOpen && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 animate-fade-in no-print">
-            <div className="bg-white/95 backdrop-blur-xl border border-red-500/30 rounded-3xl p-6 md:p-8 w-full max-w-md shadow-2xl space-y-6 relative shadow-neon-red/10 text-slate-800 animate-slide-up">
-              {/* Tech Corners */}
-              <div className="absolute top-2 left-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
-              <div className="absolute top-2 right-2 font-mono text-[8px] text-slate-400 select-none">[+]</div>
-
-              <h2 className="text-xl font-black uppercase text-indigo-950 tracking-tight flex items-center gap-2">
-                <i className="fas fa-exclamation-triangle text-red-500"></i> {confirmDialog.title}
-              </h2>
-              <p className="text-sm font-semibold text-slate-650 leading-relaxed">
-                {confirmDialog.message}
-              </p>
-
-              <div className="flex gap-3 justify-end pt-4">
-                <button
-                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-650 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer"
-                  onClick={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
-                >
-                  Cancelar
-                </button>
-                <button
-                  className="px-5 py-2.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-red-500/20 transition-all duration-200 cursor-pointer hover:shadow-neon-red"
-                  onClick={async () => {
-                    setConfirmDialog({ ...confirmDialog, isOpen: false });
-                    if (confirmDialog.onConfirm) await confirmDialog.onConfirm();
-                  }}
-                >
-                  Confirmar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
       </div>
     </div>
