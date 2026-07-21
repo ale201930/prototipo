@@ -87,10 +87,11 @@ export default function RecordFuncionalAsistencia() {
     const coincideTexto = p.nombres?.toLowerCase().includes(filtro.toLowerCase()) || 
                           p.ficha?.toLowerCase().includes(filtro.toLowerCase());
 
+    const pTipoUpper = (p.tipoPersonal || "").toUpperCase();
     const coincideTipo = (filtroTipo === "TODOS") || 
-                         (filtroTipo === "INVECEM" && p.tipoPersonal === "INVECEM") || 
-                         (filtroTipo === "INCES" && p.tipoPersonal?.includes("INCES")) || 
-                         (filtroTipo === "PASANTES" && p.tipoPersonal === "Pasante");
+                         (filtroTipo === "INVECEM" && (pTipoUpper === "INVECEM" || !p.tipoPersonal)) || 
+                         (filtroTipo.includes("INCES") && pTipoUpper.includes("INCES")) || 
+                         (filtroTipo.includes("PASANTE") && pTipoUpper.includes("PASANTE"));
     
     return coincideTexto && coincideTipo;
   });

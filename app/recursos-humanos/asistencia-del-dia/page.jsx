@@ -93,7 +93,8 @@ export default function AsistenciaDiariaRRHH() {
           if (hoy > fechaCulminacion) return false;
         }
 
-        return ["INVECEM", "Estudiante INCES", "Estudiante INCESS", "Pasante"].includes(p.tipoPersonal);
+        const tUpper = (p.tipoPersonal || "").toUpperCase().trim();
+        return tUpper.includes("INVECEM") || tUpper.includes("INCES") || tUpper.includes("PASANTE") || !p.tipoPersonal;
       });
       setNominaTotalData(dataFiltrada);
       setAreasDisponibles(Array.from(new Set(dataFiltrada.map(a => a.area || "No asignado"))).sort());
@@ -131,7 +132,11 @@ export default function AsistenciaDiariaRRHH() {
     hoy.setHours(0, 0, 0, 0);
 
     let base = nominaTotalData.map(p => {
-      const registro = asistencias.find(a => a.ficha === p.ficha);
+      const registro = asistencias.find(a => 
+        (a.ficha && p.ficha && a.ficha.trim() === p.ficha.trim()) || 
+        (a.cedula && p.cedula && a.cedula.trim() === p.cedula.trim()) ||
+        (a.cedula && p.cedula && a.cedula.replace(/\D/g, "") === p.cedula.replace(/\D/g, ""))
+      );
       const fechaFinReposoCalculada = p.fechaFinReposo || p.fechaHasta || p.fechaFin || p.fechafinreposo || p.hasta || registro?.fechaFinReposo || p.fechaRegreso || null;
       const fechaRegresoCalculada = p.fechaRegreso || p.fechaFin || registro?.fechaRegreso || fechaFinReposoCalculada;
       const fechaParaComparar = fechaRegresoCalculada || fechaFinReposoCalculada;
@@ -165,7 +170,11 @@ export default function AsistenciaDiariaRRHH() {
     return base.filter(p => {
       const cumpleTexto = (p.nombres?.toLowerCase() || "").includes(filtro.toLowerCase()) || (p.ficha?.toLowerCase() || "").includes(filtro.toLowerCase());
       const cumpleArea = filtroArea === "TODAS" || (p.area || "No asignado") === filtroArea;
-      let cumpleTipo = (filtroTipo === "TODOS") || (filtroTipo === "INVECEM" && p.tipoPersonal === "INVECEM") || (filtroTipo === "INCES" && p.tipoPersonal?.includes("INCES")) || (filtroTipo === "PASANTES" && p.tipoPersonal === "Pasante");
+      const pTipoUpper = (p.tipoPersonal || "").toUpperCase();
+      let cumpleTipo = (filtroTipo === "TODOS") || 
+        (filtroTipo === "INVECEM" && (pTipoUpper === "INVECEM" || !p.tipoPersonal)) || 
+        (filtroTipo.includes("INCES") && pTipoUpper.includes("INCES")) || 
+        (filtroTipo.includes("PASANTE") && pTipoUpper.includes("PASANTE"));
       return cumpleTexto && cumpleArea && cumpleTipo;
     });
   };
@@ -504,7 +513,7 @@ export default function AsistenciaDiariaRRHH() {
                                 </div>
                               )}
                             </>
-                          ) : reg.tipoPersonal === "Estudiante INCES" ? (
+                          ) : (reg.tipoPersonal && reg.tipoPersonal.toUpperCase().includes("INCES")) ? (
                             <>
                               <div className="font-extrabold text-cyan-700 text-xs uppercase">{reg.programaInces || "Estudiante INCES"}</div>
                               <div className="font-bold text-slate-500 text-xxs uppercase tracking-wider mt-0.5 font-mono">Cohorte: {reg.cohorteInces || "Sin Cohorte"}</div>

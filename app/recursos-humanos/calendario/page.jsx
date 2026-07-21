@@ -117,11 +117,12 @@ export default function CalendarioFeriados() {
 
       const matchesArea = filtroArea === "TODAS" || (w.area || "No asignado") === filtroArea;
 
+      const wTipoUpper = (w.tipoPersonal || "").toUpperCase();
       const matchesTipo =
         filtroTipo === "TODOS" ||
-        (filtroTipo === "INVECEM" && w.tipoPersonal === "INVECEM") ||
-        (filtroTipo === "INCES" && w.tipoPersonal?.includes("INCES")) ||
-        (filtroTipo === "PASANTES" && w.tipoPersonal === "Pasante");
+        (filtroTipo === "INVECEM" && (wTipoUpper === "INVECEM" || !w.tipoPersonal)) ||
+        (filtroTipo.includes("INCES") && wTipoUpper.includes("INCES")) ||
+        (filtroTipo.includes("PASANTE") && wTipoUpper.includes("PASANTE"));
 
       return matchesSearch && matchesArea && matchesTipo;
     });

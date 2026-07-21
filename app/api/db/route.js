@@ -79,6 +79,10 @@ async function executeQueryWithRetry(conn, table, fn) {
 
 function buildSingleWhere(w, params) {
   const { field, operator, value } = w;
+  if (value === null || value === undefined) {
+    if (operator === "==") return `\`${field}\` IS NULL`;
+    if (operator === "!=") return `\`${field}\` IS NOT NULL`;
+  }
   params.push(value);
   const ops = {
     "==": "=",

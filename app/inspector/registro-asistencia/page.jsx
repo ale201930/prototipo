@@ -644,7 +644,7 @@ export default function RegistroAsistencia() {
           const estatusCalculado = esContratista ? "INGRESO" : (minM > (minT + 15) ? "RETRASO" : "PUNTUAL");
 
           const cedulaClean = (trabajador.cedula || "").replace(/\D/g, "");
-          const fichaFinal = cedulaClean.length >= 5 ? cedulaClean.slice(-5) : (trabajador.idAcceso || trabajador.ficha || "S/F");
+          const fichaFinal = trabajador.ficha || trabajador.idAcceso || (cedulaClean.length >= 5 ? cedulaClean.slice(-5) : "S/F");
 
           await addDoc(collection(db, "asistencias"), {
             nombreCompleto: `${trabajador.nombres} ${trabajador.apellidos}`.toUpperCase(),
@@ -921,7 +921,7 @@ export default function RegistroAsistencia() {
                     return (
                       <tr key={reg.id} className="border-b border-slate-100/60 hover:bg-slate-50/50 transition-colors">
                         <td className="py-4 px-3 text-center font-black text-cyan-600 text-sm font-mono">
-                          {reg.cedula && reg.cedula.length >= 5 ? reg.cedula.replace(/\D/g, "").slice(-5) : (reg.ficha || "----")}
+                          {reg.ficha || (reg.cedula && reg.cedula.length >= 5 ? reg.cedula.replace(/\D/g, "").slice(-5) : "----")}
                         </td>
                         <td className="py-4 px-3 text-left">
                           <strong className="text-sm font-extrabold text-indigo-950 uppercase block">{reg.nombreCompleto}</strong>
