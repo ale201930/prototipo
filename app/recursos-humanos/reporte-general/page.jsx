@@ -47,6 +47,12 @@ export default function ReportesGenerales() {
     setMounted(true);
   }, []);
 
+  useEffect(() => {
+    if (mounted) {
+      ejecutarBusqueda(fechaBusqueda, filtroEmpresa, filtroArea, filtroTurno, busquedaManual);
+    }
+  }, [mounted, fechaBusqueda, filtroEmpresa, filtroArea, filtroTurno]);
+
   const formatearFechaVisual = (fechaISO) => {
     if (!fechaISO) return "";
     const [anio, mes, dia] = fechaISO.split('-');
@@ -117,34 +123,56 @@ export default function ReportesGenerales() {
   ) => {
     setLoading(true);
     try {
-      const fechaElegida = new Date(pFecha + "T00:00:00");
-      const finDelDia = new Date(pFecha + "T23:59:59");
+      const [year, month, day] = pFecha.split("-").map(Number);
+      const inicioDiaLocal = new Date(year, month - 1, day, 0, 0, 0, 0);
+      const finDiaLocal = new Date(year, month - 1, day, 23, 59, 59, 999);
 
-      const q = query(
-        collection(db, "asistencias"),
-        where("fechaHora", ">=", Timestamp.fromDate(fechaElegida)),
-        where("fechaHora", "<=", Timestamp.fromDate(finDelDia)),
-        orderBy("fechaHora", "asc")
-      );
-
-      const snap = await getDocs(q);
-      let data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      let data = [];
+      try {
+        const q = query(
+          collection(db, "asistencias"),
+          where("fechaHora", ">=", Timestamp.fromDate(inicioDiaLocal)),
+          where("fechaHora", "<=", Timestamp.fromDate(finDiaLocal)),
+          orderBy("fechaHora", "asc")
+        );
+        const snap = await getDocs(q);
+        data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      } catch (e) {
+        const snapAll = await getDocs(collection(db, "asistencias"));
+        data = snapAll.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      }
 
       data = data.filter(item => {
-        const tipo = item.tipoPersonal?.toUpperCase() || "";
+        const tipo = (item.tipoPersonal || "").toUpperCase();
         return !tipo.includes("CONTRATA") && !tipo.includes("CONTRATISTA");
       });
 
       data = data.filter(item => {
         if (!item.fechaHora) return false;
-        const fechaDoc = item.fechaHora.toDate().toISOString().split('T')[0];
-        return fechaDoc === pFecha;
+        let dObj = null;
+        if (typeof item.fechaHora?.toDate === "function") {
+          dObj = item.fechaHora.toDate();
+        } else if (item.fechaHora instanceof Date) {
+          dObj = item.fechaHora;
+        } else if (typeof item.fechaHora === "string") {
+          dObj = new Date(item.fechaHora);
+        }
+        if (!dObj || isNaN(dObj.getTime())) return false;
+
+        const y = dObj.getFullYear();
+        const m = String(dObj.getMonth() + 1).padStart(2, "0");
+        const d = String(dObj.getDate()).padStart(2, "0");
+        const fechaDocLocal = `${y}-${m}-${d}`;
+
+        return fechaDocLocal === pFecha;
       });
 
       if (pEmpresa !== "TODOS") {
         data = data.filter(item => {
-          if (pEmpresa === "INCES") return item.tipoPersonal?.includes("INCES");
-          return item.tipoPersonal === pEmpresa;
+          const tUpper = (item.tipoPersonal || "").toUpperCase();
+          if (pEmpresa.toUpperCase().includes("INCES")) return tUpper.includes("INCES");
+          if (pEmpresa.toUpperCase().includes("PASANTE")) return tUpper.includes("PASANTE");
+          return tUpper === pEmpresa.toUpperCase();
         });
       }
 
@@ -158,24 +186,25 @@ export default function ReportesGenerales() {
       }
 
       if (pArea !== "TODOS") {
-        data = data.filter(item => item.area?.toUpperCase() === pArea);
+        data = data.filter(item => (item.area || "").toUpperCase() === pArea.toUpperCase());
       }
 
       if (pBusqueda && pBusqueda.trim() !== "") {
         const b = pBusqueda.toLowerCase();
         data = data.filter(item => 
-          item.nombreCompleto?.toLowerCase().includes(b) || 
-          item.ficha?.toString().includes(b)
+          (item.nombreCompleto || "").toLowerCase().includes(b) || 
+          (item.ficha || "").toString().toLowerCase().includes(b) ||
+          (item.cedula || "").toString().toLowerCase().includes(b)
         );
       }
 
       setResultados(data);
       setPaginaActual(1);
     } catch (error) {
-      console.error("Error:", error);
-      alert("Error en la base de datos.");
+      console.error("Error al ejecutar búsqueda en reporte general:", error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const descargarPDF = async () => {
